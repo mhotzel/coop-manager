@@ -59,3 +59,40 @@ uv run uvicorn coop_manager.app:app --reload   # Entwicklungsserver, http://loca
   Python-Syntax) und `B` (typische Fehlerquellen).
 - `app.py` enthält vorerst nur `GET /healthz`, das später auch Docker zur Zustandsprüfung nutzt.
   Die von uv erzeugte `backend/README.md` wurde entfernt, es gibt nur die README im Hauptordner.
+
+## 2026-10-26 – Schritt 1b: Frontend-Grundgerüst mit Vite, Vue 3 und TypeScript
+
+**Was:** Vue-Projekt unter `frontend/` angelegt, Proxy zum Backend eingerichtet, eine
+Probe-Komponente zeigt den Zustand von `/healthz` an.
+
+**Befehle:**
+
+```bash
+npm create vue@latest -- --ts --bare frontend   # Startassistent: nur TypeScript, ohne Beispielcode
+cd frontend
+npm install          # Pakete nach node_modules/ (nicht im Git), Versionen in package-lock.json
+npm run dev          # Entwicklungsserver, http://localhost:5173 (Backend parallel mit uvicorn starten)
+npm run build        # Typprüfung (vue-tsc) und Build nach dist/ (nicht im Git)
+```
+
+**Warum so:**
+
+- `create-vue` ist der offizielle Startassistent. Bewusst ohne Router, Pinia, ESLint und
+  Testwerkzeuge; was davon gebraucht wird, kommt dazu, wenn es so weit ist (KISS).
+- `package.json` entspricht `pyproject.toml`, `package-lock.json` entspricht `uv.lock` und gehört
+  ins Git. `dependencies` landen im Browser (nur `vue`), `devDependencies` werden nur zum Bauen
+  gebraucht (Vite, TypeScript, `vue-tsc`).
+- Vite ist Entwicklungsserver und Build-Werkzeug zugleich: In der Entwicklung lädt es Änderungen
+  sofort neu, für den Betrieb erzeugt es fertige Dateien in `dist/`, die später FastAPI ausliefert.
+- Die drei `tsconfig*.json` steuern TypeScript: `tsconfig.app.json` für den Code im Browser,
+  `tsconfig.node.json` für `vite.config.ts`, `tsconfig.json` verbindet beide. `env.d.ts` macht
+  TypeScript mit Vite-Besonderheiten bekannt.
+- Proxy in `vite.config.ts`: `/api` und `/healthz` gehen an uvicorn auf Port 8000. Der Browser
+  spricht nur mit einer Adresse, daher kein CORS – wie später im Container, wo FastAPI beides
+  ausliefert.
+- `App.vue` ist eine *Single File Component*: `<script setup lang="ts">` (Logik in TypeScript),
+  `<template>` (HTML mit `{{ }}` für Werte) und optional `<style>`. `ref()` macht einen Wert
+  reaktiv, `onMounted` läuft, sobald die Komponente angezeigt wird. Das `interface Health`
+  beschreibt die erwartete Form der Antwort.
+- `index.html`: Sprache `de`, Titel `coop-manager`. Die erzeugte `frontend/README.md` wurde
+  entfernt. `.vscode/extensions.json` empfiehlt in VS Code die Vue-Erweiterung.
