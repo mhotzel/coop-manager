@@ -18,8 +18,17 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 ## Vorgehen
 
 1. Fundament: Event Store und Projektionen aus `purchase-prices` übernehmen, Projektstruktur
-   (Backend mit `uv`, Frontend Vue 3 mit Vite)
+   (Backend mit `uv`, Frontend Vue 3 mit Vite) – erledigt
+   - 1a: Backend-Grundgerüst mit `uv`
+   - 1b: Frontend-Grundgerüst mit Vite, Vue 3 und TypeScript
+   - 1c: Events, Aggregate und Event Store
+   - 1d: Projektionen
+   - 1e: Anbindung an FastAPI
 2. Infrastruktur: Konfiguration, Logging, Security-Header, Layout, Theme
+   - 2a: Konfiguration (`CM_*`)
+   - 2b: Logging als JSON-Zeilen auf stdout
+   - 2c: Security-Header
+   - 2d: Layout und Theme im Frontend
 3. Benutzerverwaltung: Login, Login-Sperre, Anlage durch Admin, Kennwort ändern, deaktivieren, löschen
 4. Mitglieder: Aggregat, Nummernvergabe, Suche, Bearbeitung, Adresszeilen und Briefanrede
 5. Konten und Buchungen: Eintritt, Kündigung, Austritt/Auszahlung, Umbuchung, Kontoansicht

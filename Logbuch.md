@@ -230,3 +230,11 @@ dann denselben freien Thread wiederverwendet. Der Fehler (`sqlite3.ProgrammingEr
 created in a thread can only be used in that same thread`) zeigt sich erst bei gleichzeitigen
 Requests, deshalb gibt es `test_simultaneous_requests_work`. Eine solche Gegenprobe, bei der man die
 Lösung kurz entfernt, zeigt, ob ein Test das Problem wirklich erkennt.
+
+## 2026-10-30 – Unterschritte im Plan
+
+**Was:** Die Unterschritte 1a–1e und die geplanten Unterschritte 2a–2d in `Plan.md` unter „Vorgehen“
+eingetragen.
+
+**Warum so:** Die Einteilung stand bisher nur im Logbuch und entstand erst beim Arbeiten. Im Plan
+sieht man vorab, was als Nächstes kommt.
