@@ -316,6 +316,8 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 ## Offene Punkte
 
 - Access-Datei bzw. Tabellenexporte des Altsystems bereitstellen (in `Beispieldaten/`).
+- Mitgliedersuche (Schritt 4): Das Access-Log enthält Query-Parameter. Suchbegriffe dürfen nicht als
+  `GET ?q=Name` ins Log gelangen, also z. B. per POST suchen oder das Access-Log anpassen.
 
 ## Mögliche Weiterentwicklungen
 

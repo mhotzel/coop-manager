@@ -8,9 +8,13 @@ class Settings:
     """Die Konfiguration der App, nach dem Start unveränderlich."""
 
     data_dir: Path
+    log_level: str = "INFO"
 
 
 def load_settings() -> Settings:
     """Liest die Konfiguration aus den CM_*-Umgebungsvariablen (siehe .env.example)."""
     env = os.environ
-    return Settings(data_dir=Path(env.get("CM_DATA_DIR", "data")))
+    return Settings(
+        data_dir=Path(env.get("CM_DATA_DIR", "data")),
+        log_level=env.get("CM_LOG_LEVEL", "INFO").upper(),
+    )

@@ -270,3 +270,39 @@ uv run --env-file ../.env uvicorn coop_manager.app:app   # Start mit Werten aus 
 
 **Gelernt:** `uvicorn --env-file` scheitert mit `No module named 'dotenv'`, weil es `python-dotenv`
 braucht. `uv run --env-file` kann das selbst, ein zusätzliches Paket ist nicht nötig.
+
+## 2026-10-30 – Schritt 2b: Logging als JSON-Zeilen
+
+**Was:** `logs.py` aus `purchase-prices` übernommen (`JsonFormatter`, `init_logging`), Einstellung
+`CM_LOG_LEVEL`, Logzeile „app started“ beim Start, `tests/test_logs.py`. In `Plan.md` steht unter
+„Offene Punkte“, dass Suchbegriffe nicht über die URL ins Access-Log gelangen dürfen.
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff format
+uv run ruff check
+uv run pytest
+uv run uvicorn coop_manager.app:app   # echter Start: jede Zeile ist JSON
+```
+
+**Warum so:**
+
+- Logs gehen nach stdout, Docker sammelt sie ein (`docker logs`). Die App verwaltet keine Dateien.
+  JSON-Zeilen lassen sich maschinell filtern.
+- `logging` trennt Aufruf und Ausgabe: Der Code ruft `log.info(...)` auf, der Handler bestimmt das
+  Ziel, der Formatter die Form. Ein Modul braucht nur `log = logging.getLogger(__name__)`.
+- Logger bilden über ihre Namen einen Baum: `coop_manager.app` gibt seine Zeilen an `coop_manager`
+  weiter, dort hängt der Handler. Werte aus `extra=` landen als `LogRecord`-Attribute im Record, der
+  Formatter macht daraus eigene JSON-Felder.
+- Abweichungen vom Vorbild: uvicorn bekommt denselben Handler, damit `docker logs` nur ein Format
+  zeigt (im Vorbild schreibt gunicorn Text). Das Level kommt aus `CM_LOG_LEVEL`, weil FastAPI kein
+  `app.debug` wie Flask hat. `handlers = [handler]` ersetzt die Handler, mehrfache `create_app()`
+  in Tests erzeugen so keine doppelten Zeilen.
+- `create_app()` läuft erst, nachdem uvicorn sein eigenes Logging eingerichtet hat. Darum bleiben
+  unsere Handler bestehen.
+
+**Gelernt:** Ein Logger ohne eigenes Level erbt es von oben, am Ende vom Root-Logger mit `WARNING`.
+Das Level `INFO` für `uvicorn` setzt erst der echte Start. In einem Test ohne Server wird
+`info` dort also verworfen.
