@@ -1,10 +1,9 @@
-import os
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 
+from .config import Settings, load_settings
 from .db import prepare
 from .eventsource import Projector
 
@@ -14,13 +13,13 @@ PROJECTORS: list[Projector] = []
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Läuft einmal beim Start der App (vor dem `yield`) und einmal beim Beenden (danach)."""
-    prepare(app.state.data_dir, app.state.projectors)
+    prepare(app.state.settings.data_dir, app.state.projectors)
     yield
 
 
-def create_app(data_dir: Path | None = None, projectors: Sequence[Projector] = PROJECTORS) -> FastAPI:
+def create_app(settings: Settings | None = None, projectors: Sequence[Projector] = PROJECTORS) -> FastAPI:
     app = FastAPI(title="coop-manager", lifespan=lifespan)
-    app.state.data_dir = data_dir or Path(os.environ.get("CM_DATA_DIR", "data"))
+    app.state.settings = settings or load_settings()
     app.state.projectors = projectors
 
     @app.get("/healthz")

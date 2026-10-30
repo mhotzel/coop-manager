@@ -6,6 +6,7 @@ from fastapi import Depends
 from fastapi.testclient import TestClient
 
 from coop_manager.app import create_app
+from coop_manager.config import Settings
 from coop_manager.db import EVENTSTORE_DB, PROJECTIONS_DB, Database, get_db, prepare
 from coop_manager.eventsource import Aggregate, Event, Projector, on
 
@@ -44,7 +45,7 @@ def note_texts(db: Database) -> list[str]:
 def test_startup_creates_both_databases(tmp_path):
     data_dir = tmp_path / "data"
 
-    with TestClient(create_app(data_dir)):
+    with TestClient(create_app(Settings(data_dir))):
         assert (data_dir / EVENTSTORE_DB).exists()
         assert (data_dir / PROJECTIONS_DB).exists()
 
@@ -66,14 +67,14 @@ def test_startup_rebuilds_deleted_projections(tmp_path):
     db.close()
     (tmp_path / PROJECTIONS_DB).unlink()
 
-    with TestClient(create_app(tmp_path, [NoteList()])):
+    with TestClient(create_app(Settings(tmp_path), [NoteList()])):
         db = Database(tmp_path, [NoteList()])
         assert note_texts(db) == ["Bleibt erhalten"]
         db.close()
 
 
 def test_endpoint_uses_database_through_dependency(tmp_path):
-    app = create_app(tmp_path, [NoteList()])
+    app = create_app(Settings(tmp_path), [NoteList()])
 
     @app.post("/notes/{note_id}")
     def write_note(note_id: str, db: Annotated[Database, Depends(get_db)]) -> list[str]:
@@ -90,7 +91,7 @@ def test_endpoint_uses_database_through_dependency(tmp_path):
 
 def test_simultaneous_requests_work(tmp_path):
     """Nur bei gleichzeitigen Requests laufen Dependency und Endpunkt in verschiedenen Threads."""
-    app = create_app(tmp_path, [NoteList()])
+    app = create_app(Settings(tmp_path), [NoteList()])
 
     @app.post("/notes/{note_id}")
     def write_note(note_id: str, db: Annotated[Database, Depends(get_db)]) -> None:

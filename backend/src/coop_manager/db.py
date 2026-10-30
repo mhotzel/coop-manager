@@ -40,7 +40,7 @@ def prepare(data_dir: Path, projectors: Sequence[Projector]) -> None:
 
 def get_db(request: Request) -> Iterator[Database]:
     """FastAPI-Dependency: Jeder Request bekommt eigene Verbindungen, die danach geschlossen werden."""
-    db = Database(request.app.state.data_dir, request.app.state.projectors)
+    db = Database(request.app.state.settings.data_dir, request.app.state.projectors)
     try:
         yield db
     finally:

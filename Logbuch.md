@@ -238,3 +238,35 @@ eingetragen.
 
 **Warum so:** Die Einteilung stand bisher nur im Logbuch und entstand erst beim Arbeiten. Im Plan
 sieht man vorab, was als Nächstes kommt.
+
+## 2026-10-30 – Schritt 2a: Konfiguration
+
+**Was:** `config.py` mit `Settings` und `load_settings()`, `create_app()` nimmt jetzt `Settings`
+statt `data_dir`, die App hält sie in `app.state.settings`. Dazu `tests/test_config.py` und
+`.env.example`.
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff format
+uv run ruff check
+uv run pytest
+uv run --env-file ../.env uvicorn coop_manager.app:app   # Start mit Werten aus .env
+```
+
+**Warum so:**
+
+- Alle `CM_*`-Variablen werden an einer Stelle gelesen, der übrige Code kennt nur `Settings`.
+- `Settings` ist eine `dataclass`: eine Klasse, deren `__init__` Python aus den Feldern erzeugt.
+  `frozen=True` macht sie unveränderlich, wie die Events.
+- Der Standardwert steht nur in `load_settings()`. Tests bauen sich `Settings(tmp_path)` und müssen
+  keine Umgebungsvariablen setzen.
+- Kein `pydantic-settings`: eine Abhängigkeit mehr für wenige gut lesbare Zeilen.
+- Weitere Variablen kommen mit dem Schritt, der sie braucht, sonst stünden wirkungslose Einstellungen
+  im Code.
+- `monkeypatch` ist eine pytest-Hilfe: Sie ändert die Umgebung für einen Test und stellt sie danach
+  wieder her.
+
+**Gelernt:** `uvicorn --env-file` scheitert mit `No module named 'dotenv'`, weil es `python-dotenv`
+braucht. `uv run --env-file` kann das selbst, ein zusätzliches Paket ist nicht nötig.
