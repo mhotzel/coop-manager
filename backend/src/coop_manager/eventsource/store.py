@@ -30,8 +30,12 @@ class ConcurrencyError(Exception):
 
 
 def connect(path: str) -> sqlite3.Connection:
-    """Öffnet eine Verbindung im Autocommit-Modus; Transaktionen steuert `transaction()`."""
-    conn = sqlite3.connect(path, autocommit=True)
+    """Öffnet eine Verbindung im Autocommit-Modus; Transaktionen steuert `transaction()`.
+
+    FastAPI kann Dependency und Endpunkt in verschiedenen Threads ausführen, deshalb
+    `check_same_thread=False`. Sicher ist das, weil jeder Request eine eigene Verbindung hat.
+    """
+    conn = sqlite3.connect(path, autocommit=True, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA busy_timeout = 5000")

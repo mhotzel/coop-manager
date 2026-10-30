@@ -193,3 +193,40 @@ uv run pytest
   fachliche Regeln wie die Eindeutigkeit prüft der Service, bevor das Event entsteht.
 - Abweichung vom Vorbild: In `_project` steht eine eigene Variable `last_position`. Die Vorlage
   nutzte die Schleifenvariable nach der Schleife weiter, das meldet ruff bei uns als B007.
+
+## 2026-10-30 – Schritt 1e: Anbindung an FastAPI
+
+**Was:** `db.py` mit `Database`, `prepare()` und `get_db()`, `app.py` auf `create_app()` und Lifespan
+umgestellt, `data/` in `.gitignore`, `tests/test_db.py`. Noch keine fachlichen Endpunkte.
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff format
+uv run ruff check
+uv run pytest
+uv run uvicorn coop_manager.app:app   # legt data/ mit beiden Datenbanken an
+```
+
+**Warum so:**
+
+- `Depends(get_db)`: Der Endpunkt sagt nur, was er braucht, FastAPI ruft `get_db` auf. Der Teil vor
+  dem `yield` läuft vor dem Endpunkt, der Teil danach hinterher, auch bei Fehlern. Das ersetzt
+  `flask.g` aus dem Vorbild.
+- Lifespan: Code, der einmal beim Start läuft. `prepare()` legt die Tabellen an und holt die
+  Projektionen auf; eine gelöschte `projections.sqlite` entsteht so beim Start neu.
+- `create_app()`: Tests bauen sich eine App mit temporärem Datenordner und eigenen Projektoren.
+  `app = create_app()` am Dateiende hält `uvicorn coop_manager.app:app` lauffähig.
+- `db.save()` speichert die Events und ruft danach `catch_up`, die Lesetabellen sind also sofort
+  aktuell.
+- `data/` ist ausgeschlossen, weil dort später echte Mitgliederdaten liegen.
+- `CM_DATA_DIR` wird vorerst direkt gelesen, die Konfiguration folgt in Schritt 2.
+- `check_same_thread=False`: Normale `def`-Endpunkte laufen im Thread-Pool, Dependency und Endpunkt
+  können dabei in verschiedenen Threads landen. Sicher, weil jeder Request eine eigene Verbindung hat.
+
+**Gelernt:** Der erste Test mit Requests nacheinander lief auch ohne das Flag durch, weil der Pool
+dann denselben freien Thread wiederverwendet. Der Fehler (`sqlite3.ProgrammingError: SQLite objects
+created in a thread can only be used in that same thread`) zeigt sich erst bei gleichzeitigen
+Requests, deshalb gibt es `test_simultaneous_requests_work`. Eine solche Gegenprobe, bei der man die
+Lösung kurz entfernt, zeigt, ob ein Test das Problem wirklich erkennt.

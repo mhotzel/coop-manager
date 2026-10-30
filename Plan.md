@@ -48,6 +48,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   `domain.py`, `services.py`, `projections.py`, `schemas.py` (Pydantic) und `api.py` (dünn).
 - **Event Sourcing liegt in `coop_manager/eventsource/`**, nicht unter `core`: Es ist Infrastruktur
   ohne `domain.py`, `services.py` usw. und bleibt so leicht mit `purchase-prices` vergleichbar.
+- **Datenbankzugriff über `Depends(get_db)`:** Jeder Request öffnet eigene Verbindungen und schließt
+  sie danach. Endpunkte sind normale `def`-Funktionen, weil `sqlite3` blockiert; deshalb laufen die
+  Verbindungen mit `check_same_thread=False`.
 - **Alle Fachlogik im Backend**, auch Adresszeilen, Briefanrede und Nummernvergabe; das Frontend
   zeigt an und ruft die API auf.
 - **Sprache:** Code, Events und Bezeichner englisch nach dem Glossar unten, Oberfläche und
