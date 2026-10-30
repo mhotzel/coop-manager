@@ -96,3 +96,34 @@ npm run build        # Typprüfung (vue-tsc) und Build nach dist/ (nicht im Git)
   beschreibt die erwartete Form der Antwort.
 - `index.html`: Sprache `de`, Titel `coop-manager`. Die erzeugte `frontend/README.md` wurde
   entfernt. `.vscode/extensions.json` empfiehlt in VS Code die Vue-Erweiterung.
+
+## 2026-10-26 – Entwicklungsserver per SSH-Tunnel erreichen
+
+**Was:** Keine Änderung am Projekt. Die Entwicklungsserver lauschen weiter nur auf 127.0.0.1,
+der Zugriff vom Arbeitsrechner läuft über eine SSH-Portweiterleitung.
+
+**Befehle (auf dem Arbeitsrechner):**
+
+```bash
+ssh -L 5173:localhost:5173 matthias@<rechner>                                # Vite
+ssh -L 5173:localhost:5173 -L 8000:localhost:8000 matthias@<rechner>         # zusätzlich uvicorn, z. B. für /docs
+```
+
+Danach im lokalen Browser `http://localhost:5173` öffnen. Dauerhaft in `~/.ssh/config`:
+
+```
+Host coop
+    HostName <rechner>
+    LocalForward 5173 localhost:5173
+    LocalForward 8000 localhost:8000
+```
+
+**Warum so:**
+
+- Der Browser braucht nur Vite (Port 5173). Vite leitet `/api` und `/healthz` über den Proxy
+  an uvicorn auf demselben Rechner weiter, daher muss uvicorn nicht von außen erreichbar sein.
+- Der Tunnel ist verschlüsselt, die Server bleiben für das übrige Netz unsichtbar, und an der
+  Firewall (firewalld) muss nichts freigegeben werden.
+- Alternative wäre `host: true` in `vite.config.ts` (bzw. `npm run dev -- --host`) plus
+  Freigabe des Ports in firewalld; dann wäre der Entwicklungsserver aber ohne Anmeldung für alle
+  im Netz offen.
