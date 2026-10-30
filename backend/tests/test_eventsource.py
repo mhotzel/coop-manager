@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from coop_manager.eventsource import (
@@ -5,6 +7,8 @@ from coop_manager.eventsource import (
     ConcurrencyError,
     Event,
     EventStore,
+    Projections,
+    Projector,
     UnknownEventError,
     connect,
     on,
@@ -41,12 +45,68 @@ class Party(Aggregate):
         self.archived = True
 
 
+class PartyList(Projector):
+    schema = "CREATE TABLE IF NOT EXISTS party_list (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE)"
+    tables = ("party_list",)
+
+    @on("party.registered")
+    def _registered(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute("INSERT INTO party_list VALUES (?, ?)", (event.subject, event.data["name"]))
+
+    @on("party.renamed")
+    def _renamed(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute("UPDATE party_list SET name = ? WHERE id = ?", (event.data["name"], event.subject))
+
+
+class EventCounter(Projector):
+    schema = """
+    CREATE TABLE IF NOT EXISTS event_count (n INTEGER NOT NULL);
+    INSERT INTO event_count SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM event_count);
+    """
+
+    def reset(self, conn: sqlite3.Connection) -> None:
+        conn.execute("UPDATE event_count SET n = 0")
+
+    @on("party.registered", "party.renamed", "party.archived")
+    def _count(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute("UPDATE event_count SET n = n + 1")
+
+
 @pytest.fixture
 def store(tmp_path) -> EventStore:
     store = EventStore(connect(str(tmp_path / "eventstore.sqlite")))
     store.create_schema()
     yield store
     store.conn.close()
+
+
+@pytest.fixture
+def make_projections(tmp_path):
+    opened: list[Projections] = []
+
+    def make(*projectors: Projector) -> Projections:
+        projections = Projections(connect(str(tmp_path / "projections.sqlite")), projectors)
+        projections.create_schema()
+        opened.append(projections)
+        return projections
+
+    yield make
+    for projections in opened:
+        projections.conn.close()
+
+
+@pytest.fixture
+def projections(make_projections) -> Projections:
+    return make_projections(PartyList())
+
+
+def party_names(projections: Projections) -> list[str]:
+    rows = projections.conn.execute("SELECT name FROM party_list ORDER BY name")
+    return [row["name"] for row in rows]
+
+
+def event_count(projections: Projections) -> int:
+    return projections.conn.execute("SELECT n FROM event_count").fetchone()["n"]
 
 
 def test_recorded_events_change_state_and_version():
@@ -124,3 +184,63 @@ def test_read_all_returns_events_after_the_given_position(store):
 
     assert len(positions) == 2
     assert [event.subject for _, event in store.read_all(after=positions[0])] == ["p-2"]
+
+
+def test_event_store_and_projections_live_in_separate_databases(store, projections):
+    store.save(Party.register("p-1", "Eins"))
+    projections.catch_up(store)
+
+    event_tables = {r["name"] for r in store.conn.execute("SELECT name FROM sqlite_master")}
+    assert "party_list" not in event_tables
+    assert party_names(projections) == ["Eins"]
+
+
+def test_catch_up_processes_each_event_only_once(store, make_projections):
+    projections = make_projections(EventCounter())
+    store.save(Party.register("p-1", "Eins"))
+    projections.catch_up(store)
+    store.save(Party.register("p-2", "Zwei"))
+    projections.catch_up(store)
+    projections.catch_up(store)
+
+    assert event_count(projections) == 2
+
+
+def test_failing_projection_keeps_event_and_stays_at_old_checkpoint(store, projections):
+    store.save(Party.register("p-1", "Doppelt"))
+    store.save(Party.register("p-2", "Doppelt"))
+
+    with pytest.raises(sqlite3.IntegrityError):
+        projections.catch_up(store)
+
+    # Das Event ist gespeichert, die Projektion wurde als Ganzes zurückgerollt und bleibt zurück.
+    assert len(store.read_stream("p-2")) == 1
+    assert party_names(projections) == []
+
+    party = store.load(Party, "p-2")
+    party.rename("Einzeln")
+    store.save(party)
+    with pytest.raises(sqlite3.IntegrityError):
+        projections.catch_up(store)  # weiter blockiert: Events werden der Reihe nach abgespielt
+
+
+def test_rebuild_replays_history(store, projections):
+    store.save(Party.register("p-1", "Eins"))
+    store.save(Party.register("p-2", "Zwei"))
+    projections.catch_up(store)
+    projections.conn.execute("DELETE FROM party_list")
+
+    projections.rebuild(store)
+
+    assert party_names(projections) == ["Eins", "Zwei"]
+
+
+def test_projector_added_later_catches_up_from_the_beginning(store, projections, make_projections):
+    store.save(Party.register("p-1", "Eins"))
+    projections.catch_up(store)
+
+    extended = make_projections(PartyList(), EventCounter())
+    extended.catch_up(store)
+
+    assert event_count(extended) == 1
+    assert party_names(extended) == ["Eins"]

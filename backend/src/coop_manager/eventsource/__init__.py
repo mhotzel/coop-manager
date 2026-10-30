@@ -1,5 +1,6 @@
 from .aggregate import Aggregate, UnknownEventError
 from .events import Event, on
+from .projection import Projections, Projector
 from .store import ConcurrencyError, EventStore, connect, transaction
 
 __all__ = [
@@ -7,6 +8,8 @@ __all__ = [
     "ConcurrencyError",
     "Event",
     "EventStore",
+    "Projections",
+    "Projector",
     "UnknownEventError",
     "connect",
     "on",

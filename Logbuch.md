@@ -162,3 +162,34 @@ uv run pytest        # Tests ausführen
 - Gegenüber dem Vorbild kamen zwei Tests dazu: Ein Event kommt unverändert aus der Datenbank
   zurück, und ein Speichervorgang wird ganz oder gar nicht ausgeführt. Der Test für `read_all` ist
   ebenfalls neu, weil die Projektionen, die ihn im Vorbild mitprüfen, erst in Schritt 1d kommen.
+
+## 2026-10-30 – Schritt 1d: Projektionen
+
+**Was:** `eventsource/projection.py` aus `purchase-prices` übernommen (`Projector`, `Projections`),
+fünf Tests ergänzt. Die Anbindung an FastAPI folgt als eigener Schritt 1e.
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff format
+uv run ruff check
+uv run pytest
+```
+
+**Warum so:**
+
+- Der Event Store taugt nicht zum Suchen. Darum gibt es Lesetabellen in `projections.sqlite`. Sie
+  sind nur eine abgeleitete Kopie und lassen sich jederzeit aus den Events neu aufbauen.
+- `Projector` ist wie ein Aggregat aufgebaut (`@on`, `__init_subclass__`), ignoriert aber Events
+  ohne Handler, weil er sich nur für einen Teil der Events interessiert.
+- Der Checkpoint merkt sich je Projektor die `position` des letzten verarbeiteten Events.
+  Lesetabellen und Checkpoint ändern sich in einer Transaktion, passen also immer zusammen.
+- `catch_up()` verarbeitet die neuen Events, `rebuild()` leert die Tabellen und spielt alles neu ab.
+  Ein neuer Projektor hat keinen Checkpoint und beginnt deshalb von selbst bei null.
+- Scheitert ein Projektor an einem Event, bleibt er dort stehen, bis der Fehler behoben ist, denn
+  die Events werden streng der Reihe nach abgespielt. Die Events selbst gehen nicht verloren, aber
+  die Lesetabellen veralten bis dahin. Projektoren dürfen also nicht an Eventdaten scheitern;
+  fachliche Regeln wie die Eindeutigkeit prüft der Service, bevor das Event entsteht.
+- Abweichung vom Vorbild: In `_project` steht eine eigene Variable `last_position`. Die Vorlage
+  nutzte die Schleifenvariable nach der Schleife weiter, das meldet ruff bei uns als B007.
