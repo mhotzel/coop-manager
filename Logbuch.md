@@ -127,3 +127,38 @@ Host coop
 - Alternative wäre `host: true` in `vite.config.ts` (bzw. `npm run dev -- --host`) plus
   Freigabe des Ports in firewalld; dann wäre der Entwicklungsserver aber ohne Anmeldung für alle
   im Netz offen.
+
+## 2026-10-30 – Schritt 1c: Events, Aggregate und Event Store
+
+**Was:** Paket `coop_manager/eventsource/` aus `purchase-prices` übernommen, zunächst ohne
+Projektionen, dazu `tests/test_eventsource.py`. Docstrings und Meldungen sind deutsch. Noch keine
+Anbindung an FastAPI.
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff format   # Code formatieren
+uv run ruff check    # Code prüfen
+uv run pytest        # Tests ausführen
+```
+
+**Warum so:**
+
+- Event Sourcing speichert nicht den Zustand, sondern die Ereignisse. Der Zustand entsteht, indem
+  ein Aggregat seine Events der Reihe nach abspielt (`from_events`).
+- `events.py`: `Event` ist `frozen`, also unveränderlich. `uuid.uuid7()` erzeugt zeitlich
+  sortierbare IDs, die Zeit ist UTC. Der Dekorator `@on("typ")` merkt sich an der Methode, für
+  welche Eventtypen sie zuständig ist; `collect_handlers` sammelt das ein.
+- `aggregate.py`: `_record()` erzeugt das Event und wendet es über denselben Handler an, der auch
+  beim Laden läuft. So gibt es nur einen Weg, den Zustand zu ändern. `__init_subclass__` läuft
+  automatisch, wenn eine Unterklasse definiert wird, und baut ihre Handler-Tabelle auf.
+- `store.py`: `UNIQUE (subject, version)` ist die optimistische Sperre. Haben zwei Bearbeiter
+  denselben Stand geladen, scheitert der zweite Speichervorgang mit `ConcurrencyError`.
+- `transaction()` mit `BEGIN IMMEDIATE`: Die Events eines Vorgangs werden ganz oder gar nicht
+  gespeichert. Die Verbindung läuft im Autocommit-Modus, Transaktionen sind also immer ausdrücklich.
+- `position` nummeriert alle Events durch; daran orientieren sich die Projektionen in Schritt 1d.
+- Der Ordner liegt nicht unter `core/` (Entscheidung in `Plan.md`).
+- Gegenüber dem Vorbild kamen zwei Tests dazu: Ein Event kommt unverändert aus der Datenbank
+  zurück, und ein Speichervorgang wird ganz oder gar nicht ausgeführt. Der Test für `read_all` ist
+  ebenfalls neu, weil die Projektionen, die ihn im Vorbild mitprüfen, erst in Schritt 1d kommen.
