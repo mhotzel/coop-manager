@@ -71,8 +71,9 @@ class EventStore:
     def append(self, events: Iterable[Event], actor: str | None = None) -> None:
         """Hängt Events in einer Transaktion an: alle oder keines.
 
-        ``actor`` überschreibt den Auslöser jedes Events. Gibt es eine Version eines Subjekts schon,
-        hat jemand anderes dazwischen gespeichert, und es kommt ein ``ConcurrencyError``.
+        Ist ``actor`` angegeben, wird er bei jedem Event als Auslöser eingetragen; bei ``None``
+        bleiben die Events, wie sie sind. Gibt es eine Version eines Subjekts schon, hat jemand
+        anderes dazwischen gespeichert, und es kommt ein ``ConcurrencyError``.
         """
         with transaction(self.conn):
             for event in events:

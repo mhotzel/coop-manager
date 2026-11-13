@@ -336,3 +336,17 @@ uv run pytest
   `__doc__`, `help()` und Editoren zeigen ihn an. Ein Kommentar mit `#` landet dagegen nicht dort.
 - Bei einer Klasse, die nur aus einem Docstring besteht, wie `UnknownEventError`, ist `pass` nicht
   mehr nötig: Der String ist schon ein gültiger Rumpf.
+
+## 2026-11-13 – Auslöser (`actor`) im Plan festgehalten
+
+**Was:** In `Plan.md` unter „Architektur“ festgehalten, dass jedes Event seinen Auslöser speichert.
+Den Docstring von `EventStore.append` präzisiert: `actor` ersetzt den Wert nur, wenn er angegeben ist.
+
+**Warum so:**
+
+- Ein Event sagt was, wem und wann. `actor` ergänzt das Wer. Weil Events nie geändert werden,
+  ergibt das eine lückenlose Spur aller Änderungen.
+- Das Aggregate erzeugt Events ohne `actor`. Den angemeldeten Benutzer kennt erst der Endpunkt, der
+  speichert. Die Fachlogik bleibt so frei von Anmeldedetails.
+- `Event` ist `frozen`. `dataclasses.replace` erzeugt deshalb eine Kopie mit dem neuen `actor`,
+  statt das Event zu ändern.
