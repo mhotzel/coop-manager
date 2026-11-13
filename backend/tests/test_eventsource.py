@@ -46,6 +46,8 @@ class Party(Aggregate):
 
 
 class PartyList(Projector):
+    """Test-Projektion: Tabelle mit Id und aktuellem Namen jeder Partei."""
+
     schema = "CREATE TABLE IF NOT EXISTS party_list (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE)"
     tables = ("party_list",)
 
@@ -59,6 +61,8 @@ class PartyList(Projector):
 
 
 class EventCounter(Projector):
+    """Test-Projektion: zählt alle Events, auch solche ohne eigenen Handler."""
+
     schema = """
     CREATE TABLE IF NOT EXISTS event_count (n INTEGER NOT NULL);
     INSERT INTO event_count SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM event_count);

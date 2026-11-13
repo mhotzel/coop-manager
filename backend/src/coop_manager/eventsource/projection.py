@@ -27,22 +27,27 @@ class Projector:
     _handlers: ClassVar[dict[str, Callable]] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Sammelt beim Definieren jeder Unterklasse ihre ``@on``-Handler ein."""
         super().__init_subclass__(**kwargs)
         cls._handlers = collect_handlers(cls)
 
     @property
     def name(self) -> str:
+        """Name des Checkpoints, der Klassenname."""
         return type(self).__name__
 
     def create_schema(self, conn: sqlite3.Connection) -> None:
+        """Legt die Lesetabellen an."""
         if self.schema:
             conn.executescript(self.schema)
 
     def reset(self, conn: sqlite3.Connection) -> None:
+        """Leert die Lesetabellen für den Neuaufbau."""
         for table in self.tables:
             conn.execute(f"DELETE FROM {table}")
 
     def handle(self, conn: sqlite3.Connection, event: Event) -> None:
+        """Ruft den Handler für den Eventtyp auf; ohne Handler passiert nichts."""
         handler = self._handlers.get(event.type)
         if handler is not None:
             handler(self, conn, event)
@@ -61,11 +66,13 @@ class Projections:
         self.projectors = list(projectors)
 
     def create_schema(self) -> None:
+        """Legt die Checkpoint-Tabelle und die Lesetabellen aller Projektoren an."""
         self.conn.executescript(CHECKPOINT_SCHEMA)
         for projector in self.projectors:
             projector.create_schema(self.conn)
 
     def catch_up(self, store: EventStore) -> None:
+        """Wendet die Events an, die seit dem Checkpoint des jeweiligen Projektors dazugekommen sind."""
         for projector in self.projectors:
             with transaction(self.conn):
                 self._project(projector, store, after=self._checkpoint(projector))
@@ -78,6 +85,7 @@ class Projections:
                 self._project(projector, store, after=0)
 
     def _project(self, projector: Projector, store: EventStore, after: int) -> None:
+        """Gibt alle Events nach Position ``after`` an den Projektor und merkt sich die letzte Position."""
         last_position = after
         for position, event in store.read_all(after):
             projector.handle(self.conn, event)
@@ -89,6 +97,7 @@ class Projections:
         )
 
     def _checkpoint(self, projector: Projector) -> int:
+        """Liefert die zuletzt verarbeitete Position des Projektors, 0 wenn er noch nie lief."""
         row = self.conn.execute(
             "SELECT position FROM projection_checkpoints WHERE projector = ?", (projector.name,)
         ).fetchone()

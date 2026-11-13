@@ -59,13 +59,21 @@ def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
 
 
 class EventStore:
+    """Speichert Events in SQLite und liest sie wieder; Events werden nur angehängt, nie geändert."""
+
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
 
     def create_schema(self) -> None:
+        """Legt die Tabelle ``events`` an, falls es sie noch nicht gibt."""
         self.conn.executescript(SCHEMA)
 
     def append(self, events: Iterable[Event], actor: str | None = None) -> None:
+        """Hängt Events in einer Transaktion an: alle oder keines.
+
+        ``actor`` überschreibt den Auslöser jedes Events. Gibt es eine Version eines Subjekts schon,
+        hat jemand anderes dazwischen gespeichert, und es kommt ein ``ConcurrencyError``.
+        """
         with transaction(self.conn):
             for event in events:
                 if actor is not None:
@@ -88,23 +96,28 @@ class EventStore:
                     raise ConcurrencyError(f"Version {event.version} von '{event.subject}' gibt es schon") from exc
 
     def save(self, aggregate: Aggregate, actor: str | None = None) -> None:
+        """Speichert die neuen Events des Aggregates und markiert sie als gespeichert."""
         self.append(aggregate.uncommitted_events, actor)
         aggregate.mark_committed()
 
     def load[A: Aggregate](self, cls: type[A], subject: str) -> A | None:
+        """Baut das Aggregate aus seinen Events neu auf; ``None``, wenn es keine Events dazu gibt."""
         events = self.read_stream(subject)
         return cls.from_events(subject, events) if events else None
 
     def read_stream(self, subject: str) -> list[Event]:
+        """Liefert alle Events eines Subjekts, nach Version sortiert."""
         rows = self.conn.execute("SELECT * FROM events WHERE subject = ? ORDER BY version", (subject,))
         return [self._to_event(row) for row in rows]
 
     def read_all(self, after: int = 0) -> Iterator[tuple[int, Event]]:
+        """Liefert alle Events nach Position ``after`` mit ihrer Position, in Speicherreihenfolge."""
         for row in self.conn.execute("SELECT * FROM events WHERE position > ? ORDER BY position", (after,)):
             yield row["position"], self._to_event(row)
 
     @staticmethod
     def _to_event(row: sqlite3.Row) -> Event:
+        """Macht aus einer Tabellenzeile wieder ein ``Event``."""
         return Event(
             type=row["type"],
             subject=row["subject"],

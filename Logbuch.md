@@ -306,3 +306,33 @@ uv run uvicorn coop_manager.app:app   # echter Start: jede Zeile ist JSON
 **Gelernt:** Ein Logger ohne eigenes Level erbt es von oben, am Ende vom Root-Logger mit `WARNING`.
 Das Level `INFO` für `uvicorn` setzt erst der echte Start. In einem Test ohne Server wird
 `info` dort also verworfen.
+
+## 2026-11-13 – Docstrings ergänzt
+
+**Was:** Alle Klassen auf Docstrings geprüft. Ergänzt bei `UnknownEventError`, `EventStore`, den
+Test-Projektionen `NoteList`, `PartyList` und `EventCounter` sowie bei den Methoden von
+`Projections` (`create_schema`, `catch_up`, `_project`, `_checkpoint`), `EventStore` und `Projector`.
+
+**Befehle:**
+
+```bash
+# Klassen ohne Docstring finden: ast liest den Code, ohne ihn auszuführen
+git ls-files '*.py' | xargs python3 -c '
+import ast, sys
+for f in sys.argv[1:]:
+    for n in ast.walk(ast.parse(open(f).read())):
+        if isinstance(n, ast.ClassDef) and not ast.get_docstring(n):
+            print(f"{f}:{n.lineno}", n.name)
+'
+cd backend
+uv run ruff format
+uv run ruff check
+uv run pytest
+```
+
+**Warum so:**
+
+- Ein Docstring ist der erste String im Rumpf einer Klasse oder Funktion. Python speichert ihn in
+  `__doc__`, `help()` und Editoren zeigen ihn an. Ein Kommentar mit `#` landet dagegen nicht dort.
+- Bei einer Klasse, die nur aus einem Docstring besteht, wie `UnknownEventError`, ist `pass` nicht
+  mehr nötig: Der String ist schon ein gültiger Rumpf.

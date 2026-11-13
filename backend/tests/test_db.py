@@ -30,6 +30,8 @@ class Note(Aggregate):
 
 
 class NoteList(Projector):
+    """Test-Projektion: Tabelle mit allen geschriebenen Notizen."""
+
     schema = "CREATE TABLE IF NOT EXISTS note_list (id TEXT PRIMARY KEY, text TEXT NOT NULL)"
     tables = ("note_list",)
 

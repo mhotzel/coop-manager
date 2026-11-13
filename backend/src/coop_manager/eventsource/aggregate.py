@@ -5,7 +5,7 @@ from .events import Event, collect_handlers
 
 
 class UnknownEventError(Exception):
-    pass
+    """Das Aggregate hat keine Methode, die diesen Eventtyp anwendet."""
 
 
 class Aggregate:
