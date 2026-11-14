@@ -435,3 +435,26 @@ include = ["src", "tests"]
   Programm (Node.js) herunter, dafür kommt `nodeenv` mit.
 
 Nach jedem Schritt laufen jetzt: `ruff format`, `ruff check`, `pyright`, `pytest`.
+
+## 2026-11-14 – uv_build-Version an uv 0.13 angepasst
+
+**Was:** In `backend/pyproject.toml` die Grenzen des Build-Backends angehoben:
+`uv_build>=0.12.24,<0.13.0` → `uv_build>=0.13.5,<0.14.0`. Damit ist die Warnung
+„`build_system.requires` … does not contain the current uv version“ weg.
+
+**Befehle:**
+
+```bash
+cd backend
+uv sync --reinstall-package coop-manager   # Projekt neu bauen, um die Warnung zu prüfen
+```
+
+**Warum so:**
+
+- `uv_build` ist das Build-Backend: Es macht aus `src/coop_manager` ein installierbares Paket. Das
+  passiert bei jedem `uv sync`, weil das Projekt selbst mitinstalliert wird.
+- Das Backend steckt in uv selbst. Liegt die eigene Version in den Grenzen, baut uv direkt damit.
+  Sonst lädt es ein passendes älteres `uv_build` herunter und warnt. Das geht, ist aber ein Umweg.
+- Die Obergrenze `<0.14.0` bleibt, weil eine neue Hauptversion anders bauen könnte. `uv init` trägt
+  sie aus demselben Grund ein.
+- `uv.lock` ändert sich nicht: Das Build-Backend gehört nicht zu den Abhängigkeiten des Projekts.
