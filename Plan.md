@@ -79,8 +79,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Security-Header** setzt die App selbst, CSP `script-src 'self'`.
 - **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_`, Logs als JSON-Zeilen auf
   stdout, `/healthz`, Backup des Event Stores per CLI-Befehl.
-- **Werkzeuge:** Python 3.14, `uv`, `ruff` (Zeilenlänge 120), `pytest` (Domain, Services, API),
-  `openpyxl` für die Reports. Frontend-Tests vorerst nicht, später bei Bedarf Vitest.
+- **Werkzeuge:** Python 3.14, `uv`, `ruff` (Zeilenlänge 120), `pyright` (Modus `standard`),
+  `pytest` (Domain, Services, API), `openpyxl` für die Reports. Frontend-Tests vorerst nicht,
+  später bei Bedarf Vitest.
 
 ### Arbeitsweise
 

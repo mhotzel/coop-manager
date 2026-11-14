@@ -402,3 +402,36 @@ uv run --with pyright pyright src tests   # pyright einmalig mitladen, ohne es z
   (aus `collections.abc`), wie bei `get_db` in `db.py`.
 - `ruff check` prüft Stil und typische Fehlermuster, aber keine Typen. Dafür braucht es einen
   Typprüfer wie pyright oder mypy.
+
+## 2026-11-14 – pyright als Typprüfer aufgenommen
+
+**Was:** `pyright` als Entwicklungsabhängigkeit hinzugefügt und in `pyproject.toml` eingestellt.
+In `Plan.md` unter „Werkzeuge“ eingetragen.
+
+**Befehle:**
+
+```bash
+cd backend
+uv add --dev pyright      # trägt pyright in die Gruppe dev ein und aktualisiert uv.lock
+uv run pyright            # prüft src und tests
+```
+
+In `pyproject.toml`:
+
+```toml
+[tool.pyright]
+include = ["src", "tests"]
+```
+
+**Warum so:**
+
+- Ein Linter wie `ruff` sucht nach Stilfragen und typischen Fehlermustern, prüft aber nicht, ob die
+  Typannahmen zusammenpassen. Das macht ein Typprüfer wie `pyright`. Er hat zum Beispiel die falsche
+  Annahme `-> EventStore` an der Fixture `store` gefunden (siehe Eintrag davor).
+- Pylance in VS Code baut auf pyright auf. Mit dem Modus `standard`, der Voreinstellung, meldet die
+  Kommandozeile dasselbe wie der Editor. `strict` würde z. B. jede Fixture ohne Typannahme bemängeln.
+- Als Abhängigkeit in `uv.lock` hat jeder, der das Projekt mit `uv sync` einrichtet, dieselbe Version.
+- Das Python-Paket `pyright` ist nur eine Hülle: Beim ersten Aufruf lädt es das eigentliche
+  Programm (Node.js) herunter, dafür kommt `nodeenv` mit.
+
+Nach jedem Schritt laufen jetzt: `ruff format`, `ruff check`, `pyright`, `pytest`.
