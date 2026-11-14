@@ -20,6 +20,7 @@ class Note(Aggregate):
 
     @classmethod
     def write(cls, subject: str, text: str) -> Note:
+        """Legt eine neue Notiz an; Klassenmethode, weil es vorher noch kein Objekt gibt."""
         note = cls(subject)
         note._record("note.written", text=text)
         return note

@@ -11,6 +11,11 @@ class JsonFormatter(logging.Formatter):
     """Ein JSON-Objekt pro Zeile; Werte aus `extra=` werden zu eigenen Feldern."""
 
     def format(self, record: logging.LogRecord) -> str:
+        """Wandelt einen Logeintrag in eine JSON-Zeile um.
+
+        Enthalten sind Zeit in UTC, Level, Logger, Meldung, die ``extra``-Felder und, falls
+        vorhanden, der Traceback.
+        """
         entry = {
             "time": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname,

@@ -350,3 +350,55 @@ Den Docstring von `EventStore.append` präzisiert: `actor` ersetzt den Wert nur,
   speichert. Die Fachlogik bleibt so frei von Anmeldedetails.
 - `Event` ist `frozen`. `dataclasses.replace` erzeugt deshalb eine Kopie mit dem neuen `actor`,
   statt das Event zu ändern.
+
+## 2026-11-14 – Docstrings für die übrigen Methoden
+
+**Was:** Docstrings für die Methoden von `Aggregate`, `Database` und `JsonFormatter.format`
+ergänzt, dazu in den Tests für `Note.write`, `Party.register`, `Party.rename` und
+`EventCounter.reset`. Außerdem `# type: ignore` in `on()` (`events.py`): Der Typprüfer kennt kein
+Attribut `_handles_events` an einer Funktion, Python erlaubt es aber.
+
+**Befehle:**
+
+```bash
+# Methoden ohne Docstring finden (wie oben, nur für Funktionen in Klassen)
+git ls-files '*.py' | xargs python3 -c '
+import ast, sys
+for f in sys.argv[1:]:
+    for c in ast.walk(ast.parse(open(f).read())):
+        if isinstance(c, ast.ClassDef):
+            for n in c.body:
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and not ast.get_docstring(n):
+                    print(f"{f}:{n.lineno}", c.name + "." + n.name)
+'
+cd backend
+uv run ruff format
+uv run ruff check
+uv run pytest
+```
+
+**Warum so:**
+
+- Ein `__init__`, das nur Parameter in Attribute schreibt (`EventStore`, `Projections`), bekommt
+  keinen Docstring: Was es tut, sieht man auf einen Blick.
+- Die mit `@on(...)` markierten Handler bleiben ebenfalls ohne Docstring, denn der Decorator sagt
+  schon, auf welches Event sie reagieren.
+- `ruff format` hat vor dem `#` des Kommentars zwei Leerzeichen gesetzt, wie es PEP 8 für
+  Kommentare am Zeilenende vorsieht.
+
+**Nachtrag – Typfehler in der Fixture `store`:** VS Code zeigte in `tests/test_eventsource.py`
+zwei Fehler an. Sie kamen nicht von ruff, sondern von Pylance, dem Typprüfer in VS Code, der auf
+pyright aufbaut. Nachgeprüft und behoben:
+
+```bash
+cd backend
+uv run --with pyright pyright src tests   # pyright einmalig mitladen, ohne es zu installieren
+```
+
+- Die Fixture `store` enthält `yield`. Damit ist sie eine Generatorfunktion: Ihr Aufruf liefert
+  keinen `EventStore`, sondern einen Generator, der einen `EventStore` liefert. pytest holt den Wert
+  bis zum `yield`, führt den Test aus und lässt danach den Rest zum Aufräumen laufen.
+- Die Annahme `-> EventStore` war deshalb falsch. Richtig ist `-> Iterator[EventStore]`
+  (aus `collections.abc`), wie bei `get_db` in `db.py`.
+- `ruff check` prüft Stil und typische Fehlermuster, aber keine Typen. Dafür braucht es einen
+  Typprüfer wie pyright oder mypy.

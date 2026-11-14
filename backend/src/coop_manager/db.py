@@ -13,6 +13,7 @@ class Database:
     """Beide Datenbanken für die Dauer eines Requests."""
 
     def __init__(self, data_dir: Path, projectors: Sequence[Projector]) -> None:
+        """Öffnet die Verbindungen zu Event Store und Projektionsdatenbank im Datenverzeichnis."""
         self.store = EventStore(connect(str(data_dir / EVENTSTORE_DB)))
         self.projections = Projections(connect(str(data_dir / PROJECTIONS_DB)), projectors)
 
@@ -22,6 +23,7 @@ class Database:
         self.projections.catch_up(self.store)
 
     def close(self) -> None:
+        """Schließt beide Verbindungen."""
         self.store.conn.close()
         self.projections.conn.close()
 

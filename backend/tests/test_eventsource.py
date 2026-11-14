@@ -1,4 +1,5 @@
 import sqlite3
+from collections.abc import Iterator
 
 import pytest
 
@@ -25,11 +26,13 @@ class Party(Aggregate):
 
     @classmethod
     def register(cls, subject: str, name: str) -> Party:
+        """Legt eine neue Partei an; Klassenmethode, weil es vorher noch kein Objekt gibt."""
         party = cls(subject)
         party._record("party.registered", name=name)
         return party
 
     def rename(self, name: str) -> None:
+        """Ändert den Namen; ist er gleich geblieben, entsteht kein Event."""
         if name != self.name:
             self._record("party.renamed", name=name)
 
@@ -69,6 +72,11 @@ class EventCounter(Projector):
     """
 
     def reset(self, conn: sqlite3.Connection) -> None:
+        """Setzt den Zähler für ``rebuild()`` auf 0.
+
+        Die Tabelle steht nicht in ``tables``, weil ihre Zeile erhalten bleiben muss; sie wird
+        deshalb nicht automatisch geleert.
+        """
         conn.execute("UPDATE event_count SET n = 0")
 
     @on("party.registered", "party.renamed", "party.archived")
@@ -77,7 +85,7 @@ class EventCounter(Projector):
 
 
 @pytest.fixture
-def store(tmp_path) -> EventStore:
+def store(tmp_path) -> Iterator[EventStore]:
     store = EventStore(connect(str(tmp_path / "eventstore.sqlite")))
     store.create_schema()
     yield store

@@ -22,7 +22,7 @@ def on(*event_types: str) -> Callable:
     """Markiert eine Methode eines Aggregats oder Projektors als Handler für die genannten Eventtypen."""
 
     def decorator(func: Callable) -> Callable:
-        func._handles_events = event_types
+        func._handles_events = event_types  # type: ignore
         return func
 
     return decorator
