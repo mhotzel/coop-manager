@@ -12,6 +12,7 @@ from .core import DomainError, NotFoundError
 from .db import prepare
 from .eventsource import Projector
 from .logs import init_logging
+from .members.projections import MemberList
 from .security import init_security
 from .users import api as users_api
 from .users import login_attempts
@@ -20,7 +21,7 @@ from .users.projections import UserList
 log = logging.getLogger(__name__)
 
 # Alle Projektoren und zusätzlichen Tabellen der Projektionsdatenbank; jedes Modul trägt sich hier ein.
-PROJECTORS: list[Projector] = [UserList()]
+PROJECTORS: list[Projector] = [UserList(), MemberList()]
 SCHEMAS: list[str] = [login_attempts.SCHEMA]
 
 

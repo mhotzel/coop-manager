@@ -1173,3 +1173,67 @@ uv run ruff check                                                           # je
   wird.
 - **Nebeneffekt:** FastAPI übernimmt den Docstring eines Endpunkts als Beschreibung in die
   OpenAPI-Doku (`/openapi.json`).
+
+## 2026-11-15 – Nummernvergabe, Zulassung, Projektion und Suche (Schritt 4b)
+
+**Was:**
+
+- `members/numbers.py`: Das Aggregat `MemberNumbers`, ein einziger Stream `member-numbers` mit dem
+  Event `member-number.assigned`.
+- `members/status.py`: `MembershipDates` und `status_on(dates, tag)`, also der Status zum Stichtag
+  (Antragsteller oder abgelehnt).
+- `members/domain.py`: `admit`, `reject` und `withdraw` mit den Events `member.admitted`,
+  `member.rejected` und `member.withdrawn`, dazu `status(tag)`.
+- `members/projections.py`: Der Projektor `MemberList` und `search_members(...)`.
+- `members/services.py`: `apply_for_membership` mit Wiederholung bei Konflikt, die Befehle und
+  `get_member`.
+- `db.py`: `Database.save_all([...])` speichert mehrere Aggregate in einer Transaktion.
+- `app.py`: `MemberList` ist in `PROJECTORS` eingetragen.
+- Tests: `test_members_numbers.py`, `test_members_services.py` und Ergänzungen in
+  `test_members_domain.py`.
+
+**Warum so:**
+
+- **Eindeutige Nummer per eigenem Stream:**
+  - Die Versionsprüfung des Event Stores gilt nur innerhalb eines Streams (eindeutig ist
+    `subject` + `version`). Zwei Anträge sind zwei verschiedene Streams und kämen sich nie in die
+    Quere.
+  - Darum laufen alle Vergaben über **einen** Stream. Wer zuerst speichert, bekommt Version n+1,
+    der zweite scheitert mit `ConcurrencyError`.
+  - Der Service fängt das ab, lädt das Register neu und nimmt die nächste freie Nummer, höchstens
+    dreimal.
+  - So setzt man im Event Sourcing eine Regel durch, die über mehrere Aggregate geht
+    („Eindeutigkeit“), ohne den Event Store selbst zu verändern.
+- **`save_all` statt zweimal `save`:** Register und Mitglied müssen zusammen gespeichert werden.
+  Sonst gäbe es eine vergebene Nummer ohne Mitglied oder ein Mitglied ohne eingetragene Nummer.
+  `transaction(...)` umschließt beide `save`-Aufrufe. Weil sich verschachtelte Transaktionen der
+  äußeren anschließen, wird alles mit einem einzigen `COMMIT` gespeichert, oder gar nichts.
+- **Test für gleichzeitige Anträge:** Echte Gleichzeitigkeit lässt sich schlecht testen. Der Test
+  ersetzt deshalb `_load_numbers` per `monkeypatch`. Beim ersten Aufruf lädt er das Register und
+  lässt dann über eine zweite Datenbankverbindung „jemand anderen“ Nummer 1 vergeben. Das
+  geladene Register ist damit veraltet, das Speichern scheitert, der zweite Versuch bekommt
+  Nummer 2.
+- **Status wird berechnet:** `status_on(MembershipDates(...), tag)` steht in einer eigenen Datei, weil
+  Aggregat **und** Projektion ihn brauchen. Die Projektion speichert nur die Daten (Antrag,
+  Zulassung, Ablehnung) und berechnet den Status beim Lesen für „heute“. Reports können später
+  denselben Status für jeden anderen Stichtag berechnen.
+- **Ablehnung und Rücknahme** sind zwei Events, weil sie fachlich verschieden sind: Die eine
+  beschließt der Vorstand, die andere erklärt die Person. Beide setzen in Aggregat und Projektion
+  `rejection_date` und führen zum Status „abgelehnt“.
+- **Suche:**
+  - `search_text` enthält Firma, Titel, Vornamen, Nachname, Straße, PLZ und Ort, mit `casefold()`
+    klein geschrieben. `casefold` kann mehr als `lower`, z. B. „ß“ → „ss“.
+  - SQLites `LIKE` kennt Groß/klein nur bei ASCII, „Ü“ und „ü“ wären verschieden.
+  - Jedes Wort wird eine eigene Bedingung (`AND`).
+  - `%` und `_` sind in `LIKE` Platzhalter. `_escape_like` maskiert sie, damit eine Suche nach
+    „%“ nicht alles findet.
+- **Stolperstein Suche nach Ziffern:** Der erste Test erwartete, dass „2“ nur Mitglied 2 findet.
+  Gefunden wurden aber alle, weil in der Postleitzahl „12345“ eine 2 steckt. Jetzt trifft ein
+  Wort nur aus Ziffern die Mitgliedsnummer genau oder den Anfang der PLZ, das steht so auch im
+  Plan.
+- **Werte im SQL immer als `?`:** Auch bei der zusammengesetzten Suche kommen nur die festen
+  Bausteine per f-String ins SQL. Die Suchwörter selbst gehen als Parameter hinein, so ist keine
+  SQL-Injection möglich.
+- **Umbenannt: `Facts` → `MembershipDates`** (Matthias' Hinweis). Die Klasse ist nicht der Status,
+  sondern enthält die Daten der Mitgliedschaft (Antrag, Zulassung, Ablehnung, in Schritt 5 auch
+  Eintritt, Kündigung und Ausscheiden), aus denen `status_on` den Status für einen Tag berechnet.

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import Request
 
-from .eventsource import Aggregate, EventStore, Projections, Projector, connect
+from .eventsource import Aggregate, EventStore, Projections, Projector, connect, transaction
 
 EVENTSTORE_DB = "eventstore.sqlite"
 PROJECTIONS_DB = "projections.sqlite"
@@ -20,6 +20,16 @@ class Database:
     def save(self, aggregate: Aggregate, actor: str | None = None) -> None:
         """Speichert die neuen Events des Aggregats und bringt die Projektionen auf den neuesten Stand."""
         self.store.save(aggregate, actor)
+        self.projections.catch_up(self.store)
+
+    def save_all(self, aggregates: Sequence[Aggregate], actor: str | None = None) -> None:
+        """Speichert mehrere Aggregate in einer Transaktion: alle oder keines.
+
+        Scheitert eines an der Versionsprüfung, bleibt auch von den anderen nichts gespeichert.
+        """
+        with transaction(self.store.conn):
+            for aggregate in aggregates:
+                self.store.save(aggregate, actor)
         self.projections.catch_up(self.store)
 
     def close(self) -> None:

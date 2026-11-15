@@ -7,6 +7,7 @@ from typing import Self
 from ..core import DomainError
 from ..eventsource import Aggregate, Event, on
 from .addressing import address_lines
+from .status import MembershipDates, status_on
 from .values import (
     ADDRESS_LINE_COUNT,
     Address,
@@ -41,6 +42,8 @@ class Member(Aggregate):
         self.notes = ""
         self.application_date: date | None = None
         self.shares_subscribed = 0
+        self.admission_date: date | None = None
+        self.rejection_date: date | None = None  # Ablehnung oder Rücknahme
 
     @classmethod
     def apply(
@@ -77,6 +80,38 @@ class Member(Aggregate):
             shares_subscribed=shares_subscribed,
         )
         return member
+
+    def status(self, day: date) -> str | None:
+        """Der Status am Tag `day` (siehe status.py)."""
+        assert self.application_date is not None  # gesetzt durch member.applied
+        dates = MembershipDates(self.application_date, self.admission_date, self.rejection_date)
+        return status_on(dates, day)
+
+    def admit(self, decision_date: date) -> None:
+        """Der Vorstand lässt zu (§ 15 GenG). Mitglied wird man erst mit dem Geldeingang (Schritt 5)."""
+        self._ensure_open_application(decision_date)
+        if self.admission_date is not None:
+            raise DomainError("Der Antrag ist bereits zugelassen.")
+        self._record("member.admitted", decision_date=decision_date.isoformat())
+
+    def reject(self, decision_date: date) -> None:
+        """Der Vorstand lehnt den Antrag ab; nach seiner eigenen Zulassung geht das nicht mehr."""
+        self._ensure_open_application(decision_date)
+        if self.admission_date is not None:
+            raise DomainError("Ein zugelassener Antrag kann nicht mehr abgelehnt werden.")
+        self._record("member.rejected", decision_date=decision_date.isoformat())
+
+    def withdraw(self, withdrawal_date: date) -> None:
+        """Die Person nimmt ihren Antrag zurück, auch nach der Zulassung, solange sie nicht Mitglied ist."""
+        self._ensure_open_application(withdrawal_date)
+        self._record("member.withdrawn", withdrawal_date=withdrawal_date.isoformat())
+
+    def _ensure_open_application(self, day: date) -> None:
+        """Der Antrag darf noch nicht abgelehnt oder zurückgenommen sein; das Datum nicht davor liegen."""
+        if self.rejection_date is not None:
+            raise DomainError("Der Antrag ist bereits abgelehnt oder zurückgenommen.")
+        if self.application_date is not None and day < self.application_date:
+            raise DomainError("Das Datum darf nicht vor dem Antrag liegen.")
 
     def change_name(self, name: PersonName) -> None:
         """Ändert den Namen (z. B. nach Heirat); die Adresszeilen bleiben, wie sie sind."""
@@ -136,6 +171,18 @@ class Member(Aggregate):
         self.address_lines = tuple(event.data["address_lines"])
         self.application_date = date.fromisoformat(event.data["application_date"])
         self.shares_subscribed = event.data["shares_subscribed"]
+
+    @on("member.admitted")
+    def _admitted(self, event: Event) -> None:
+        self.admission_date = date.fromisoformat(event.data["decision_date"])
+
+    @on("member.rejected")
+    def _rejected(self, event: Event) -> None:
+        self.rejection_date = date.fromisoformat(event.data["decision_date"])
+
+    @on("member.withdrawn")
+    def _withdrawn(self, event: Event) -> None:
+        self.rejection_date = date.fromisoformat(event.data["withdrawal_date"])
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

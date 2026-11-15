@@ -220,7 +220,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   (Antrag, Zulassung, Ablehnung, später Eintrittsbuchung, Kündigung, Sterbedatum).
   `status(stichtag)` leitet den Status daraus ab. Es gibt kein Event zum Jahreswechsel.
 - **Suche per `POST /api/members/search`** mit `{query}`: Ausnahme von „Abfragen per GET“, damit
-  Namen nicht im Access-Log stehen.
+  Namen nicht im Access-Log stehen. Jedes Suchwort muss passen. Ein Wort nur aus Ziffern trifft die
+  Mitgliedsnummer genau oder den Anfang der Postleitzahl, andere Wörter irgendwo in Namen, Firma,
+  Straße oder Ort, ohne Rücksicht auf Groß-/Kleinschreibung.
+- **Zulassung, Ablehnung, Rücknahme:** Der Vorstand kann nur ablehnen, solange er nicht zugelassen
+  hat. Die Person kann auch nach der Zulassung zurücknehmen, solange sie nicht Mitglied ist. Beides
+  führt zum Status „abgelehnt“, bleibt aber als eigenes Event unterscheidbar.
 - **Änderungen nach fachlicher Absicht:** eigene Befehle und Events für Name, Anschrift, Kontakt,
   Adresszeilen, abweichende Briefanrede, „keine Post“ und Hinweise, kein allgemeines
   „Daten ändern“.
@@ -372,6 +377,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 | Geschäftsjahr, Stichtag | `fiscal_year`, `reference_date` |
 | Generalversammlung | `general_meeting` |
 | Rollen Admin / Buchhaltung / Buchhaltung lesend | `admin` / `accounting` / `accounting_readonly` |
+| Daten der Mitgliedschaft (Antrag, Zulassung, …) | `MembershipDates` |
 
 Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `expelled`,
 `deceased`, `exited`.

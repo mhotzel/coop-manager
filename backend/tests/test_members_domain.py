@@ -4,6 +4,7 @@ import pytest
 
 from coop_manager.core import DomainError
 from coop_manager.members.domain import Member
+from coop_manager.members.status import APPLICANT, REJECTED
 from coop_manager.members.values import LEGAL_ENTITY, NATURAL_PERSON, Address, Contact, PersonName
 
 ADDRESS = Address(street="Hauptstraße", house_number="1", postal_code="12345", city="Musterstadt")
@@ -156,3 +157,66 @@ def test_notes_keep_line_breaks():
 def test_address_lines_must_be_six():
     with pytest.raises(DomainError, match="genau 6"):
         apply().change_address_lines(["Frau", "Erika Muster"])
+
+
+# --- Zulassung, Ablehnung, Rücknahme und Status ---
+
+
+def test_status_follows_the_dates():
+    member = apply()  # Antrag am 02.11.2026
+
+    assert member.status(date(2026, 11, 1)) is None
+    assert member.status(date(2026, 11, 2)) == APPLICANT
+
+    member.reject(date(2026, 11, 20))
+
+    assert reloaded(member).status(date(2026, 11, 19)) == APPLICANT
+    assert reloaded(member).status(date(2026, 11, 20)) == REJECTED
+
+
+def test_admit():
+    member = apply()
+
+    member.admit(date(2026, 11, 10))
+
+    assert reloaded(member).admission_date == date(2026, 11, 10)
+    assert reloaded(member).status(date(2026, 12, 1)) == APPLICANT  # Mitglied erst mit Geldeingang
+
+
+def test_admit_twice_is_rejected():
+    member = apply()
+    member.admit(date(2026, 11, 10))
+
+    with pytest.raises(DomainError, match="bereits zugelassen"):
+        member.admit(date(2026, 11, 11))
+
+
+def test_board_cannot_reject_after_admission():
+    member = apply()
+    member.admit(date(2026, 11, 10))
+
+    with pytest.raises(DomainError, match="nicht mehr abgelehnt"):
+        member.reject(date(2026, 11, 20))
+
+
+def test_withdraw_after_admission_is_allowed():
+    member = apply()
+    member.admit(date(2026, 11, 10))
+
+    member.withdraw(date(2026, 11, 20))
+
+    assert reloaded(member).status(date(2026, 11, 20)) == REJECTED
+
+
+@pytest.mark.parametrize("decide", [lambda m, d: m.admit(d), lambda m, d: m.reject(d), lambda m, d: m.withdraw(d)])
+def test_nothing_after_rejection(decide):
+    member = apply()
+    member.withdraw(date(2026, 11, 5))
+
+    with pytest.raises(DomainError, match="bereits abgelehnt oder zurückgenommen"):
+        decide(member, date(2026, 11, 6))
+
+
+def test_decision_not_before_application():
+    with pytest.raises(DomainError, match="nicht vor dem Antrag"):
+        apply().admit(date(2026, 11, 1))
