@@ -38,6 +38,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 3e: Benutzerverwaltung durch den Admin, auch Kennwort neu setzen
    - 3f: Eigenes Kennwort ändern
 4. Mitglieder: Aggregat, Nummernvergabe, Suche, Bearbeitung, Adresszeilen und Briefanrede
+   - 4a: Aggregat `Member` mit Personendaten und Änderungsbefehlen, Adresszeilen und Briefanrede
+   - 4b: Nummernvergabe, Zulassung und Ablehnung, Projektion und Suche, Services
+   - 4c: API mit Befehlen und Abfragen
+   - 4d: Frontend: Suche, Antrag, Detail- und Bearbeitungsseite
 5. Konten und Buchungen: Eintritt, Kündigung, Austritt/Auszahlung, Umbuchung, Kontoansicht
 6. Reports: die drei Excel-Listen zum Stichtag
 7. Migration der Altdaten (falls gewünscht, offen)
@@ -202,6 +206,27 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   gelesen; ein deaktivierter Benutzer verliert so sofort den Zugriff.
 - **Anteilspreis** ist eine Systemeinstellung des Admins. Eine Änderung gilt nur für neue Buchungen.
 
+### Mitglieder im Modell (Schritt 4)
+
+- **Abgrenzung:** Schritt 4 umfasst Personendaten, Antrag (Datum, gezeichnete Anteile, Nummer),
+  Zulassung und Ablehnung/Rücknahme, Suche, Bearbeitung, Adresszeilen und Briefanrede. Konto,
+  Buchungen und damit der Übergang zum Mitglied sowie Kündigung, Tod, Ausschluss und Ausscheiden
+  folgen in Schritt 5.
+- **Eindeutige Mitgliedsnummer über ein eigenes Aggregat `MemberNumbers`** mit einem einzigen
+  Stream: Jede Vergabe ist ein Event. Vergeben zwei Anträge gleichzeitig, scheitert der zweite an
+  der Versionsprüfung (`ConcurrencyError`) und versucht es mit der nächsten Nummer erneut. Auch
+  manuell vergebene Nummern (Migration) laufen darüber.
+- **Status wird zum Stichtag berechnet, nicht gespeichert:** Gespeichert werden nur Fakten
+  (Antrag, Zulassung, Ablehnung, später Eintrittsbuchung, Kündigung, Sterbedatum).
+  `status(stichtag)` leitet den Status daraus ab. Es gibt kein Event zum Jahreswechsel.
+- **Suche per `POST /api/members/search`** mit `{query}`: Ausnahme von „Abfragen per GET“, damit
+  Namen nicht im Access-Log stehen.
+- **Änderungen nach fachlicher Absicht:** eigene Befehle und Events für Name, Anschrift, Kontakt,
+  Adresszeilen, abweichende Briefanrede, „keine Post“ und Hinweise, kein allgemeines
+  „Daten ändern“.
+- **Die Art der Person** (natürlich/juristisch) wird beim Antrag festgelegt und ist danach nicht
+  änderbar. Bei einem Fehler wird der Antrag zurückgenommen und neu erfasst.
+
 ### Adresszeilen und Briefanrede
 
 - **Sechs Adresszeilen** als Anschriftzone nach DIN 5008, leere Zeilen werden zusammengeschoben:
@@ -354,8 +379,6 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 ## Offene Punkte
 
 - Access-Datei bzw. Tabellenexporte des Altsystems bereitstellen (in `Beispieldaten/`).
-- Mitgliedersuche (Schritt 4): Das Access-Log enthält Query-Parameter. Suchbegriffe dürfen nicht als
-  `GET ?q=Name` ins Log gelangen, also z. B. per POST suchen oder das Access-Log anpassen.
 
 ## Mögliche Weiterentwicklungen
 

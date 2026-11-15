@@ -1075,3 +1075,67 @@ npm run build
 - **Frontend:** Ob die beiden neuen Kennwörter gleich sind, prüft schon die Seite, das ist nur
   Komfort. Die Regeln prüft das Backend. Danach werden alle drei Felder geleert, auch nach einem
   Fehler, damit kein Kennwort im Formular stehen bleibt.
+
+## 2026-11-15 – Aggregat `Member` mit Adresszeilen und Briefanrede (Schritt 4a)
+
+**Was:**
+
+- `Plan.md`: Unterschritte 4a bis 4d und neuer Abschnitt „Mitglieder im Modell (Schritt 4)“ mit
+  Abgrenzung zu Schritt 5, Nummernvergabe über `MemberNumbers`, Status zum Stichtag, Suche per
+  POST, Änderungen nach fachlicher Absicht und unveränderlicher Art der Person. Der offene Punkt zur
+  Suche im Access-Log ist damit erledigt.
+- Neues Paket `backend/src/coop_manager/members/`:
+  - `values.py`: Die Wertobjekte `PersonName`, `Address` und `Contact`, die Konstanten (Art der
+    Person, Geschlecht) und die Prüfungen.
+  - `addressing.py`: `address_lines`, `long_address_lines`, `salutation` und `list_name` als reine
+    Funktionen.
+  - `domain.py`: Das Aggregat `Member` mit `apply` (Antrag erfassen) und den Änderungsbefehlen.
+- Tests: `tests/test_members_domain.py` und `tests/test_members_addressing.py`.
+
+**Events:**
+
+| Event | Daten |
+|---|---|
+| `member.applied` | `member_number`, `person_type`, `name`, `address`, `contact`, `address_lines`, `application_date`, `shares_subscribed` |
+| `member.name-changed` | `name` (Firmenname, Titel, Vornamen, Nachname, Geschlecht) |
+| `member.address-changed` | `address` (Straße, Hausnummer, PLZ, Ort, Land) |
+| `member.contact-changed` | `contact` (Telefon, E-Mail) |
+| `member.address-lines-changed` | `address_lines` (sechs Zeilen) |
+| `member.salutation-changed` | `salutation` (abweichende Briefanrede, leer = erzeugen) |
+| `member.mail-preference-changed` | `no_mail` |
+| `member.notes-changed` | `notes` |
+
+**Warum so:**
+
+- **Wertobjekte (Value Objects):** `PersonName`, `Address` und `Contact` sind `@dataclass(frozen=True)`.
+  Sie haben keine eigene Identität, zwei Anschriften mit denselben Feldern sind gleich (`==`).
+  `frozen` macht sie unveränderlich. Eine Änderung ist deshalb immer ein neues Objekt, und der
+  Vergleich `address != self.address` entscheidet, ob ein Event entsteht.
+- **Gruppen im Event:** `name` und `address` stehen als verschachtelte Dictionaries im Event
+  (`asdict(...)`). Beim Laden macht `PersonName(**event.data["name"])` wieder ein Objekt daraus.
+  `**` übergibt die Einträge des Dictionaries als benannte Argumente.
+- **Datum als Text:** Events werden als JSON gespeichert, und JSON kennt kein Datum. Darum
+  `application_date.isoformat()` (z. B. `"2026-11-02"`) und beim Laden `date.fromisoformat(...)`.
+- **Drei Dateien statt einer:** `domain.py` braucht beim Antrag die erzeugten Adresszeilen,
+  `addressing.py` braucht die Wertobjekte. Stünden die Wertobjekte in `domain.py`, würden sich beide
+  Dateien gegenseitig importieren. Mit `values.py` geht die Richtung nur in eine Richtung:
+  `values` ← `addressing` ← `domain`.
+- **Adresszeilen werden beim Antrag einmal erzeugt.** Danach ändern sie sich nur noch über
+  `change_address_lines`, von Hand oder später per Button „Adresszeilen erzeugen“. Ein Umzug ändert
+  sie nicht von selbst. So bleibt z. B. eine Anschrift an die Erben erhalten. Die Warnung, wenn
+  Name oder Anschrift nicht zu den Zeilen passen, kommt in 4c/4d.
+- **Briefanrede wird nie gespeichert,** nur die abweichende. `salutation(...)` erzeugt sie beim
+  Report. Reihenfolge: verstorben → abweichende Anrede → juristische Person → Geschlecht.
+- **Prüfungen:**
+  - Pflichtfelder hängen von der Art der Person ab: natürliche Person mit Vornamen und Nachname
+    und ohne Firmenname, juristische Person mit Firmenname und optionalem Ansprechpartner.
+  - Eine deutsche Postleitzahl hat fünf Ziffern, eine ausländische ist frei.
+  - Leeres Land bedeutet Deutschland.
+  - Obergrenzen für die Länge schützen die Datenbank. Die 35 Zeichen der Anschriftzone sind nur
+    eine Warnung (`long_address_lines`).
+- **`clean(...)`** vereinheitlicht wie beim Benutzer Unicode (NFC) und Leerzeichen. Hinweise sind
+  mehrzeilig, dort fällt nur Leerraum am Anfang und Ende weg.
+- **Linter-Hinweis B008:** `contact: Contact = Contact()` als Standardwert wird nur einmal beim
+  Definieren der Funktion ausgewertet und von allen Aufrufen geteilt. Bei veränderlichen Objekten
+  ist das eine klassische Falle. Darum `contact: Contact | None = None` und in der Funktion
+  `contact or Contact()`.
