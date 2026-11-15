@@ -13,6 +13,7 @@ from .login_attempts import LoginAttempts
 from .projections import UserView
 from .schemas import (
     ChangeFullName,
+    ChangeOwnPassword,
     ChangePassword,
     ChangeRole,
     LoginRequest,
@@ -63,6 +64,12 @@ def logout(request: Request, user: Annotated[UserView, Depends(current_user)]) -
 def me(request: Request, user: Annotated[UserView, Depends(current_user)]) -> Me:
     """Wer ist angemeldet? Die Vue-App fragt das beim Start und nach dem Neuladen."""
     return _me(request, user)
+
+
+@router.post("/me/change-password", status_code=204)
+def change_own_password(body: ChangeOwnPassword, db: Db, user: Annotated[UserView, Depends(current_user)]) -> None:
+    """Jeder Angemeldete darf sein eigenes Kennwort ändern; die Session bleibt bestehen."""
+    services.change_own_password(db, user.id, body.current_password, body.new_password)
 
 
 # --- Benutzerverwaltung (nur Admin): Abfragen ---

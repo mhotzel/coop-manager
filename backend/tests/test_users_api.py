@@ -129,3 +129,34 @@ def test_domain_error_becomes_400_with_detail(app, client):
     assert client.get("/healthz-domain-error").json() == {"detail": "Das geht so nicht."}
     assert client.get("/healthz-domain-error").status_code == 400
     assert client.get("/healthz-not-found").status_code == 404
+
+
+def test_change_own_password(client, register, login):
+    register()
+    login()
+
+    response = client.post(
+        "/api/me/change-password", json={"current_password": "Geheim-123", "new_password": "Neu-Geheim-456"}
+    )
+
+    assert response.status_code == 204
+    assert client.get("/api/me").status_code == 200  # weiter angemeldet
+    assert login(password="Neu-Geheim-456").status_code == 200
+
+
+def test_change_own_password_with_wrong_current_password(client, register, login):
+    register()
+    login()
+
+    response = client.post(
+        "/api/me/change-password", json={"current_password": "Falsch-123", "new_password": "Neu-Geheim-456"}
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Das bisherige Kennwort ist falsch."}
+
+
+def test_change_own_password_needs_login(client):
+    response = client.post("/api/me/change-password", json={"current_password": "x", "new_password": "y"})
+
+    assert response.status_code == 401

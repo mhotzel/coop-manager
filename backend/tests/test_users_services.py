@@ -123,6 +123,23 @@ def test_cannot_deactivate_or_terminate_oneself(db):
         services.terminate(db, user_id, actor=user_id)
 
 
+def test_change_own_password(db, attempts):
+    user_id = register(db)
+
+    services.change_own_password(db, user_id, PASSWORD, "Neu-Geheim-456")
+
+    assert services.authenticate(db, attempts, "erika", "Neu-Geheim-456") is not None
+    assert [event.actor for event in db.store.read_stream(user_id)] == ["test", user_id]
+
+
+def test_change_own_password_needs_current_password(db):
+    user_id = register(db)
+
+    with pytest.raises(DomainError, match="bisherige Kennwort ist falsch"):
+        services.change_own_password(db, user_id, "Falsch-123", "Neu-Geheim-456")
+    assert len(db.store.read_stream(user_id)) == 1  # nichts gespeichert
+
+
 # --- Login ---
 
 

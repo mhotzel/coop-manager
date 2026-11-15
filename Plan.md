@@ -30,6 +30,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 2c: Security-Header
    - 2d: Layout und Theme im Frontend
 3. Benutzerverwaltung: Login, Login-Sperre, Anlage durch Admin, Kennwort ändern, deaktivieren, löschen
+   – erledigt
    - 3a: Aggregat `User` mit Events, Prüfungen und Kennwort-Hash
    - 3b: Projektion, Services mit Login-Sperre, CLI `create-admin`
    - 3c: Login über die API: Session-Cookie, CSRF, Zugriffsprüfung je Rolle

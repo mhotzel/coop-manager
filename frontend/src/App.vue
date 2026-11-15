@@ -86,7 +86,10 @@ onUnmounted(() => {
       <span v-if="currentUser" class="badge">{{ currentUser.full_name }}</span>
     </div>
     <div class="action-right">
-      <button v-if="currentUser" type="button" class="btn btn-primary" @click="signOut">Abmelden</button>
+      <template v-if="currentUser">
+        <RouterLink :to="{ name: 'password' }" class="btn btn-secondary">Kennwort ändern</RouterLink>
+        <button type="button" class="btn btn-primary" @click="signOut">Abmelden</button>
+      </template>
     </div>
   </div>
   <div id="content-wrapper">

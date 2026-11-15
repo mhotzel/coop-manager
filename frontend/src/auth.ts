@@ -57,6 +57,14 @@ export async function logout(): Promise<void> {
   }
 }
 
+// Eigenes Kennwort ändern; die Anmeldung bleibt bestehen.
+export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<void> {
+  await api<void>('/api/me/change-password', {
+    method: 'POST',
+    body: { current_password: currentPassword, new_password: newPassword },
+  })
+}
+
 // Zum Anfang zurücksetzen, wenn das Backend die Session nicht mehr kennt (401).
 export function forget(): void {
   remember(null)

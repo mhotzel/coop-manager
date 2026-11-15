@@ -36,6 +36,11 @@ class Me(BaseModel):
     csrf_token: str
 
 
+class ChangeOwnPassword(BaseModel):
+    current_password: str = Password
+    new_password: str = Password
+
+
 class RoleOut(BaseModel):
     value: str
     label: str

@@ -1046,3 +1046,32 @@ npm run build
   ersetzt `find_env_file` durch eine Funktion, die nichts findet. So hängen die Tests nicht davon
   ab, ob und wie jemand eine lokale `.env` angelegt hat. Zwei neue Tests prüfen das Lesen der
   Datei, den Vorrang der Umgebung und die Suche nach oben.
+
+## 2026-11-15 – Eigenes Kennwort ändern (Schritt 3f)
+
+**Was:**
+
+- Backend: Der Befehl `POST /api/me/change-password` mit `{current_password, new_password}`, für
+  alle Angemeldeten. Dazu die Service-Funktion `change_own_password` und das Schema
+  `ChangeOwnPassword`. Tests in `test_users_services.py` und `test_users_api.py`.
+- Frontend: Die Seite `views/PasswordView.vue` unter `/password`, die Funktion
+  `changeOwnPassword` in `auth.ts` und der Button „Kennwort ändern“ in der Aktionsleiste.
+- `Plan.md`: Schritt 3 ist erledigt.
+
+**Warum so:**
+
+- **Das bisherige Kennwort ist Pflicht:** Sonst könnte jemand an einem kurz verlassenen,
+  angemeldeten Rechner das Kennwort ändern und den Besitzer aussperren.
+- **Die Prüfung steckt im Service, innerhalb von `_change`:** Die innere Funktion `change(user)`
+  prüft erst `user.check_password(...)` und ruft dann `user.change_password(...)` auf. Ist das
+  bisherige Kennwort falsch, entsteht kein Event. Der Test prüft das über die Länge des Streams.
+- **Dasselbe Event wie beim Admin** (`user.password-changed`). Der Unterschied steht im `actor`:
+  Hier ist es der Benutzer selbst, beim Neusetzen durch den Admin der Admin.
+- **Fehlversuche zählen nicht für die Login-Sperre:** Man muss ohnehin angemeldet sein. Jeder
+  Fehlversuch steht aber als Warnung im Log (`wrong current password`).
+- **Der Pfad heißt `/api/me/…`, nicht `/api/users/…`:** Der Befehl betrifft immer den angemeldeten
+  Benutzer. Die ID kommt aus der Session, nicht aus dem Body. So kann niemand darüber das Kennwort
+  eines anderen ändern.
+- **Frontend:** Ob die beiden neuen Kennwörter gleich sind, prüft schon die Seite, das ist nur
+  Komfort. Die Regeln prüft das Backend. Danach werden alle drei Felder geleert, auch nach einem
+  Fehler, damit kein Kennwort im Formular stehen bleibt.

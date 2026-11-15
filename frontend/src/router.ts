@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { ADMIN, currentUser } from './auth'
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
+import PasswordView from './views/PasswordView.vue'
 import UserEditView from './views/users/UserEditView.vue'
 import UserListView from './views/users/UserListView.vue'
 import UserNewView from './views/users/UserNewView.vue'
@@ -21,6 +22,8 @@ export const router = createRouter({
   routes: [
     { path: '/', name: 'home', component: HomeView },
     { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
+    // Ohne roles: Jeder Angemeldete darf sein Kennwort ändern.
+    { path: '/password', name: 'password', component: PasswordView },
     { path: '/users', name: 'users', component: UserListView, meta: { roles: [ADMIN] } },
     // Anders als in FastAPI egal, ob vor oder nach /users/:id: Feste Pfade gewinnen immer.
     { path: '/users/new', name: 'user-new', component: UserNewView, meta: { roles: [ADMIN] } },

@@ -34,6 +34,22 @@ def change_password(db: Database, user_id: str, password: str, actor: str) -> Us
     return _change(db, user_id, actor, lambda user: user.change_password(password))
 
 
+def change_own_password(db: Database, user_id: str, current_password: str, new_password: str) -> User:
+    """Der angemeldete Benutzer ändert sein Kennwort; dafür muss er das bisherige kennen.
+
+    So kann niemand an einem kurz verlassenen, angemeldeten Rechner das Kennwort ändern.
+    Fehlversuche zählen nicht für die Login-Sperre, werden aber geloggt.
+    """
+
+    def change(user: User) -> None:
+        if not user.check_password(current_password):
+            log.warning("wrong current password", extra={"user": user_id})
+            raise DomainError("Das bisherige Kennwort ist falsch.")
+        user.change_password(new_password)
+
+    return _change(db, user_id, user_id, change)
+
+
 def change_role(db: Database, user_id: str, role: str, actor: str) -> User:
     if user_id == actor and role != ADMIN:
         raise DomainError("Du kannst dir die Admin-Rolle nicht selbst entziehen.")
