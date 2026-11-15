@@ -30,6 +30,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 2c: Security-Header
    - 2d: Layout und Theme im Frontend
 3. Benutzerverwaltung: Login, Login-Sperre, Anlage durch Admin, Kennwort ändern, deaktivieren, löschen
+   - 3a: Aggregat `User` mit Events, Prüfungen und Kennwort-Hash
+   - 3b: Projektion, Services mit Login-Sperre, CLI `create-admin`
+   - 3c: Login über die API: Session-Cookie, CSRF, Zugriffsprüfung je Rolle
+   - 3d: Login im Frontend mit Vue Router
+   - 3e: Benutzerverwaltung durch den Admin, auch Kennwort neu setzen
+   - 3f: Eigenes Kennwort ändern
 4. Mitglieder: Aggregat, Nummernvergabe, Suche, Bearbeitung, Adresszeilen und Briefanrede
 5. Konten und Buchungen: Eintritt, Kündigung, Austritt/Auszahlung, Umbuchung, Kontoansicht
 6. Reports: die drei Excel-Listen zum Stichtag
@@ -175,6 +181,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Buchhaltung:** die Rolle der normalen Benutzer, alle Fachfunktionen einschließlich Storno.
 - **Buchhaltung lesend:** alle Fachdaten und Reports ansehen, nichts ändern (z. B. Aufsichtsrat).
 - **Ein Benutzer hat genau eine Rolle.** Wer mehrere Rollen braucht, bekommt mehrere Benutzerkonten.
+- **Der Admin kann das Kennwort eines Benutzers neu setzen**, etwa wenn es vergessen wurde.
+- **Kennwörter** werden mit Argon2 über `pwdlib` gehasht (von der FastAPI-Doku empfohlen).
+- **Session:** `SessionMiddleware` von Starlette, signiertes Cookie mit nur der Benutzer-ID darin,
+  Schlüssel aus `CM_SECRET_KEY`. Rolle und Aktiv-Status werden bei jeder Anfrage aus der Projektion
+  gelesen; ein deaktivierter Benutzer verliert so sofort den Zugriff.
 - **Anteilspreis** ist eine Systemeinstellung des Admins. Eine Änderung gilt nur für neue Buchungen.
 
 ### Adresszeilen und Briefanrede

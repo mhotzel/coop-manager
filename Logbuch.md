@@ -632,3 +632,63 @@ firefox --headless --window-size 1200,700 --screenshot desktop.png http://localh
   setzt `syncMenu` den Wert neu. `onUnmounted` meldet den Beobachter wieder ab.
 - **Geprüft** mit Screenshots aus Firefox ohne Fenster (`--headless`) in Desktop- und
   Handybreite.
+
+## 2026-11-15 – Aggregat `User` (Schritt 3a)
+
+**Was:**
+
+- `Plan.md`: Schritt 3 ist in die Unterschritte 3a bis 3f aufgeteilt. Neu eingetragen sind die
+  Entscheidungen zu Argon2 über `pwdlib`, zur Session über die `SessionMiddleware` und dazu, dass der
+  Admin Kennwörter neu setzen darf.
+- Neue Abhängigkeit `pwdlib[argon2]`.
+- `coop_manager/core/errors.py`: `DomainError` für verletzte fachliche Regeln.
+- `coop_manager/users/domain.py`: Aggregat `User` mit den Prüfungen für Benutzername, Name,
+  Kennwort und Rolle.
+- `tests/test_users_domain.py`.
+
+**Befehle:**
+
+```bash
+cd backend
+uv add "pwdlib[argon2]"     # [argon2] ist ein „Extra“: lädt zusätzlich argon2-cffi mit
+uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
+```
+
+**Events:**
+
+| Event | Daten |
+|---|---|
+| `user.registered` | `username`, `full_name`, `password_hash`, `role` |
+| `user.name-changed` | `full_name` |
+| `user.password-changed` | `password_hash` |
+| `user.role-changed` | `role` |
+| `user.deactivated`, `user.reactivated`, `user.terminated` | keine |
+
+**Warum so:**
+
+- **Vorbild ist `purchase-prices`**, mit einem Unterschied: Bei uns hat ein Benutzer genau eine
+  Rolle. Statt `role-added` und `role-removed` gibt es deshalb `role-changed`. Die Rolle wird schon
+  beim Anlegen übergeben, weil ein Benutzer ohne Rolle sinnlos wäre.
+- **Die Namen der Felder in den Events** folgen dem Code: `full_name` statt `fullname` wie in
+  `purchase-prices`.
+- **Kennwort-Hash:** Gespeichert wird nur der Hash, nie das Kennwort selbst. Argon2 ist absichtlich
+  langsam und braucht viel Speicher (64 MB). Wer die Datenbank stiehlt, kann so nicht Milliarden
+  Kennwörter pro Sekunde durchprobieren. Jeder Hash enthält ein zufälliges Salz, darum ergibt
+  dasselbe Kennwort jedes Mal einen anderen Hash. Der Hash beginnt mit
+  `$argon2id$v=19$m=65536,t=3,p=4$`. Darin stehen Verfahren und Einstellungen, damit `verify` später
+  weiß, wie es prüfen muss.
+- **`hash_password` und `verify_password` sind eigene Funktionen**, nicht nur Methoden. Der Login in
+  3b prüft das Kennwort gegen den Hash aus der Projektion, ohne das Aggregat zu laden.
+- **Normalisieren vor dem Prüfen:** `normalize_username` schreibt klein und entfernt Leerzeichen am
+  Rand, damit „Erika“ und „erika“ derselbe Benutzer sind. `normalize_full_name` bringt Umlaute in
+  eine einheitliche Unicode-Form (NFC). Ein „ä“ kann sonst als ein Zeichen oder als „a“ plus
+  Trema gespeichert sein, und Vergleiche gehen schief.
+- **Ob ein Benutzername schon vergeben ist,** kann das Aggregat nicht wissen. Es kennt nur sich
+  selbst. Das prüft in 3b der Service anhand der Projektion.
+- **`terminate` (löschen) geht nur bei deaktivierten Benutzern:** zwei Schritte als Schutz vor
+  versehentlichem Löschen. Die Events bleiben im Event Store, damit der `actor` alter Events
+  zuzuordnen bleibt.
+- **Tests:** `reloaded(user)` baut den Benutzer mit `User.from_events(...)` aus seinen Events neu
+  auf. So prüft jeder Test auch, dass die Handler mit `@on` den Zustand richtig wiederherstellen,
+  nicht nur, dass die Methode das Objekt geändert hat. Mit `pytest.mark.parametrize` läuft derselbe
+  Test mit mehreren ungültigen Eingaben.
