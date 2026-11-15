@@ -24,7 +24,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 1c: Events, Aggregate und Event Store
    - 1d: Projektionen
    - 1e: Anbindung an FastAPI
-2. Infrastruktur: Konfiguration, Logging, Security-Header, Layout, Theme
+2. Infrastruktur: Konfiguration, Logging, Security-Header, Layout, Theme – erledigt
    - 2a: Konfiguration (`CM_*`)
    - 2b: Logging als JSON-Zeilen auf stdout
    - 2c: Security-Header

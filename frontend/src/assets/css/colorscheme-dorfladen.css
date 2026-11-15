@@ -1,0 +1,46 @@
+:root {
+    /* Hauptfarben & RGB für Transparenzen */
+    --primary-color: #89b841;       
+    --primary-rgb: 137, 184, 65;    /* Derselbe Wert als RGB für rgba() */
+    --primary-hover: #76a135;
+    --primary-light-hover: #f1f8e9; /* Das ganz helle Grün für Tabellen-Hover */
+    
+    --secondary-color: #135b7a;     
+    --secondary-hover: #0d4a63;
+    
+    /* Grautöne & Hintergründe */
+    --bg-app: #ffffff;
+    --bg-sidebar: #d9d9d9;
+    --bg-nav-item: #e5e5e5;
+    --bg-nav-hover: #f1f1f1;
+    --bg-action-bar: #f1f1f1;
+    --bg-card-header: #f8f9fa;
+    --bg-table-even: #fafafa;
+    --bg-secondary-hover: #bfbfbf;
+    
+    /* Textfarben */
+    --text-main: #333333;
+    --text-dark: #000000;
+    --text-muted: #555555;
+    --text-label: #444444;
+    --text-light: #777777;
+    --text-white: #ffffff;
+    
+    /* Rahmen & Linien */
+    --border-color: #cccccc;
+    --border-subtle: #e1e4e8;
+    --border-table: #eeeeee;
+
+    /* Status-Farben (Hintergrund, Rahmen, Text) */
+    --info-color: #2196f3;
+    --info-bg: #e3f2fd;
+    --info-text: #0d47a1;
+    
+    --warning-color: #ff9800;
+    --warning-bg: #fff3e0;
+    --warning-text: #e65100;
+    
+    --error-color: #f44336;
+    --error-bg: #ffeae9;
+    --error-text: #b71c1c;
+}

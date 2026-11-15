@@ -584,3 +584,51 @@ uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
 - Im Modus `standard` meldet `pyright` Veraltetes nicht. Mit `reportDeprecated = "warning"` fällt es
   jetzt auch auf der Kommandozeile auf, nicht nur in VS Code bei geöffneter Datei. Zur Probe die
   alte Schreibweise kurz zurückgesetzt: Die Warnung erschien.
+
+## 2026-11-15 – Layout und Theme im Frontend (Schritt 2d)
+
+**Was:** Das Seitengerüst und das Farbschema aus `purchase-prices` stehen jetzt in der Vue-App.
+
+- `frontend/src/assets/css/colorscheme-dorfladen.css` und `style.css` sind unverändert aus
+  `purchase-prices` kopiert, `frontend/src/assets/img/dlslogo.png` ebenso.
+- `main.ts` importiert erst das Farbschema, dann `style.css`.
+- `App.vue` übernimmt das Gerüst aus `base.html.j2`: Kopfzeile mit Logo und „Mitgliederverwaltung“,
+  Aktionsleiste (noch leer, dort kommen in Schritt 3 Benutzername und Abmelden hin), Menü,
+  Inhaltsbereich mit einer Willkommenskarte und Fußzeile mit dem Backend-Status.
+- In `index.html` lautet der Titel jetzt „Mitgliederverwaltung“.
+
+**Befehle:**
+
+```bash
+cd frontend
+npm run build                       # Typprüfung (vue-tsc) und Build
+npx vite preview --port 4179        # gebaute App lokal ausliefern, zum Anschauen
+firefox --headless --window-size 1200,700 --screenshot desktop.png http://localhost:4179/
+```
+
+**Warum so:**
+
+- **Ohne Komponentenbibliothek, aber mit fertigem CSS:** Die Entscheidung steht in `Plan.md`. Beide
+  Anwendungen des Dorfladens sehen so gleich aus.
+- **CSS-Variablen:** `colorscheme-dorfladen.css` setzt unter `:root` nur Variablen wie
+  `--primary-color`. `style.css` verwendet sie mit `var(--primary-color)`. Wer die Farben ändern
+  will, ändert also nur die erste Datei. Deshalb muss sie zuerst geladen werden.
+- **CSS per `import` in `main.ts`:** Vite erkennt das und bündelt das CSS beim Bauen in eine eigene
+  Datei unter `dist/assets/`. Sie kommt vom eigenen Server und passt damit zur strengen CSP aus
+  Schritt 2c.
+- **Logo per `import logoUrl from './assets/img/dlslogo.png'`:** Vite liefert dafür die URL der
+  gebauten Datei. Die enthält einen Hash im Namen, z. B. `dlslogo-DR66A_zF.png`. Ändert sich das
+  Bild, ändert sich der Name, und kein Browser zeigt mehr die alte Fassung aus dem Cache.
+  `:src="logoUrl"` bindet den Wert an das Attribut. Der Doppelpunkt ist die Kurzform von `v-bind`.
+- **`v-for`:** Die Menüeinträge stehen als TypeScript-Liste `menuEntries` im Code, die Vorlage
+  erzeugt daraus mit `v-for` die Links. `:key` gibt jedem Eintrag eine feste Kennung, damit Vue
+  beim Neuzeichnen weiß, welcher Eintrag welcher ist. Die Einträge haben noch kein Ziel: Der Vue
+  Router kommt mit der ersten echten Seite (Login, Schritt 3).
+- **Menü auf dem Handy:** `<details>` ist ein HTML-Element, das sich per Klick auf `<summary>`
+  auf- und zuklappt. Breit soll es immer offen sein und als Seitenleiste dienen, auf dem Handy
+  geschlossen als „☰ Menü“. `purchase-prices` schaltet das mit `layout.js` über einen direkten
+  Zugriff auf das DOM. In Vue gibt es dafür den reaktiven Wert `menuOpen`, gebunden mit
+  `:open="menuOpen"`. `window.matchMedia(...)` beobachtet die Fensterbreite, bei einer Änderung
+  setzt `syncMenu` den Wert neu. `onUnmounted` meldet den Beobachter wieder ab.
+- **Geprüft** mit Screenshots aus Firefox ohne Fenster (`--headless`) in Desktop- und
+  Handybreite.

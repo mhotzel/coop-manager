@@ -1,0 +1,748 @@
+/* ==========================================================================
+   0. FARB-VARIABLEN (THEMING)
+   ========================================================================== */
+
+/*  Die Farbschemata entweder einbinden per 
+        @import url('colorscheme-dorfladen.css');
+    oder im Dokument VOR dem eigentlichen CSS!
+*/
+
+/* ==========================================================================
+   1. GLOBALER RESET & GRUND-SETUP
+   ========================================================================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: sans-serif;
+    overflow: hidden;
+    /* Verhindert das Scrollen der gesamten Seite auf Desktop */
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+}
+
+/* ==========================================================================
+   2. HEADER & ACTION BAR
+   ========================================================================== */
+header {
+    background-color: var(--primary-color);
+    color: var(--text-white);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.logo-container {
+    flex: 0 0 auto;
+    border: 1px solid var(--text-white);
+    border-radius: 3px;
+    padding: 1px;
+    background-color: var(--text-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-container img {
+    height: 34px;
+    display: block;
+}
+
+.header-title {
+    flex: 1;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-right: 40px;
+}
+
+.action-bar {
+    background-color: var(--bg-action-bar);
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.action-left {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.action-right {
+    display: flex;
+    gap: 10px;
+}
+
+.action-bar .btn {
+    padding: 5px 15px;
+    font-size: 0.85rem;
+}
+
+/* Verhindert, dass Links beim Anklicken kurz die Farbe wechseln (Browser-Standard) */
+a.btn:active,
+a.btn:visited {
+    text-decoration: none;
+}
+
+/* Sorgt dafür, dass die Maus immer den "Pointer" (Hand) zeigt, auch bei Buttons */
+.btn {
+    cursor: pointer;
+    user-select: none;
+    /* Verhindert, dass man den Text auf dem Button versehentlich markiert */
+}
+
+.badge {
+    background-color: var(--primary-color);
+    color: var(--text-white);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* ==========================================================================
+   3. LAYOUT (SIDEBAR & MAIN)
+   ========================================================================== */
+#content-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.nav {
+    width: 200px;
+    background-color: var(--bg-sidebar);
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border-color);
+}
+
+.nav ul {
+    list-style: none;
+}
+
+.nav li {
+    margin-bottom: 10px;
+}
+
+/* Alle Links in der Navigation stylen */
+.nav ul li a {
+    display: block;
+    /* Der Link füllt die ganze Breite der Zeile aus */
+    padding: 10px 15px;
+    margin-bottom: 5px;
+    background-color: var(--bg-nav-item);
+    color: var(--text-main);
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+    /* Vorbereitung für den Aktiv-Status */
+}
+
+/* Hover-Effekt (Maus drüber) */
+.nav ul li a:hover {
+    background-color: var(--bg-nav-hover);
+    border-left: 4px solid var(--primary-color);
+    padding-left: 20px;
+    color: var(--text-dark);
+}
+
+/* Aktiver Link (wenn man auf der Seite ist) */
+.nav ul li a.active {
+    background-color: var(--text-white);
+    border-left: 4px solid var(--primary-color);
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Mobiles Hamburger-Menü: Basis-Styling ---
+   Browser-Standardpfeil (Marker) vor dem <summary> entfernen.
+   Das Desktop-Verhalten (ul immer sichtbar) und das Mobile-Verhalten
+   (Hamburger-Button) stehen unten in eigenen Media-Queries. */
+.mobile-menu>summary {
+    list-style: none;
+}
+
+.mobile-menu>summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Desktop: Das <summary> (Hamburger-Button) wird ausgeblendet.
+   Dass <details> auf Desktop "immer offen" ist, regelt ein kleines
+   Script am Ende von layout.php, das das [open]-Attribut je nach
+   Viewport setzt. Rein per CSS ist das nicht zuverlässig möglich,
+   weil moderne Browser den Inhalt von <details> ohne [open] über
+   einen internen Shadow-DOM-Slot verstecken. */
+@media (min-width: 769px) {
+    .nav .mobile-menu>summary {
+        display: none;
+    }
+}
+
+main {
+    flex: 1;
+    padding: 20px;
+    background-color: var(--bg-app);
+    overflow-y: auto;
+}
+
+footer {
+    background-color: var(--primary-color);
+    color: var(--text-white);
+    padding: 10px 20px;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   4. KOMPONENTEN (STATUS, CARDS, FORMS)
+   ========================================================================== */
+.status-box {
+    padding: 15px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    display: block;
+}
+
+.status-box.info {
+    background-color: var(--info-bg);
+    border-left: 6px solid var(--info-color);
+    color: var(--info-text);
+}
+
+.status-box.warning {
+    background-color: var(--warning-bg);
+    border-left: 6px solid var(--warning-color);
+    color: var(--warning-text);
+}
+
+.status-box.error {
+    background-color: var(--error-bg);
+    border-left: 6px solid var(--error-color);
+    color: var(--error-text);
+}
+
+/* Eine Sektion dient als Container für Text oder Elemente außerhalb von Cards */
+.section {
+    margin-bottom: 2.5rem;
+    /* Gleicher oder etwas mehr Abstand nach unten wie Cards */
+    width: 100%;
+    display: block;
+}
+
+/* Optional: Falls der Text in der Section exakt so eingerückt sein soll 
+   wie der Text innerhalb einer Card (.card-content hat 20px Padding) */
+.section-content {
+    padding: 0 20px;
+}
+
+/* Du kannst die bestehenden Breiten-Klassen auch für Sections nutzen! */
+/* .section.card-small { max-width: 600px; } */
+
+.card {
+    background-color: var(--text-white);
+    border: 1px solid var(--border-subtle);
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header {
+    background-color: var(--bg-card-header);
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-weight: bold;
+    color: var(--text-light);
+}
+
+.card-content {
+    padding: 10px;
+    color: var(--text-main);
+    line-height: 1.5;
+    flex: 1;
+}
+
+.card-footer {
+    background-color: var(--bg-card-header);
+    padding: 10px 20px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.card-small {
+    max-width: 600px;
+    /* Oder 600px, je nach Geschmack */
+    width: 100%;
+    /* Wichtig für Mobile, damit sie dort schrumpfen kann */
+    margin-left: 0;
+    /* Bleibt linksbündig im Main-Bereich */
+    margin-right: auto;
+}
+
+/* Optional: Wenn die Card mittig im Bildschirm stehen soll */
+.card-center {
+    max-width: 600px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Container für Karten nebeneinander */
+.card-grid {
+    display: flex;
+    gap: 10px;
+    /* Abstand zwischen den Karten */
+    /* align-items: flex-start; Geändert wegen gleicher Kartenhöhe */
+    align-items: stretch;
+    /* Bewirkt, dass alle Items in der Reihe gleich hoch werden */
+    /* Verhindert, dass kleine Karten unnötig in die Länge gezogen werden */
+    flex-wrap: wrap;
+    /* Erlaubt den Umbruch auf dem Handy */
+    margin-bottom: 2rem;
+}
+
+/* Die Karten im Grid bekommen eine Basis-Breite */
+.card-grid .card {
+    flex: 1;
+    /* Sie teilen sich den Platz gleichmäßig auf */
+    min-width: 300px;
+    /* Ab 300px Platzbedarf pro Karte wird umgebrochen */
+    max-width: 600px;
+    /* Sie werden aber nie breiter als 600px */
+    margin-bottom: 0;
+    /* Der Abstand kommt jetzt vom 'gap' des Grids */
+}
+
+/* --- FORMULAR & SPEZIAL-BUTTON --- */
+.form-group {
+    margin-bottom: .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-row {
+    display: flex;
+    gap: 5px;
+    /* Abstand zwischen den Feldern */
+    flex-wrap: wrap;
+    /* Wichtig: Auf dem Handy brechen sie untereinander um */
+}
+
+.form-row .form-group {
+    flex: 1;
+    /* Felder teilen sich den Platz */
+    min-width: 100px;
+    /* Wenn weniger als 200px Platz ist -> Umbruch */
+}
+
+label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-label);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+input[type="date"],
+input[type="file"],
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    /* Entfernt Safari/Chrome-Standardstyles */
+    width: 100%;
+    /* max-width: 400px; */
+    padding: 5px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    /* Hier nutzen wir die RGB-Variable für die Transparenz */
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+input:invalid {
+    border-color: var(--warning-color);
+    /* background: var(--warning-bg); */
+    /* color: var(--warning-color); */
+}
+
+/* input:required {
+    border-color: var(--error-color);
+    background: var(--error-bg);
+    color: var(--error-color);
+} */
+
+/* Die Ausnahme-Klasse: Hebt die Begrenzung auf */
+.full-width {
+    max-width: 100% !important;
+}
+
+/* Speziell für Textareas (Mehrzeilige Texte) */
+textarea {
+    min-height: 100px;
+    resize: vertical;
+    /* Nutzer kann es nur hoch/runter ziehen, nicht in die Breite */
+    font-family: inherit;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+/* Erweitert: Gilt für Select, Text, Number und Password innerhalb einer Gruppe */
+.input-group {
+    display: flex;
+    gap: 5px;
+    align-items: flex-end;
+    /* Richtet Felder und Button an der Unterkante aus, falls Labels variieren */
+    width: 100%;
+}
+
+.input-group select,
+.input-group input[type="text"],
+.input-group input[type="password"],
+.input-group input[type="number"] {
+    flex: 1;
+    /* Alle diese Felder nehmen den verfügbaren Platz ein */
+    min-width: 0;
+    /* Verhindert, dass Inputs in Flex-Containern überlaufen */
+}
+
+.input-group .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    /* Verhindert, dass der Button zusammengedrückt wird */
+}
+
+fieldset {
+    border-radius: 5px;
+    padding: 5px;
+    border: 1px solid var(--border-color);
+}
+
+fieldset>legend {
+    padding: 3px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-label);
+}
+
+/*
+Beispiel - HTML:
+<div class="form-group">
+    <label for="pw">Passwort</label>
+    <div class="input-group">
+        <input type="password" id="pw" placeholder="Passwort eingeben...">
+        <button type="button" class="btn btn-outline">Anzeigen</button>
+    </div>
+</div>
+
+<div class="form-group">
+    <label for="user">Benutzername</label>
+    <div class="input-group">
+        <input type="text" id="user" placeholder="z.B. Max Mustermann">
+        <button type="button" class="btn btn-primary">Prüfen</button>
+    </div>
+</div>
+*/
+
+/* Der breite Submit-Button */
+.btn-submit {
+    background-color: var(--secondary-color);
+    color: var(--text-white);
+    border: none;
+    width: 100%;
+    /* max-width: 400px; */
+}
+
+.button-row {
+    display: grid;
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.button-row .btn {
+    width: auto;
+}
+
+.btn-submit:hover {
+    background-color: var(--secondary-hover);
+}
+
+/* ==========================================================================
+   5. BUTTON SYSTEM (ALLGEMEIN)
+   ========================================================================== */
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.btn-primary {
+    background-color: var(--secondary-color);
+    color: var(--text-white);
+}
+
+.btn-primary:hover {
+    background-color: var(--secondary-hover);
+}
+
+.btn-secondary {
+    background-color: var(--bg-nav-item);
+    color: var(--text-main);
+}
+
+.btn-secondary:hover {
+    background-color: var(--bg-secondary-hover);
+}
+
+.btn-outline {
+    background-color: var(--text-white);
+    border-color: var(--primary-color);
+    color: var(--text-main);
+}
+
+.btn-outline:hover {
+    background-color: var(--primary-light-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn+.btn {
+    margin-left: 10px;
+}
+
+/* File-Input: nativen Button wie .btn.btn-primary stylen */
+input[type="file"]::file-selector-button {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-block;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    background-color: var(--secondary-color);
+    color: var(--text-white);
+    margin-right: 10px;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: var(--secondary-hover);
+}
+
+/* ==========================================================================
+   6. TABELLEN DESIGN
+   ========================================================================== */
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 0.95rem;
+    min-width: 200px;
+}
+
+th {
+    background-color: var(--bg-card-header);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-align: left;
+    padding: 7px 9px;
+    border-bottom: 2px solid var(--border-subtle);
+    text-transform: uppercase;
+}
+
+td {
+    padding: 5px 7px;
+    border-bottom: 1px solid var(--border-table);
+    color: var(--text-label);
+}
+
+td a {
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.col-number {
+    text-align: left;
+}
+
+.col-number span {
+    display: inline-block;
+    min-width: 100px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.hidden {
+    padding: 0;
+    margin: 0;
+    visibility: hidden;
+}
+
+tbody tr:nth-child(even) {
+    background-color: var(--bg-table-even);
+}
+
+tbody tr:hover {
+    background-color: var(--primary-light-hover);
+}
+
+.status-tag {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-tag.info {
+    background: var(--info-bg);
+    color: var(--info-color);
+}
+
+.status-tag.warning {
+    background: var(--warning-bg);
+    color: var(--warning-color);
+}
+
+.status-tag.error {
+    background: var(--error-bg);
+    color: var(--error-color);
+}
+
+/* ==========================================================================
+   7. RESPONSIVES DESIGN (SMARTPHONE)
+   ========================================================================== */
+@media (max-width: 768px) {
+    html, body {
+        overflow: auto;
+        height: auto;
+    }
+
+    #app {
+        height: auto;
+    }
+
+    .logo-container {
+        display: none;
+    }
+
+    .header-title {
+        margin-right: 0;
+        text-align: center;
+    }
+
+    #content-wrapper {
+        flex-direction: column;
+        overflow: visible;
+    }
+
+    .nav {
+        width: 100%;
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    /* <summary> wird auf Mobile zum sichtbaren Hamburger-Button */
+    .nav .mobile-menu>summary {
+        display: block;
+        cursor: pointer;
+        padding: 10px 15px;
+        background-color: var(--bg-nav-item);
+        color: var(--text-main);
+        border-radius: 4px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        user-select: none;
+    }
+
+    .nav .mobile-menu>summary:hover {
+        background-color: var(--bg-nav-hover);
+    }
+
+    /* Offen: kleiner Abstand zwischen Button und Liste.
+       Auf/Zu-Logik erledigt das native <details>-Verhalten. */
+    .nav .mobile-menu[open]>ul {
+        margin-top: 10px;
+    }
+
+    .nav .mobile-menu[open]>ul li {
+        margin-bottom: 5px;
+    }
+
+    main {
+        padding: 15px;
+        overflow-y: visible;
+    }
+
+    .action-bar {
+        padding: 5px 10px;
+        justify-content: flex-end;
+    }
+
+    .action-left {
+        display: none;
+    }
+
+    th {
+        padding: 3px 5px;
+    }
+
+    td {
+        padding: 3px 5px;
+    }
+}
