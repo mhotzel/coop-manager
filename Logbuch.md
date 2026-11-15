@@ -532,3 +532,21 @@ uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
 - **Für später (Schritt 8):** Beim Start über die Kommandozeile hängt uvicorn selbst schon eine
   `ProxyHeadersMiddleware` ein, die standardmäßig nur `127.0.0.1` vertraut. Im Container prüfen,
   dass sie sich nicht mit unserer in die Quere kommt, z. B. mit `--no-proxy-headers`.
+
+## 2026-11-15 – VS Code findet die virtuelle Umgebung von selbst
+
+**Was:** Neue Datei `.vscode/settings.json` mit
+`"python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python"`.
+
+**Warum so:**
+
+- Nachdem `uv sync` die Umgebung `backend/.venv` neu aufgebaut hatte, meldete VS Code in
+  `tests/test_eventsource.py`, dass `import pytest` und `import coop_manager…` nicht aufgelöst werden
+  können. VS Code hatte sich noch den alten Interpreter gemerkt. Dieser Fehler kam nur von Pylance:
+  `pyright` auf der Kommandozeile nutzt `uv run` und damit immer die richtige Umgebung.
+- Die Umgebung liegt in `backend/` und nicht direkt im geöffneten Ordner. Deshalb findet VS Code
+  sie nicht immer von selbst. Die Einstellung sagt es ihm ausdrücklich.
+- `${workspaceFolder}` ist der in VS Code geöffnete Projektordner. So passt der Pfad auf jedem
+  Rechner, auf dem das Repository liegt.
+- Die Datei wird eingecheckt, weil sie nur den Projektaufbau beschreibt und keine persönlichen
+  Vorlieben enthält.
