@@ -2,11 +2,17 @@ from pydantic import BaseModel, Field
 
 from .projections import UserView
 
+# Obergrenzen, damit niemand riesige Texte schickt, z. B. durch den absichtlich langsamen Hash.
+# Die fachlichen Regeln (Länge, erlaubte Zeichen) prüft das Aggregat.
+Username = Field(max_length=100)
+FullName = Field(max_length=200)
+Password = Field(max_length=200)
+UserId = Field(max_length=100)
+
 
 class LoginRequest(BaseModel):
-    # Obergrenzen, damit niemand riesige Texte durch den (absichtlich langsamen) Hash schickt.
-    username: str = Field(max_length=100)
-    password: str = Field(max_length=200)
+    username: str = Username
+    password: str = Password
 
 
 class UserOut(BaseModel):
@@ -16,10 +22,11 @@ class UserOut(BaseModel):
     username: str
     full_name: str
     role: str
+    active: bool
 
     @classmethod
     def from_view(cls, user: UserView) -> UserOut:
-        return cls(id=user.id, username=user.username, full_name=user.full_name, role=user.role)
+        return cls(id=user.id, username=user.username, full_name=user.full_name, role=user.role, active=user.active)
 
 
 class Me(BaseModel):
@@ -27,3 +34,36 @@ class Me(BaseModel):
 
     user: UserOut
     csrf_token: str
+
+
+class RoleOut(BaseModel):
+    value: str
+    label: str
+
+
+# --- Befehle: je einer pro fachlicher Aktion, alle Daten im Body ---
+
+
+class RegisterUser(BaseModel):
+    username: str = Username
+    full_name: str = FullName
+    password: str = Password
+    role: str = Field(max_length=50)
+
+
+class UserCommand(BaseModel):
+    """Befehl, der nur den betroffenen Benutzer braucht (deactivate, reactivate, terminate)."""
+
+    user_id: str = UserId
+
+
+class ChangeFullName(UserCommand):
+    full_name: str = FullName
+
+
+class ChangeRole(UserCommand):
+    role: str = Field(max_length=50)
+
+
+class ChangePassword(UserCommand):
+    password: str = Password

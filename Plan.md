@@ -73,6 +73,14 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Datenbankzugriff über `Depends(get_db)`:** Jeder Request öffnet eigene Verbindungen und schließt
   sie danach. Endpunkte sind normale `def`-Funktionen, weil `sqlite3` blockiert; deshalb laufen die
   Verbindungen mit `check_same_thread=False`.
+- **API nach Befehlen und Abfragen (aufgabenorientiert, wie bei DDD/CQRS):** Abfragen lesen per
+  `GET` (`GET /api/users`, `GET /api/users/{id}`). Befehle ändern per `POST`, heißen nach der
+  fachlichen Absicht wie die Methode am Aggregat und tragen alle Daten im JSON-Body, auch die ID:
+  `POST /api/users/register`, `POST /api/users/change-role` mit `{user_id, role}`. Pfade in
+  kebab-case, JSON-Felder in snake_case. Ein Befehl liefert das geänderte Objekt zurück. Kein
+  REST mit `PUT`/`DELETE`, weil dabei die fachliche Absicht verloren geht.
+- **Menü und Seiten nach Rolle:** Der Admin sieht nur die Benutzerverwaltung, die Buchhaltung die
+  Fachfunktionen. Der Router prüft die Rolle ebenfalls, verbindlich ist aber die Prüfung im Backend.
 - **Alle Fachlogik im Backend**, auch Adresszeilen, Briefanrede und Nummernvergabe; das Frontend
   zeigt an und ruft die API auf.
 - **Sprache:** Code, Events und Bezeichner englisch nach dem Glossar unten, Oberfläche und

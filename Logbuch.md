@@ -906,3 +906,60 @@ curl -b cookies http://localhost:8001/api/me
   zurückschickt. Geprüft wurde: `/me` ohne Login gibt 401, ein falsches Kennwort gibt 401, der Login
   klappt auch mit „Chefin“ in anderer Schreibweise, `/me` mit Cookie gibt 200, Logout ohne CSRF gibt
   403, mit CSRF 204, danach gibt `/me` wieder 401.
+
+## 2026-11-15 – Benutzerverwaltung im Backend (Schritt 3e, Teil 1)
+
+**Was:**
+
+- `Plan.md`: Neue Regel „API nach Befehlen und Abfragen“ und die Regel, dass Menü und Seiten von
+  der Rolle abhängen.
+- `users/api.py`: Die Endpunkte der Benutzerverwaltung, alle nur für den Admin:
+
+  ```
+  GET  /api/users                     Abfrage: Liste
+  GET  /api/users/roles               Abfrage: Rollen mit deutschen Namen
+  GET  /api/users/{user_id}           Abfrage: ein Benutzer
+  POST /api/users/register            Befehl {username, full_name, password, role}
+  POST /api/users/change-full-name    Befehl {user_id, full_name}
+  POST /api/users/change-role         Befehl {user_id, role}
+  POST /api/users/change-password     Befehl {user_id, password}
+  POST /api/users/deactivate          Befehl {user_id}
+  POST /api/users/reactivate          Befehl {user_id}
+  POST /api/users/terminate           Befehl {user_id}, Antwort 204
+  ```
+
+- `users/schemas.py`: Je Befehl ein Pydantic-Modell. `UserOut` hat jetzt das Feld `active`.
+- `tests/conftest.py`: Die gemeinsamen Fixtures `app`, `client`, `db`, `register` und `login`.
+- `tests/test_users_admin_api.py`. `tests/test_users_api.py` nutzt jetzt die gemeinsamen Fixtures.
+
+**Warum so:**
+
+- **Befehle statt REST:** Matthias' Einwand. Bei REST wird „Rolle ändern“ zu „Ressource `role`
+  ersetzen“ (`PUT`), und „löschen“ zu `DELETE`. Damit geht die fachliche Absicht verloren. In DDD
+  und CQRS heißt ein Befehl nach dem, was fachlich passiert. Bei uns entspricht jeder Befehl genau
+  einer Methode am Aggregat und einem Event (`change-role` → `User.change_role` →
+  `user.role-changed`). Abfragen bleiben `GET`.
+- **Namen wie im Domänenmodell:** `register` statt `create`, `terminate` statt `delete`. API,
+  Code und Events sprechen dieselbe Sprache („Ubiquitous Language“).
+- **Die ID steht im Body:** Ein Befehl ist so eine vollständige Nachricht. In der URL und damit
+  im Access-Log stehen keine Daten.
+- **kebab-case in Pfaden** (`change-role`): üblich bei URLs. Groß- und Kleinschreibung in Pfaden
+  führt leicht zu Fehlern.
+- **Ein Befehl liefert das Ergebnis:** Nach dem Speichern ist die Projektion schon aktuell, weil
+  `db.save` sie synchron nachzieht. `_user_out` liest den Benutzer von dort und gibt ihn zurück.
+  `terminate` antwortet mit 204, weil es den Benutzer danach nicht mehr gibt.
+- **`Db` und `Admin` als Kurzformen:**
+  `Admin = Annotated[UserView, Depends(require_role(ADMIN))]` steht einmal oben. Jeder Endpunkt
+  schreibt dann nur `admin: Admin`. Der Parameter prüft die Rolle und liefert zugleich den
+  `actor` für die Events.
+- **Reihenfolge der Routen:** `/users/roles` muss vor `/users/{user_id}` stehen. FastAPI prüft die
+  Routen der Reihe nach und hielte sonst „roles“ für eine Benutzer-ID.
+- **Die Regeln stehen nur im Service:** Die API prüft nichts selbst, z. B. „nicht sich selbst
+  deaktivieren“. Sie reicht den `DomainError` durch, und der Fehler-Handler macht daraus 400 mit
+  der deutschen Meldung.
+- **`conftest.py`:** pytest lädt diese Datei von selbst. Ihre Fixtures stehen allen Tests im
+  Ordner zur Verfügung, ohne Import. `register` und `login` sind Fixtures, die eine Funktion
+  liefern, wie in `purchase-prices`. `login` setzt nach erfolgreicher Anmeldung den CSRF-Header
+  dauerhaft am Client. Die Tests schreiben dann nur noch `client.post(...)`.
+- **Stolperstein `httpx2`:** Der `TestClient` von Starlette 1.x baut auf dem Paket `httpx2` auf,
+  dem Nachfolger von `httpx`. Der Typ für Antworten heißt deshalb `httpx2.Response`.
