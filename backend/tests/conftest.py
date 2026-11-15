@@ -17,6 +17,12 @@ from coop_manager.users.domain import ACCOUNTING
 PASSWORD = "Geheim-123"
 
 
+@pytest.fixture(autouse=True)
+def no_env_file(monkeypatch):
+    """Die Tests sollen nicht von einer lokalen .env abhängen; autouse = gilt für jeden Test."""
+    monkeypatch.setattr("coop_manager.config.find_env_file", lambda: "")
+
+
 @pytest.fixture
 def app(tmp_path) -> FastAPI:
     return create_app(Settings(data_dir=tmp_path, secret_key="test-key"))

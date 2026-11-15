@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import dotenv_values, find_dotenv
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -17,9 +19,21 @@ class Settings:
     session_cookie_secure: bool = True
 
 
+def find_env_file() -> str:
+    """Sucht `.env` im aktuellen Ordner und darüber; aus backend/ heraus also auch ../.env.
+
+    Liefert einen leeren Text, wenn es keine gibt, z. B. im Container.
+    """
+    return find_dotenv(usecwd=True)
+
+
 def load_settings() -> Settings:
-    """Liest die Konfiguration aus den CM_*-Umgebungsvariablen (siehe .env.example)."""
-    env = os.environ
+    """Liest die Konfiguration aus den CM_*-Umgebungsvariablen (siehe .env.example).
+
+    Gibt es eine `.env`, gelten ihre Werte ebenfalls. Echte Umgebungsvariablen gehen vor, damit man
+    einzelne Werte beim Start überschreiben kann. `os.environ` selbst bleibt unverändert.
+    """
+    env = _read_env_file(find_env_file()) | dict(os.environ)
     return Settings(
         data_dir=Path(env.get("CM_DATA_DIR", "data")),
         log_level=env.get("CM_LOG_LEVEL", "INFO").upper(),
@@ -30,6 +44,13 @@ def load_settings() -> Settings:
         session_timeout=int(env.get("CM_SESSION_TIMEOUT", "1800")),
         session_cookie_secure=_bool(env.get("CM_SESSION_COOKIE_SECURE", "true")),
     )
+
+
+def _read_env_file(path: str) -> dict[str, str]:
+    """Die Einträge der Datei; Zeilen ohne `=` (Wert None) fallen weg."""
+    if not path:
+        return {}
+    return {key: value for key, value in dotenv_values(path).items() if value is not None}
 
 
 def _list(value: str) -> tuple[str, ...]:

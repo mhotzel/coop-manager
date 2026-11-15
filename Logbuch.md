@@ -1031,3 +1031,18 @@ npm run build
   `secrets.token_hex(32)`. Damit bleibt man beim Entwickeln angemeldet, auch wenn `--reload` den
   Server neu startet. Die Datei ist per `.gitignore` ausgeschlossen und nur für den Besitzer
   lesbar (`chmod 600`).
+
+**Nachtrag – `.env` wird automatisch gelesen:**
+
+- Neue Abhängigkeit `python-dotenv`.
+- `load_settings()` sucht mit `find_dotenv(usecwd=True)` eine `.env` im aktuellen Ordner und
+  darüber. Aus `backend/` heraus findet es so `../.env`. `--env-file` ist nicht mehr nötig.
+- **Vorrang:** `_read_env_file(...) | dict(os.environ)`. Der Operator `|` verbindet zwei
+  Dictionaries, bei gleichem Schlüssel gewinnt das rechte. Echte Umgebungsvariablen gehen also vor.
+  Im Container setzt Docker die Werte, eine `.env` gibt es dort nicht.
+- **`os.environ` bleibt unverändert:** Anders als `load_dotenv()` liest `dotenv_values()` die Datei
+  nur. Sonst würden Werte aus der `.env` in Tests und Unterprozesse durchsickern.
+- **Tests:** Die Fixture `no_env_file` in `conftest.py` mit `autouse=True` gilt für jeden Test. Sie
+  ersetzt `find_env_file` durch eine Funktion, die nichts findet. So hängen die Tests nicht davon
+  ab, ob und wie jemand eine lokale `.env` angelegt hat. Zwei neue Tests prüfen das Lesen der
+  Datei, den Vorrang der Umgebung und die Suche nach oben.

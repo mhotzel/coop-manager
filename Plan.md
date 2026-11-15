@@ -104,8 +104,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   `CM_TRUSTED_PROXIES` (uvicorns `ProxyHeadersMiddleware`).
 - **Python über uv:** uv verwaltet das Python selbst (`uv python install`), damit ein Upgrade der
   Distribution die Umgebung nicht bricht.
-- **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_`, Logs als JSON-Zeilen auf
-  stdout, `/healthz`, Backup des Event Stores per CLI-Befehl.
+- **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_` (eine vorhandene `.env` wird
+  automatisch gelesen, echte Umgebungsvariablen gehen vor), Logs als JSON-Zeilen auf stdout,
+  `/healthz`, Backup des Event Stores per CLI-Befehl.
 - **Werkzeuge:** Python 3.14, `uv`, `ruff` (Zeilenlänge 120), `pyright` (Modus `standard`,
   `reportDeprecated` als Warnung), `pytest` (Domain, Services, API), `openpyxl` für die Reports.
   Frontend-Tests vorerst nicht, später bei Bedarf Vitest.

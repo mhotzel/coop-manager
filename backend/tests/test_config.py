@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from coop_manager.config import load_settings
+from coop_manager.config import find_env_file, load_settings
 
 
 def test_data_dir_has_default(monkeypatch):
@@ -52,3 +52,26 @@ def test_session_cookie_secure_can_be_switched_off(monkeypatch):
     monkeypatch.setenv("CM_SESSION_COOKIE_SECURE", "false")
 
     assert load_settings().session_cookie_secure is False
+
+
+def test_env_file_is_read(monkeypatch, tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("# Kommentar\nCM_LOG_LEVEL=warning\nCM_DATA_DIR=/srv/aus-datei\n")
+    monkeypatch.setattr("coop_manager.config.find_env_file", lambda: str(env_file))
+    monkeypatch.delenv("CM_LOG_LEVEL", raising=False)
+    monkeypatch.setenv("CM_DATA_DIR", "/srv/aus-umgebung")
+
+    settings = load_settings()
+
+    assert settings.log_level == "WARNING"  # aus der Datei
+    assert settings.data_dir == Path("/srv/aus-umgebung")  # Umgebung geht vor
+
+
+def test_env_file_is_searched_upwards(monkeypatch, tmp_path):
+    # find_env_file ist hier die Originalfunktion: Die Fixture no_env_file ersetzt nur den Eintrag im
+    # Modul coop_manager.config, nicht diesen Namen, der schon beim Import geholt wurde.
+    (tmp_path / ".env").write_text("CM_LOG_LEVEL=error\n")
+    (tmp_path / "backend").mkdir()
+    monkeypatch.chdir(tmp_path / "backend")
+
+    assert find_env_file() == str(tmp_path / ".env")
