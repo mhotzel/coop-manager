@@ -4,12 +4,18 @@ import { ref } from 'vue'
 
 import { api, ApiError, setCsrfToken } from './api'
 
+// Die Rollen wie im Backend (users/domain.py).
+export const ADMIN = 'admin'
+export const ACCOUNTING = 'accounting'
+export const ACCOUNTING_READONLY = 'accounting_readonly'
+
 // Muss zu UserOut im Backend passen (users/schemas.py).
 export interface User {
   id: string
   username: string
   full_name: string
   role: string
+  active: boolean
 }
 
 // Muss zu Me im Backend passen.

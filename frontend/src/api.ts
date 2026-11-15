@@ -61,6 +61,11 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   return (await response.json()) as T
 }
 
+// Text für die Fehlerbox einer Seite, egal welcher Fehler aufgetreten ist.
+export function errorText(error: unknown): string {
+  return error instanceof ApiError ? error.message : 'Der Server ist nicht erreichbar.'
+}
+
 async function errorMessage(response: Response): Promise<string> {
   if (response.status === 422) {
     return 'Die Eingaben sind unvollständig oder ungültig.'

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import logoUrl from './assets/img/dlslogo.png'
-import { currentUser, logout } from './auth'
+import { ACCOUNTING, ACCOUNTING_READONLY, ADMIN, currentUser, logout } from './auth'
 
 const router = useRouter()
 
@@ -12,17 +12,28 @@ interface Health {
   status: string
 }
 
-// Ein Eintrag im Menü. Ein Ziel (Route) kommt dazu, sobald es Seiten gibt.
+// Ein Eintrag im Menü: Ziel (Name der Route) und die Rollen, die ihn sehen.
+// Einträge ohne Ziel sind Platzhalter für Seiten, die erst noch entstehen.
 interface MenuEntry {
   title: string
+  to?: string
+  roles: string[]
 }
 
+const FACHLICH = [ACCOUNTING, ACCOUNTING_READONLY]
+
 const menuEntries: MenuEntry[] = [
-  { title: 'Mitglieder' },
-  { title: 'Konten' },
-  { title: 'Reports' },
-  { title: 'Benutzer' },
+  { title: 'Mitglieder', roles: FACHLICH },
+  { title: 'Konten', roles: FACHLICH },
+  { title: 'Reports', roles: FACHLICH },
+  { title: 'Benutzer', to: 'users', roles: [ADMIN] },
 ]
+
+// Nur die Einträge, die zur Rolle des angemeldeten Benutzers passen.
+const visibleEntries = computed(() => {
+  const role = currentUser.value?.role
+  return menuEntries.filter((entry) => role !== undefined && entry.roles.includes(role))
+})
 
 // ref() macht den Wert reaktiv: Ändert er sich, zeichnet Vue die Anzeige neu.
 const backendStatus = ref<string>('wird geprüft …')
@@ -35,6 +46,9 @@ const menuOpen = ref<boolean>(wideScreen.matches)
 function syncMenu(): void {
   menuOpen.value = wideScreen.matches
 }
+
+// Auf dem Handy das Menü nach jedem Seitenwechsel wieder zuklappen.
+router.afterEach(syncMenu)
 
 onMounted(async () => {
   wideScreen.addEventListener('change', syncMenu)
@@ -78,12 +92,18 @@ onUnmounted(() => {
   <div id="content-wrapper">
     <!-- Das Menü gibt es erst nach der Anmeldung. -->
     <nav v-if="currentUser" class="nav">
-      <details class="mobile-menu" :open="menuOpen">
+      <!-- @toggle: Klappt man das Menü per Klick auf, merkt sich menuOpen das ebenfalls. -->
+      <details
+        class="mobile-menu"
+        :open="menuOpen"
+        @toggle="menuOpen = ($event.target as HTMLDetailsElement).open"
+      >
         <summary>☰ Menü</summary>
         <ul>
-          <!-- Platzhalter ohne Ziel; die Seiten dazu entstehen in den nächsten Schritten. -->
-          <li v-for="entry in menuEntries" :key="entry.title">
-            <a>{{ entry.title }}</a>
+          <li v-for="entry in visibleEntries" :key="entry.title">
+            <!-- active-class: style.css markiert den aktiven Eintrag mit der Klasse „active“. -->
+            <RouterLink v-if="entry.to" :to="{ name: entry.to }" active-class="active">{{ entry.title }}</RouterLink>
+            <a v-else>{{ entry.title }}</a>
           </li>
         </ul>
       </details>

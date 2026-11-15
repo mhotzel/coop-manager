@@ -963,3 +963,71 @@ curl -b cookies http://localhost:8001/api/me
   dauerhaft am Client. Die Tests schreiben dann nur noch `client.post(...)`.
 - **Stolperstein `httpx2`:** Der `TestClient` von Starlette 1.x baut auf dem Paket `httpx2` auf,
   dem Nachfolger von `httpx`. Der Typ für Antworten heißt deshalb `httpx2.Response`.
+
+## 2026-11-15 – Benutzerverwaltung im Frontend (Schritt 3e, Teil 2)
+
+**Was:**
+
+- `frontend/src/users.ts`: Je Abfrage und Befehl der Benutzer-API eine Funktion, z. B.
+  `changeRole(userId, role)`.
+- `views/users/UserListView.vue` (`/users`): Tabelle mit Benutzername, Name, Rolle und Status.
+- `views/users/UserNewView.vue` (`/users/new`): Formular zum Anlegen. Danach geht es zur
+  Bearbeitungsseite.
+- `views/users/UserEditView.vue` (`/users/:id`):
+  - Name, Rolle und Kennwort ändern.
+  - Deaktivieren, reaktivieren und löschen, mit Rückfrage. Bei sich selbst ist der Bereich
+    ausgeblendet.
+- `router.ts`: Die drei Routen mit `meta: { roles: [ADMIN] }`. Der Guard prüft die Rolle.
+- `App.vue`: Das Menü zeigt nur die Einträge zur eigenen Rolle. „Benutzer“ ist ein `RouterLink`.
+  Auf dem Handy klappt das Menü nach einem Seitenwechsel wieder zu.
+- `auth.ts`: Die Rollen-Konstanten. `User` hat jetzt das Feld `active`.
+- `api.ts`: `errorText(e)` für die Fehlerbox.
+
+**Befehle:**
+
+```bash
+cd frontend
+npx vue-tsc --build      # nur Typprüfung
+npm run build
+```
+
+**Warum so:**
+
+- **`users.ts` statt `fetch` in den Seiten:** Die Seiten rufen `changeRole(...)` auf und kennen
+  weder Pfade noch JSON-Felder. Der Name passt zum Befehl im Backend (`/api/users/change-role`).
+- **`computed`:** `visibleEntries` im Menü und `isSelf` auf der Bearbeitungsseite werden
+  automatisch neu berechnet, wenn sich die Werte ändern, von denen sie abhängen, z. B. nach dem
+  Login eines anderen Benutzers.
+- **`Promise.all([...])`** schickt mehrere Anfragen gleichzeitig ab und wartet auf alle, hier die
+  Benutzer und die Rollen.
+- **`run(command, success)`** fasst zusammen, was jeder Befehl braucht: Meldungen leeren, Buttons
+  sperren, Befehl ausführen, Ergebnis anzeigen oder Fehler zeigen. Die einzelnen Befehle sind
+  Einzeiler wie `saveRole`.
+- **Stolperstein:** Zuerst standen die Befehle direkt in der Vorlage, z. B.
+  `@submit.prevent="run(() => users.changeRole(...))"`, mit `import * as users`. `vue-tsc`
+  meldete: „Property 'value' does not exist“. Vue behandelt Namen aus dem Script in der Vorlage, als
+  könnten sie ein `ref` sein, und das passt nicht zu einem Namespace-Import. Mit benannten
+  Funktionen im Script ist die Vorlage auch leichter zu lesen.
+- **`props: true` im Router** gibt `:id` aus dem Pfad als Prop an die Komponente.
+  `defineProps<{ id: string }>()` legt den Typ fest. Die Komponente muss so nichts über den Router
+  wissen.
+- **`declare module 'vue-router' { interface RouteMeta … }`** macht TypeScript mit unseren eigenen
+  `meta`-Feldern bekannt (`public`, `roles`). Ohne diese Angabe wäre `to.meta.roles` vom Typ
+  `unknown`.
+- **Feste Pfade gewinnen:** Anders als FastAPI ordnet der Vue Router Routen nach Spezifität.
+  `/users/new` passt immer vor `/users/:id`, die Reihenfolge ist egal.
+- **`@toggle` am Menü:** Klappt man es auf dem Handy per Klick auf, ändert der Browser das
+  `open`-Attribut selbst. `@toggle` überträgt das auf `menuOpen`. Sonst wüsste Vue nichts davon,
+  und das Zuklappen nach einem Seitenwechsel (`router.afterEach`) würde nicht greifen.
+- **Selbst-Schutz zweifach:** Die Seite blendet „Deaktivieren“ und „Löschen“ bei sich selbst aus,
+  wie `purchase-prices`. Verbindlich ist die Regel im Backend-Service.
+- **`confirm()`** ist die einfache Rückfrage des Browsers. Ein eigener Dialog lohnt sich erst, wenn
+  es mehr davon gibt.
+- **Zentriert:** Die Masken zum Anlegen und Bearbeiten stehen mittig, mit `card-center` aus
+  `style.css`: höchstens 600 px breit, links und rechts `margin: auto`. Auf der Bearbeitungsseite
+  steckt die ganze Seite in `<div class="card-center">`, damit auch die Meldungen und
+  „Zurück zur Liste“ mittig stehen. Die Liste bleibt breit, weil die Tabelle den Platz braucht.
+- **Lokale `.env`:** Kopie von `.env.example` mit eigenem `CM_SECRET_KEY` aus
+  `secrets.token_hex(32)`. Damit bleibt man beim Entwickeln angemeldet, auch wenn `--reload` den
+  Server neu startet. Die Datei ist per `.gitignore` ausgeschlossen und nur für den Besitzer
+  lesbar (`chmod 600`).
