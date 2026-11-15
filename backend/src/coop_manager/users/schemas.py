@@ -11,6 +11,8 @@ UserId = Field(max_length=100)
 
 
 class LoginRequest(BaseModel):
+    """Zugangsdaten für `POST /api/login`."""
+
     username: str = Username
     password: str = Password
 
@@ -26,6 +28,7 @@ class UserOut(BaseModel):
 
     @classmethod
     def from_view(cls, user: UserView) -> UserOut:
+        """Übernimmt die Felder aus der Projektion, ohne den Kennwort-Hash."""
         return cls(id=user.id, username=user.username, full_name=user.full_name, role=user.role, active=user.active)
 
 
@@ -37,11 +40,15 @@ class Me(BaseModel):
 
 
 class ChangeOwnPassword(BaseModel):
+    """Befehl: eigenes Kennwort ändern, mit dem bisherigen zur Bestätigung."""
+
     current_password: str = Password
     new_password: str = Password
 
 
 class RoleOut(BaseModel):
+    """Eine Rolle: Wert im Code und deutscher Name."""
+
     value: str
     label: str
 
@@ -50,6 +57,8 @@ class RoleOut(BaseModel):
 
 
 class RegisterUser(BaseModel):
+    """Befehl: Benutzer anlegen."""
+
     username: str = Username
     full_name: str = FullName
     password: str = Password
@@ -63,12 +72,18 @@ class UserCommand(BaseModel):
 
 
 class ChangeFullName(UserCommand):
+    """Befehl: Namen eines Benutzers ändern."""
+
     full_name: str = FullName
 
 
 class ChangeRole(UserCommand):
+    """Befehl: Rolle eines Benutzers ändern."""
+
     role: str = Field(max_length=50)
 
 
 class ChangePassword(UserCommand):
+    """Befehl: Kennwort eines Benutzers neu setzen (durch den Admin)."""
+
     password: str = Password

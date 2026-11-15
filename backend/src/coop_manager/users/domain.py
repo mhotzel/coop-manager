@@ -25,6 +25,7 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    """Prüft, ob das Kennwort zum Hash passt."""
     return _password_hash.verify(password, password_hash)
 
 
@@ -39,6 +40,7 @@ def normalize_full_name(raw: str) -> str:
 
 
 def validate_username(username: str) -> None:
+    """3 bis 50 Zeichen aus Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich."""
     if not _USERNAME.fullmatch(username):
         raise DomainError(
             "Der Benutzername muss 3 bis 50 Zeichen lang sein und darf nur Buchstaben, "
@@ -47,6 +49,7 @@ def validate_username(username: str) -> None:
 
 
 def validate_full_name(full_name: str) -> None:
+    """1 bis 100 Zeichen, mindestens ein Buchstabe, nur übliche Zeichen in Namen."""
     allowed = all(
         c.isspace() or c in ".'-" or unicodedata.category(c)[0] in "LM" or unicodedata.category(c) == "Nd"
         for c in full_name
@@ -59,6 +62,7 @@ def validate_full_name(full_name: str) -> None:
 
 
 def validate_password(password: str) -> None:
+    """Mindestens 8 Zeichen mit Klein- und Großbuchstaben, Ziffer und Sonderzeichen."""
     rules = (
         len(password) >= 8,
         any(c.islower() for c in password),
@@ -74,6 +78,7 @@ def validate_password(password: str) -> None:
 
 
 def validate_role(role: str) -> None:
+    """Nur eine der Rollen aus `ROLES`."""
     if role not in ROLES:
         raise DomainError(f"Die Rolle '{role}' ist nicht zulässig.")
 
@@ -86,6 +91,7 @@ class User(Aggregate):
     """
 
     def __init__(self, subject: str) -> None:
+        """Leerer Benutzer ohne Events; den Zustand setzen erst die Events."""
         super().__init__(subject)
         self.username = ""
         self.full_name = ""
@@ -114,6 +120,7 @@ class User(Aggregate):
         return user
 
     def check_password(self, password: str) -> bool:
+        """Prüft das Kennwort gegen den gespeicherten Hash."""
         return verify_password(password, self.password_hash)
 
     def change_full_name(self, full_name: str) -> None:
@@ -125,11 +132,13 @@ class User(Aggregate):
             self._record("user.name-changed", full_name=full_name)
 
     def change_password(self, password: str) -> None:
+        """Setzt ein neues Kennwort; gespeichert wird nur der Hash."""
         self._ensure_not_terminated()
         validate_password(password)
         self._record("user.password-changed", password_hash=hash_password(password))
 
     def change_role(self, role: str) -> None:
+        """Wechselt zu einer anderen Rolle; dieselbe Rolle noch einmal ist ein Fehler."""
         self._ensure_not_terminated()
         validate_role(role)
         if role == self.role:
@@ -137,12 +146,14 @@ class User(Aggregate):
         self._record("user.role-changed", role=role)
 
     def deactivate(self) -> None:
+        """Sperrt den Benutzer; er kann sich nicht mehr anmelden."""
         self._ensure_not_terminated()
         if not self.active:
             raise DomainError("Der Benutzer ist bereits deaktiviert.")
         self._record("user.deactivated")
 
     def reactivate(self) -> None:
+        """Hebt die Sperre wieder auf."""
         self._ensure_not_terminated()
         if self.active:
             raise DomainError("Der Benutzer ist bereits aktiv.")

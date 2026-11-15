@@ -27,10 +27,12 @@ def register_user(db: Database, username: str, full_name: str, password: str, ro
 
 
 def change_full_name(db: Database, user_id: str, full_name: str, actor: str) -> User:
+    """Ändert den Namen eines Benutzers."""
     return _change(db, user_id, actor, lambda user: user.change_full_name(full_name))
 
 
 def change_password(db: Database, user_id: str, password: str, actor: str) -> User:
+    """Setzt das Kennwort eines Benutzers neu (durch den Admin)."""
     return _change(db, user_id, actor, lambda user: user.change_password(password))
 
 
@@ -51,22 +53,26 @@ def change_own_password(db: Database, user_id: str, current_password: str, new_p
 
 
 def change_role(db: Database, user_id: str, role: str, actor: str) -> User:
+    """Ändert die Rolle; die eigene Admin-Rolle kann man nicht abgeben."""
     if user_id == actor and role != ADMIN:
         raise DomainError("Du kannst dir die Admin-Rolle nicht selbst entziehen.")
     return _change(db, user_id, actor, lambda user: user.change_role(role))
 
 
 def deactivate(db: Database, user_id: str, actor: str) -> User:
+    """Deaktiviert einen Benutzer; sich selbst kann man nicht deaktivieren."""
     if user_id == actor:
         raise DomainError("Du kannst dich nicht selbst deaktivieren.")
     return _change(db, user_id, actor, User.deactivate)
 
 
 def reactivate(db: Database, user_id: str, actor: str) -> User:
+    """Macht einen deaktivierten Benutzer wieder aktiv."""
     return _change(db, user_id, actor, User.reactivate)
 
 
 def terminate(db: Database, user_id: str, actor: str) -> User:
+    """Löscht einen deaktivierten Benutzer endgültig; sich selbst kann man nicht löschen."""
     if user_id == actor:
         raise DomainError("Du kannst dich nicht selbst löschen.")
     return _change(db, user_id, actor, User.terminate)

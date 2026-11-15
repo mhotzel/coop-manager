@@ -1139,3 +1139,37 @@ npm run build
   Definieren der Funktion ausgewertet und von allen Aufrufen geteilt. Bei veränderlichen Objekten
   ist das eine klassische Falle. Darum `contact: Contact | None = None` und in der Funktion
   `contact or Contact()`.
+
+## 2026-11-15 – Docstrings nachgetragen, `ruff` prüft sie jetzt
+
+**Was:**
+
+- Fehlende Docstrings ergänzt: in `members/` (noch vor dem Commit von 4a) und in dem Code aus
+  Schritt 3 (`users/`, `create_app`, `cli.main`). Es waren insgesamt 55 Stellen.
+- `pyproject.toml`: Die `ruff`-Regeln `D101`, `D102` und `D103` sind eingeschaltet, mit einer
+  Ausnahme für `tests/**`.
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff check --select D101,D102,D103,D107 --output-format concise src   # einmalig: wo fehlt etwas?
+uv run ruff check                                                           # jetzt immer mit dabei
+```
+
+**Warum so:**
+
+- Matthias hatte die Docstrings vermisst. Gefunden hat sie `ruff` mit den pydocstyle-Regeln
+  (`D…`):
+  - `D101`: Klasse ohne Docstring.
+  - `D102`: Methode ohne Docstring.
+  - `D103`: Funktion ohne Docstring.
+  - `D107` gilt für `__init__` und bleibt aus. Nach der bisherigen Regel braucht ein `__init__`,
+    das nur Parameter übernimmt, keinen. `Member.__init__` und `User.__init__` legen den
+    Anfangszustand fest und haben trotzdem einen bekommen.
+- Private Namen (`_change`, die `@on`-Handler) zählen für `ruff` nicht als öffentlich und bleiben
+  ohne Pflicht. Das passt zur bisherigen Regel.
+- **`per-file-ignores`** nimmt die Tests aus: Dort sagt der Name der Testfunktion, was geprüft
+  wird.
+- **Nebeneffekt:** FastAPI übernimmt den Docstring eines Endpunkts als Beschreibung in die
+  OpenAPI-Doku (`/openapi.json`).

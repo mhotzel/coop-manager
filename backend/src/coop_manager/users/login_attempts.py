@@ -27,6 +27,7 @@ class LoginAttempts:
         self.lockout = timedelta(seconds=lockout_seconds)
 
     def is_locked(self, username: str) -> bool:
+        """Gesperrt, solange die Fehlversuche das Maximum erreicht haben und die Sperrzeit läuft."""
         row = self._row(username)
         return row is not None and row[0] >= self.max_attempts and not self._expired(row[1])
 

@@ -56,6 +56,7 @@ def login(body: LoginRequest, request: Request, db: Db) -> Me:
 
 @router.post("/logout", status_code=204)
 def logout(request: Request, user: Annotated[UserView, Depends(current_user)]) -> None:
+    """Meldet ab, indem die Session geleert wird."""
     request.session.clear()
     log.info("logout", extra={"user": user.id})
 
@@ -77,17 +78,20 @@ def change_own_password(body: ChangeOwnPassword, db: Db, user: Annotated[UserVie
 
 @router.get("/users")
 def list_users(db: Db, admin: Admin) -> list[UserOut]:
+    """Alle nicht gelöschten Benutzer, nach Benutzername sortiert."""
     return [UserOut.from_view(user) for user in projections.list_users(db.projections.conn)]
 
 
 # Muss vor /users/{user_id} stehen, sonst hielte FastAPI „roles“ für eine Benutzer-ID.
 @router.get("/users/roles")
 def list_roles(admin: Admin) -> list[RoleOut]:
+    """Die Rollen mit deutschen Namen, für die Auswahlliste im Frontend."""
     return [RoleOut(value=value, label=label) for value, label in ROLES.items()]
 
 
 @router.get("/users/{user_id}")
 def get_user(user_id: str, db: Db, admin: Admin) -> UserOut:
+    """Ein Benutzer; 404, wenn es ihn nicht (mehr) gibt."""
     return _user_out(db, user_id)
 
 
@@ -96,36 +100,42 @@ def get_user(user_id: str, db: Db, admin: Admin) -> UserOut:
 
 @router.post("/users/register")
 def register(body: RegisterUser, db: Db, admin: Admin) -> UserOut:
+    """Legt einen Benutzer an; der angemeldete Admin wird als `actor` gespeichert."""
     user = services.register_user(db, body.username, body.full_name, body.password, body.role, actor=admin.id)
     return _user_out(db, user.subject)
 
 
 @router.post("/users/change-full-name")
 def change_full_name(body: ChangeFullName, db: Db, admin: Admin) -> UserOut:
+    """Ändert den Namen eines Benutzers."""
     services.change_full_name(db, body.user_id, body.full_name, actor=admin.id)
     return _user_out(db, body.user_id)
 
 
 @router.post("/users/change-role")
 def change_role(body: ChangeRole, db: Db, admin: Admin) -> UserOut:
+    """Ändert die Rolle eines Benutzers; die eigene Admin-Rolle kann man nicht abgeben."""
     services.change_role(db, body.user_id, body.role, actor=admin.id)
     return _user_out(db, body.user_id)
 
 
 @router.post("/users/change-password")
 def change_password(body: ChangePassword, db: Db, admin: Admin) -> UserOut:
+    """Setzt das Kennwort eines Benutzers neu, z. B. wenn er es vergessen hat."""
     services.change_password(db, body.user_id, body.password, actor=admin.id)
     return _user_out(db, body.user_id)
 
 
 @router.post("/users/deactivate")
 def deactivate(body: UserCommand, db: Db, admin: Admin) -> UserOut:
+    """Deaktiviert einen Benutzer; er verliert sofort den Zugriff."""
     services.deactivate(db, body.user_id, actor=admin.id)
     return _user_out(db, body.user_id)
 
 
 @router.post("/users/reactivate")
 def reactivate(body: UserCommand, db: Db, admin: Admin) -> UserOut:
+    """Macht einen deaktivierten Benutzer wieder aktiv."""
     services.reactivate(db, body.user_id, actor=admin.id)
     return _user_out(db, body.user_id)
 

@@ -31,6 +31,7 @@ def create_admin(username: str, full_name: str) -> None:
 
 
 def main() -> None:
+    """Einstiegspunkt für `coop-manager`: liest den Unterbefehl und führt ihn aus."""
     parser = argparse.ArgumentParser(prog="coop-manager")
     commands = parser.add_subparsers(dest="command", required=True)
 

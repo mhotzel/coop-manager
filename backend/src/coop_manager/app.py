@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 def create_app(settings: Settings | None = None, projectors: Sequence[Projector] = PROJECTORS) -> FastAPI:
+    """Baut die FastAPI-App: Einstellungen, Logging, Session, Security-Header, Fehler-Handler, Router."""
     app = FastAPI(title="coop-manager", lifespan=lifespan)
     app.state.settings = settings or load_settings()
     init_logging(app.state.settings.log_level)

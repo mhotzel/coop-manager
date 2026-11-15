@@ -69,16 +69,19 @@ class UserList(Projector):
 
 
 def get_user(conn: sqlite3.Connection, user_id: str) -> UserView | None:
+    """Ein Benutzer nach ID; None, wenn es ihn nicht (mehr) gibt."""
     users = _query(conn, "WHERE user_id = ?", (user_id,))
     return users[0] if users else None
 
 
 def find_by_username(conn: sqlite3.Connection, username: str) -> UserView | None:
+    """Ein Benutzer nach (normalisiertem) Benutzernamen; None, wenn es ihn nicht gibt."""
     users = _query(conn, "WHERE username = ?", (username,))
     return users[0] if users else None
 
 
 def list_users(conn: sqlite3.Connection) -> list[UserView]:
+    """Alle nicht gelöschten Benutzer, nach Benutzername sortiert."""
     return _query(conn, "", ())
 
 

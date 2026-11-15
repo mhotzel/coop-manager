@@ -112,9 +112,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_` (eine vorhandene `.env` wird
   automatisch gelesen, echte Umgebungsvariablen gehen vor), Logs als JSON-Zeilen auf stdout,
   `/healthz`, Backup des Event Stores per CLI-Befehl.
-- **Werkzeuge:** Python 3.14, `uv`, `ruff` (Zeilenlänge 120), `pyright` (Modus `standard`,
-  `reportDeprecated` als Warnung), `pytest` (Domain, Services, API), `openpyxl` für die Reports.
-  Frontend-Tests vorerst nicht, später bei Bedarf Vitest.
+- **Werkzeuge:** Python 3.14, `uv`, `ruff` (Zeilenlänge 120, Docstrings Pflicht außer in Tests),
+  `pyright` (Modus `standard`, `reportDeprecated` als Warnung), `pytest` (Domain, Services, API),
+  `openpyxl` für die Reports. Frontend-Tests vorerst nicht, später bei Bedarf Vitest.
 
 ### Arbeitsweise
 
