@@ -458,3 +458,27 @@ uv sync --reinstall-package coop-manager   # Projekt neu bauen, um die Warnung z
 - Die Obergrenze `<0.14.0` bleibt, weil eine neue Hauptversion anders bauen könnte. `uv init` trägt
   sie aus demselben Grund ein.
 - `uv.lock` ändert sich nicht: Das Build-Backend gehört nicht zu den Abhängigkeiten des Projekts.
+
+## 2026-11-15 – Python 3.14 über uv installiert
+
+**Was:** Die virtuelle Umgebung in `backend/.venv` zeigte auf `/usr/bin/python3.14`. Das gab es
+nach dem Upgrade auf Fedora 45 nicht mehr, dort ist nur noch `python3.15` installiert. `uv run`
+brach deshalb ab mit „No interpreter found for Python 3.14“.
+
+**Befehle:**
+
+```bash
+cd backend
+uv python install 3.14    # lädt ein eigenes Python 3.14 nach ~/.local/share/uv/python
+uv sync                   # baut .venv mit diesem Python neu auf
+```
+
+**Warum so:**
+
+- `.python-version` legt das Projekt auf 3.14 fest. Ein von uv verwaltetes Python hängt nicht davon
+  ab, welche Version die Distribution gerade mitbringt. Ein Systemupgrade bricht die Umgebung so
+  nicht mehr.
+- Die Alternative wäre gewesen, `.python-version` auf 3.15 zu stellen. Damit würde aber das
+  Betriebssystem bestimmen, mit welcher Version das Projekt läuft, und nicht das Projekt selbst.
+- Am Repository ändert sich nichts außer diesem Eintrag: `.venv` ist nicht eingecheckt, und
+  `uv.lock` bleibt gleich.
