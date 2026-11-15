@@ -9,6 +9,7 @@ class Settings:
 
     data_dir: Path
     log_level: str = "INFO"
+    trusted_proxies: tuple[str, ...] = ()
 
 
 def load_settings() -> Settings:
@@ -17,4 +18,10 @@ def load_settings() -> Settings:
     return Settings(
         data_dir=Path(env.get("CM_DATA_DIR", "data")),
         log_level=env.get("CM_LOG_LEVEL", "INFO").upper(),
+        trusted_proxies=_list(env.get("CM_TRUSTED_PROXIES", "")),
     )
+
+
+def _list(value: str) -> tuple[str, ...]:
+    """Zerlegt eine mit Komma getrennte Liste, leere Einträge fallen weg."""
+    return tuple(item.strip() for item in value.split(",") if item.strip())

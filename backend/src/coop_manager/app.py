@@ -8,6 +8,7 @@ from .config import Settings, load_settings
 from .db import prepare
 from .eventsource import Projector
 from .logs import init_logging
+from .security import init_security
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ def create_app(settings: Settings | None = None, projectors: Sequence[Projector]
     app.state.settings = settings or load_settings()
     init_logging(app.state.settings.log_level)
     app.state.projectors = projectors
+    init_security(app, app.state.settings.trusted_proxies)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

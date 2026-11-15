@@ -76,7 +76,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Login:** signiertes HttpOnly-Session-Cookie mit Timeout, CSRF-Token im Header. Standard ist
   „Zugriff verweigert“, Rollen je Endpoint; Rollen und Aktiv-Status bei jedem Request frisch
   gelesen; Login-Sperre und einheitliche Fehlermeldung; Ersteinrichtung per CLI `create-admin`.
-- **Security-Header** setzt die App selbst, CSP `script-src 'self'`.
+- **Security-Header** setzt die App selbst, CSP `script-src 'self'`. Die CSP bleibt streng, auch
+  wenn sie die Swagger-Oberfläche unter `/docs` sperrt; `/docs` und `/redoc` werden im Betrieb
+  abgeschaltet. HSTS nur bei HTTPS. `X-Forwarded-*` gilt nur von Adressen aus
+  `CM_TRUSTED_PROXIES` (uvicorns `ProxyHeadersMiddleware`).
+- **Python über uv:** uv verwaltet das Python selbst (`uv python install`), damit ein Upgrade der
+  Distribution die Umgebung nicht bricht.
 - **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_`, Logs als JSON-Zeilen auf
   stdout, `/healthz`, Backup des Event Stores per CLI-Befehl.
 - **Werkzeuge:** Python 3.14, `uv`, `ruff` (Zeilenlänge 120), `pyright` (Modus `standard`),

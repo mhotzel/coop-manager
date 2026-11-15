@@ -482,3 +482,53 @@ uv sync                   # baut .venv mit diesem Python neu auf
   Betriebssystem bestimmen, mit welcher Version das Projekt läuft, und nicht das Projekt selbst.
 - Am Repository ändert sich nichts außer diesem Eintrag: `.venv` ist nicht eingecheckt, und
   `uv.lock` bleibt gleich.
+
+## 2026-11-15 – Security-Header (Schritt 2c)
+
+**Was:** Neues Modul `backend/src/coop_manager/security.py`. Es setzt bei jeder Antwort feste
+Security-Header und bei HTTPS zusätzlich HSTS. Dazu kommt die neue Einstellung
+`CM_TRUSTED_PROXIES` in `config.py` und `.env.example`. Tests stehen in `tests/test_security.py`
+und `tests/test_config.py`.
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
+```
+
+**Warum so:**
+
+- **Die Header** stammen aus `purchase-prices`:
+  - `X-Content-Type-Options: nosniff`: Der Browser rät keinen Dateityp.
+  - `X-Frame-Options: DENY` und `frame-ancestors 'none'`: Die Seite darf nicht in einem fremden
+    Rahmen erscheinen. Das schützt vor Clickjacking.
+  - `Referrer-Policy: same-origin`: Die URL geht nicht an fremde Seiten.
+  - `Permissions-Policy`: Kamera, Mikrofon usw. sind aus.
+  - `Content-Security-Policy` (CSP): Skripte, Styles und Bilder dürfen nur vom eigenen Server
+    kommen. Eingeschleuster Code von außen läuft damit nicht.
+- **Middleware:** Eine Funktion, die um jede Anfrage herum läuft. `app.middleware("http")`
+  registriert sie. Sie ruft mit `await call_next(request)` den eigentlichen Endpunkt auf und ergänzt
+  danach die Header der Antwort. `setdefault` überschreibt dabei nichts, was ein Endpunkt bewusst
+  selbst gesetzt hat.
+- **HSTS** (`Strict-Transport-Security`) weist den Browser an, die Seite ein Jahr lang nur noch per
+  HTTPS aufzurufen. Der Header wird nur gesendet, wenn die Anfrage per HTTPS kam.
+- **Reverse Proxy:** Auf der Synology nimmt der DSM-Proxy HTTPS an und reicht die Anfrage per HTTP
+  an die App weiter. Dass es eigentlich HTTPS war, sagt er im Header `X-Forwarded-Proto: https`.
+  Diesen Header könnte aber jeder Client mitschicken. Darum gilt er nur, wenn die Anfrage von einer
+  Adresse aus `CM_TRUSTED_PROXIES` kommt.
+- **Keine eigene Klasse dafür:** In `purchase-prices` gibt es `TrustedProxyFix`, weil Flask so etwas
+  nicht mitbringt. uvicorn hat `ProxyHeadersMiddleware` mit genau dieser Prüfung schon eingebaut.
+  Wir hängen sie nur ein, wenn die Liste nicht leer ist.
+- **Reihenfolge:** Bei Starlette liegt die zuletzt hinzugefügte Middleware außen und läuft zuerst.
+  Deshalb wird die Proxy-Middleware nach der Header-Middleware hinzugefügt: Sie muss das Schema auf
+  `https` umstellen, bevor die Header-Middleware nachsieht.
+- **Tests:** `TestClient(app, client=("10.0.0.2", 50000))` gibt eine erfundene Absenderadresse vor.
+  So lässt sich prüfen, dass `X-Forwarded-Proto` von einer fremden Adresse ignoriert wird.
+- **CSP bleibt streng:** Die Swagger-Oberfläche unter `/docs` lädt ihre Skripte von einem fremden
+  Server und funktioniert deshalb nicht mehr. Eine Lücke in der CSP nur für die Doku lohnt sich
+  nicht. `/docs` und `/redoc` werden im Betrieb abgeschaltet (Schritt 8), `/openapi.json`
+  funktioniert weiter.
+- **Für später (Schritt 8):** Beim Start über die Kommandozeile hängt uvicorn selbst schon eine
+  `ProxyHeadersMiddleware` ein, die standardmäßig nur `127.0.0.1` vertraut. Im Container prüfen,
+  dass sie sich nicht mit unserer in die Quere kommt, z. B. mit `--no-proxy-headers`.
