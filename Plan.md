@@ -86,6 +86,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Login:** signiertes HttpOnly-Session-Cookie mit Timeout, CSRF-Token im Header. Standard ist
   „Zugriff verweigert“, Rollen je Endpoint; Rollen und Aktiv-Status bei jedem Request frisch
   gelesen; Login-Sperre und einheitliche Fehlermeldung; Ersteinrichtung per CLI `create-admin`.
+  Session läuft nach 30 Minuten ohne Anfrage ab (`CM_SESSION_TIMEOUT`). Fehlt `CM_SECRET_KEY`,
+  erzeugt die App einen zufälligen Schlüssel und warnt im Log. „Zugriff verweigert“ sichert ein
+  Test ab, der alle Routen auf `current_user` bzw. `require_role` prüft (Ausnahmen in
+  `PUBLIC_PATHS`). Fachliche Fehler kommen als `{"detail": "..."}` mit 400 bzw. 404.
 - **Security-Header** setzt die App selbst, CSP `script-src 'self'`. Die CSP bleibt streng, auch
   wenn sie die Swagger-Oberfläche unter `/docs` sperrt; `/docs` und `/redoc` werden im Betrieb
   abgeschaltet. HSTS nur bei HTTPS. `X-Forwarded-*` gilt nur von Adressen aus

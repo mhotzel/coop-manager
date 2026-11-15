@@ -18,7 +18,10 @@ class Aggregate:
     _handlers: ClassVar[dict[str, Callable]] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Sammelt beim Definieren einer Unterklasse deren ``@on``-Handler ein, einmal pro Klasse statt bei jedem Objekt."""
+        """Sammelt beim Definieren einer Unterklasse deren ``@on``-Handler ein.
+
+        Das passiert einmal pro Klasse statt bei jedem Objekt.
+        """
         super().__init_subclass__(**kwargs)
         cls._handlers = collect_handlers(cls)
 

@@ -759,3 +759,80 @@ uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
   - In den CLI-Tests ersetzt `monkeypatch` die Funktion `getpass` durch vorbereitete Antworten und
     setzt `sys.argv`, als hätte man den Befehl getippt.
   - `capsys` fängt die Ausgabe ab.
+
+## 2026-11-15 – Login über die API (Schritt 3c)
+
+**Was:**
+
+- Neue Abhängigkeit `itsdangerous`. Die `SessionMiddleware` von Starlette braucht sie zum Signieren.
+- `app.py`:
+  - `init_session` richtet die `SessionMiddleware` ein.
+  - `init_error_handlers` macht aus `DomainError` eine Antwort 400 und aus `NotFoundError` eine
+    Antwort 404, jeweils mit `{"detail": ...}`.
+  - Der Router aus `users/api.py` wird eingebunden.
+- `config.py` und `.env.example`: Neu sind `CM_SECRET_KEY`, `CM_SESSION_TIMEOUT` (1800) und
+  `CM_SESSION_COOKIE_SECURE` (true).
+- `users/access.py`: Die Dependencies `current_user` und `require_role(...)` und die Liste
+  `PUBLIC_PATHS`.
+- `users/schemas.py`: Die Pydantic-Modelle `LoginRequest`, `UserOut` und `Me`.
+- `users/api.py`: `POST /api/login`, `POST /api/logout` und `GET /api/me`.
+- Tests: `tests/test_users_api.py`, `tests/test_access.py` und zwei Tests in `test_config.py`.
+
+**Befehle:**
+
+```bash
+cd backend
+uv add itsdangerous
+uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
+```
+
+**Warum so:**
+
+- **Session im Cookie:** Die `SessionMiddleware` legt die Session-Daten (`user_id`, `csrf_token`)
+  ins Cookie selbst, mit einer Signatur aus `CM_SECRET_KEY`. Lesen könnte man sie (Base64), fälschen
+  aber nicht, und darin steht nichts Geheimes. Der Server muss sich dafür nichts merken.
+- **Das Cookie:**
+  - `HttpOnly`: JavaScript kommt nicht an das Cookie heran, ein eingeschleustes Skript kann es also
+    nicht stehlen.
+  - `Secure`: Das Cookie geht nur über HTTPS. Browser behandeln `http://localhost` als sicher, darum
+    klappt das auch in der Entwicklung.
+  - `SameSite=Lax`: Bei Anfragen, die von fremden Seiten ausgelöst werden, schickt der Browser das
+    Cookie nur bei normalen Seitenaufrufen mit, nicht bei POST.
+  - `Max-Age=1800`: Starlette setzt das Cookie bei jeder Antwort neu. Darum läuft die Session erst
+    nach 30 Minuten **ohne** Anfrage ab.
+- **Fehlender Schlüssel:** Die App erzeugt mit `secrets.token_hex(32)` einen zufälligen Schlüssel.
+  Das ist sicher, nach einem Neustart sind aber alle abgemeldet. Darum steht eine Warnung im Log.
+- **CSRF:** Eine fremde Seite kann den Browser dazu bringen, eine Anfrage an unsere App zu
+  schicken, und der Browser hängt das Cookie an. Deshalb verlangt `current_user` bei POST, PUT,
+  PATCH und DELETE zusätzlich den Header `X-CSRF-Token` mit dem Token aus der Session. Die fremde
+  Seite kennt das Token nicht. `secrets.compare_digest` vergleicht in immer gleicher Zeit, so lässt
+  sich das Token nicht über die Antwortzeit erraten.
+- **`current_user` liest bei jeder Anfrage aus der Projektion:** Wird jemand deaktiviert, ist er
+  bei der nächsten Anfrage draußen, nicht erst, wenn seine Session abläuft.
+- **`require_role(ADMIN)`** ist eine Funktion, die eine Dependency *erzeugt*. Die innere Funktion
+  `check` merkt sich die übergebenen Rollen (eine „Closure“) und hängt selbst an `current_user`.
+  Verwendet wird sie so:
+  `user: Annotated[UserView, Depends(require_role(ADMIN))]`.
+- **`users/access.py` statt `core/access.py`:** Die Prüfung braucht die Benutzer-Projektion. `core`
+  soll aber von keinem Fachmodul abhängen.
+- **Der Kennwort-Hash verlässt das Backend nie:** Die API liefert `UserOut`, nicht `UserView`.
+  FastAPI prüft und filtert die Antwort anhand der Typangabe `-> Me`. `max_length` in
+  `LoginRequest` verhindert, dass jemand riesige Texte durch das absichtlich langsame Argon2
+  schickt.
+- **Sperre als 429** („Too Many Requests“) statt 401. Das Frontend kann so eine passende Meldung
+  zeigen. Bei unbekanntem Namen und bei falschem Kennwort lautet die Meldung gleich.
+- **„Standard ist verweigert“ per Test:**
+  - In FastAPI muss jeder Endpunkt seine Prüfung selbst angeben. Vergisst man sie, ist er offen.
+    Darum geht `test_access.py` alle Routen durch und verlangt `current_user`, auch indirekt über
+    `require_role`, außer für die Pfade in `PUBLIC_PATHS`.
+  - Stolperstein: Seit FastAPI 0.16x stehen eingebundene Router in `app.routes` nur als ein Eintrag
+    (`_IncludedRouter`). Der erste Entwurf des Tests sah `/api/login` usw. gar nicht und wäre immer
+    grün gewesen. Aufgefallen ist das, weil ein zweiter Test prüft, dass die erwarteten Pfade
+    gefunden werden. Die Lösung ist `fastapi.routing.iter_route_contexts`.
+  - Zur Probe kam kurz eine Route ohne Prüfung dazu, und der Test schlug an.
+
+**Nachtrag – Zeilenlänge prüfen:** In `pyproject.toml` ist unter `[tool.ruff.lint]` jetzt auch die
+Regel `E501` eingeschaltet. `line-length = 120` legte bisher nur fest, wie `ruff format` Code
+umbricht. Kommentare und Docstrings bricht der Formatierer aber nicht um, und ohne `E501` meldete
+`ruff check` zu lange Zeilen nicht. Die einzige solche Zeile, ein Docstring in
+`eventsource/aggregate.py`, ist jetzt umgebrochen.

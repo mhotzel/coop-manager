@@ -12,6 +12,9 @@ class Settings:
     trusted_proxies: tuple[str, ...] = ()
     login_max_attempts: int = 3
     login_lockout_seconds: int = 900
+    secret_key: str = ""  # leer: Die App erzeugt beim Start einen zufälligen Schlüssel.
+    session_timeout: int = 1800
+    session_cookie_secure: bool = True
 
 
 def load_settings() -> Settings:
@@ -23,9 +26,17 @@ def load_settings() -> Settings:
         trusted_proxies=_list(env.get("CM_TRUSTED_PROXIES", "")),
         login_max_attempts=int(env.get("CM_LOGIN_MAX_ATTEMPTS", "3")),
         login_lockout_seconds=int(env.get("CM_LOGIN_LOCKOUT_SECONDS", "900")),
+        secret_key=env.get("CM_SECRET_KEY", ""),
+        session_timeout=int(env.get("CM_SESSION_TIMEOUT", "1800")),
+        session_cookie_secure=_bool(env.get("CM_SESSION_COOKIE_SECURE", "true")),
     )
 
 
 def _list(value: str) -> tuple[str, ...]:
     """Zerlegt eine mit Komma getrennte Liste, leere Einträge fallen weg."""
     return tuple(item.strip() for item in value.split(",") if item.strip())
+
+
+def _bool(value: str) -> bool:
+    """„true“, „1“, „yes“ und „on“ gelten als wahr, alles andere als falsch."""
+    return value.strip().lower() in ("1", "true", "yes", "on")
