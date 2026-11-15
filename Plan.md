@@ -231,6 +231,16 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   „Daten ändern“.
 - **Die Art der Person** (natürlich/juristisch) wird beim Antrag festgelegt und ist danach nicht
   änderbar. Bei einem Fehler wird der Antrag zurückgenommen und neu erfasst.
+- **Rechte an der Mitglieder-API:** Lesen (Suche, Detailansicht) dürfen `accounting` und
+  `accounting_readonly`, ändern (alle Befehle) nur `accounting`, der Admin gar nichts.
+- **Detailansicht mit berechneten Angaben:** `GET /api/members/{id}` liefert neben den gespeicherten
+  Daten den Status heute, die erzeugte Briefanrede, `generated_address_lines` und `warnings`
+  (Adresszeilen passen nicht zu Name/Anschrift, Zeile über 35 Zeichen). Jeder Befehl antwortet
+  mit dieser Detailansicht, so erscheinen die Warnungen direkt nach dem Speichern; Speichern bleibt
+  trotzdem möglich.
+- **„Adresszeilen erzeugen“ ist kein eigener Befehl:** Das Frontend übernimmt
+  `generated_address_lines` in die Felder (mit Rückfrage, wenn die Zeilen von Hand geändert wurden)
+  und speichert mit `change-address-lines`. Erzeugt werden die Zeilen im Backend.
 
 ### Adresszeilen und Briefanrede
 
