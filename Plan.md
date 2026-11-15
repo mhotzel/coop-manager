@@ -49,7 +49,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   jedem Speichern. Fachliche Regeln prüft der Service, bevor das Event entsteht. Ein Prozess.
 - **KISS:** Der Code soll so einfach sein, dass Matthias ihn selbst durchschaut.
 - **Frontend: Vue 3 mit TypeScript und Vite**, eigenes CSS auf Basis von `style.css` und
-  `colorscheme-dorfladen.css` aus `purchase-prices`, keine Komponentenbibliothek.
+  `colorscheme-dorfladen.css` aus `purchase-prices`, keine Komponentenbibliothek. Svelte wurde
+  erwogen (Stand 2026-11-15): kürzere Syntax, aber kleineres Ökosystem, für eine reine SPA der Umweg
+  über SvelteKit und viele veraltete Anleitungen seit Svelte 5. Gegen eine fertig gestaltete
+  Bibliothek spricht das einheitliche Aussehen mit `purchase-prices` und die zusätzliche
+  Abhängigkeit (bei Svelte meist samt Tailwind).
 - **Repo-Struktur:** `backend/` (Paket `coop_manager`, Tests, `pyproject.toml`) und `frontend/`.
   Im Betrieb liefert FastAPI die gebaute SPA selbst aus: ein Container, gleiche Herkunft, kein
   CORS. Dockerfile in zwei Stufen (Node baut das Frontend, dann Python).
@@ -337,3 +341,6 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 - Späteste Absendung der Einladung zur GV aus dem GV-Datum berechnen (Satzung 3.1: zwei Wochen
   plus zwei Werktage).
 - API-Keys mit Ablaufdatum, MCP-Server, Login über OAuth2/JWT (siehe `Konzeption.md`).
+- Eine Bibliothek ohne eigenes Styling (z. B. Reka UI) für schwierige Bausteine wie Dialoge,
+  Datumsauswahl oder Auswahl mit Suche, falls sie selbst gebaut zu aufwendig oder nicht barrierefrei
+  genug werden. Gestaltet wird weiter mit den eigenen Farbvariablen.
