@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import logoUrl from './assets/img/dlslogo.png'
+import { currentUser, logout } from './auth'
+
+const router = useRouter()
 
 // Antwort von GET /healthz; die Form muss zu dem passen, was das Backend liefert.
 interface Health {
@@ -43,6 +47,11 @@ onMounted(async () => {
   }
 })
 
+async function signOut(): Promise<void> {
+  await logout()
+  await router.push({ name: 'login' })
+}
+
 // Aufräumen, wenn die Komponente verschwindet, sonst bliebe der Listener hängen.
 onUnmounted(() => {
   wideScreen.removeEventListener('change', syncMenu)
@@ -59,15 +68,20 @@ onUnmounted(() => {
     </div>
   </header>
   <div class="action-bar">
-    <div class="action-left"></div>
-    <div class="action-right"></div>
+    <div class="action-left">
+      <span v-if="currentUser" class="badge">{{ currentUser.full_name }}</span>
+    </div>
+    <div class="action-right">
+      <button v-if="currentUser" type="button" class="btn btn-primary" @click="signOut">Abmelden</button>
+    </div>
   </div>
   <div id="content-wrapper">
-    <nav class="nav">
+    <!-- Das Menü gibt es erst nach der Anmeldung. -->
+    <nav v-if="currentUser" class="nav">
       <details class="mobile-menu" :open="menuOpen">
         <summary>☰ Menü</summary>
         <ul>
-          <!-- Platzhalter ohne Ziel; der Vue Router kommt mit der ersten Seite (Schritt 3). -->
+          <!-- Platzhalter ohne Ziel; die Seiten dazu entstehen in den nächsten Schritten. -->
           <li v-for="entry in menuEntries" :key="entry.title">
             <a>{{ entry.title }}</a>
           </li>
@@ -75,12 +89,8 @@ onUnmounted(() => {
       </details>
     </nav>
     <main>
-      <div class="card">
-        <div class="card-header">Willkommen</div>
-        <div class="card-content">
-          <p>Hier entsteht die Mitgliederverwaltung der Unser Dorfladen Schlichten eG.</p>
-        </div>
-      </div>
+      <!-- Hier setzt der Router die Seite zur aktuellen Adresse ein, z. B. LoginView. -->
+      <RouterView />
     </main>
   </div>
   <footer>

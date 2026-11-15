@@ -836,3 +836,73 @@ Regel `E501` eingeschaltet. `line-length = 120` legte bisher nur fest, wie `ruff
 umbricht. Kommentare und Docstrings bricht der Formatierer aber nicht um, und ohne `E501` meldete
 `ruff check` zu lange Zeilen nicht. Die einzige solche Zeile, ein Docstring in
 `eventsource/aggregate.py`, ist jetzt umgebrochen.
+
+## 2026-11-15 – Login im Frontend (Schritt 3d)
+
+**Was:**
+
+- Neue Abhängigkeit `vue-router` (Version 5).
+- Neu in `frontend/src/`:
+  - `api.ts`: Alle Aufrufe ans Backend laufen über `api<T>()`.
+  - `auth.ts`: Hält fest, wer angemeldet ist (`currentUser`), dazu `loadMe`, `login`, `logout`.
+  - `router.ts`: Die Routen `/` und `/login` und ein Navigation Guard.
+  - `views/LoginView.vue` und `views/HomeView.vue`.
+- `main.ts` fragt `/api/me` ab, bevor die App eingehängt wird.
+- `App.vue`:
+  - Im Inhaltsbereich steht `<RouterView />`.
+  - In der Aktionsleiste stehen der Name und „Abmelden“.
+  - Das Menü erscheint erst nach der Anmeldung.
+
+**Befehle:**
+
+```bash
+cd frontend
+npm install vue-router
+npm run build                     # Typprüfung und Build
+
+# Ablauf gegen ein Test-Backend mit eigenem Datenordner (Port 8001):
+cd ../backend
+CM_DATA_DIR=/tmp/…/data CM_SESSION_COOKIE_SECURE=false uv run uvicorn coop_manager.app:app --port 8001
+curl -c cookies -H 'Content-Type: application/json' -d '{"username":"…","password":"…"}' \
+    http://localhost:8001/api/login
+curl -b cookies http://localhost:8001/api/me
+```
+
+**Warum so:**
+
+- **`api.ts` als einzige Stelle für `fetch`:**
+  - JSON, der Header `X-CSRF-Token` bei schreibenden Anfragen und das Auslesen von `detail` stehen
+    nur hier.
+  - Ein Fehler wird als `ApiError` mit `status` und deutscher Meldung geworfen. Die Komponente zeigt
+    `e.message` an.
+  - Bei 422 (Pydantic-Validierung) ist `detail` eine Liste, deshalb gibt es dafür einen eigenen Text.
+- **`api<T>(...)`:** `T` ist ein *Typparameter* (Generics). Der Aufrufer sagt mit `api<Me>(...)`,
+  welche Form die Antwort hat, und TypeScript prüft danach jeden Zugriff darauf. Zur Laufzeit prüft
+  das niemand. Darum steht neben den Interfaces `User` und `Me` der Hinweis, dass sie zu den
+  Pydantic-Schemas im Backend passen müssen.
+- **Zustand ohne Pinia:** `currentUser` ist ein `ref` auf Modulebene in `auth.ts`. Jede Komponente,
+  die ihn importiert, sieht denselben Wert, und Vue zeichnet bei einer Änderung alles neu. Für einen
+  einzigen gemeinsamen Wert reicht das.
+- **Kein Ringimport:** `auth.ts` braucht `api.ts`. Umgekehrt muss `api.ts` bei 401 die Anmeldung
+  zurücksetzen. Damit sich die beiden nicht gegenseitig importieren, nimmt `api.ts` über
+  `onUnauthorized(...)` eine Funktion entgegen, und `main.ts` übergibt sie. Dort steht dann sichtbar,
+  was bei abgelaufener Session passiert: abmelden und zur Anmeldung, mit `next` als Rückweg.
+- **Navigation Guard:** `router.beforeEach` läuft vor jedem Seitenwechsel. Seiten ohne
+  `meta: { public: true }` verlangen eine Anmeldung, sonst geht es zu `/login?next=/ziel`. Das
+  ersetzt nicht die Prüfung im Backend, es spart nur den Umweg über eine Fehlermeldung.
+- **`safeNext`:** Nach dem Login geht es nur zu Pfaden dieser Seite (wie `safe_next_url` in
+  `purchase-prices`). Sonst könnte ein präparierter Link `…/login?next=//boese.example` nach der
+  Anmeldung auf eine fremde Seite führen (Open Redirect).
+- **`await loadMe()` vor `mount`:** `main.ts` ist ein ES-Modul, darin ist `await` auf oberster
+  Ebene erlaubt. So weiß der Router beim ersten Aufruf schon, ob noch eine Session besteht, und
+  ein Neuladen der Seite führt nicht kurz über die Anmeldeseite.
+- **`v-model`** verbindet Eingabefeld und `ref` in beide Richtungen. `@submit.prevent` ruft
+  `submit()` auf und verhindert, dass der Browser das Formular selbst abschickt und die Seite neu
+  lädt. `:disabled="busy"` verhindert doppeltes Absenden.
+- **`autocomplete="username"` und `"current-password"`:** Damit erkennen Passwortmanager das
+  Formular.
+- **Test:** Ein eigener Server auf Port 8001 mit eigenem Datenordner, weil auf 5173 schon ein Vite
+  lief. `CM_SESSION_COOKIE_SECURE=false`, weil `curl` das Cookie sonst über HTTP nicht
+  zurückschickt. Geprüft wurde: `/me` ohne Login gibt 401, ein falsches Kennwort gibt 401, der Login
+  klappt auch mit „Chefin“ in anderer Schreibweise, `/me` mit Cookie gibt 200, Logout ohne CSRF gibt
+  403, mit CSRF 204, danach gibt `/me` wieder 401.
