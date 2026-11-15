@@ -28,13 +28,19 @@ class Database:
         self.projections.conn.close()
 
 
-def prepare(data_dir: Path, projectors: Sequence[Projector]) -> None:
-    """Legt beide Datenbanken an und holt die Projektionen auf, z. B. wenn deren Datei gelöscht wurde."""
+def prepare(data_dir: Path, projectors: Sequence[Projector], schemas: Sequence[str] = ()) -> None:
+    """Legt beide Datenbanken an und holt die Projektionen auf, z. B. wenn deren Datei gelöscht wurde.
+
+    ``schemas`` sind weitere Tabellen in der Projektionsdatenbank, die nicht aus Events entstehen
+    (z. B. die Login-Versuche).
+    """
     data_dir.mkdir(parents=True, exist_ok=True)
     db = Database(data_dir, projectors)
     try:
         db.store.create_schema()
         db.projections.create_schema()
+        for schema in schemas:
+            db.projections.conn.executescript(schema)
         db.projections.catch_up(db.store)
     finally:
         db.close()

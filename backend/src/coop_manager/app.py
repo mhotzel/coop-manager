@@ -9,16 +9,20 @@ from .db import prepare
 from .eventsource import Projector
 from .logs import init_logging
 from .security import init_security
+from .users import login_attempts
+from .users.projections import UserList
 
 log = logging.getLogger(__name__)
 
-PROJECTORS: list[Projector] = []
+# Alle Projektoren und zusätzlichen Tabellen der Projektionsdatenbank; jedes Modul trägt sich hier ein.
+PROJECTORS: list[Projector] = [UserList()]
+SCHEMAS: list[str] = [login_attempts.SCHEMA]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Läuft einmal beim Start der App (vor dem `yield`) und einmal beim Beenden (danach)."""
-    prepare(app.state.settings.data_dir, app.state.projectors)
+    prepare(app.state.settings.data_dir, app.state.projectors, SCHEMAS)
     log.info("app started", extra={"data_dir": app.state.settings.data_dir})
     yield
 

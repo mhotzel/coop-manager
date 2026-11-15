@@ -1,3 +1,3 @@
-from .errors import DomainError
+from .errors import DomainError, NotFoundError
 
-__all__ = ["DomainError"]
+__all__ = ["DomainError", "NotFoundError"]

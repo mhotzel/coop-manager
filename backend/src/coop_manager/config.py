@@ -10,6 +10,8 @@ class Settings:
     data_dir: Path
     log_level: str = "INFO"
     trusted_proxies: tuple[str, ...] = ()
+    login_max_attempts: int = 3
+    login_lockout_seconds: int = 900
 
 
 def load_settings() -> Settings:
@@ -19,6 +21,8 @@ def load_settings() -> Settings:
         data_dir=Path(env.get("CM_DATA_DIR", "data")),
         log_level=env.get("CM_LOG_LEVEL", "INFO").upper(),
         trusted_proxies=_list(env.get("CM_TRUSTED_PROXIES", "")),
+        login_max_attempts=int(env.get("CM_LOGIN_MAX_ATTEMPTS", "3")),
+        login_lockout_seconds=int(env.get("CM_LOGIN_LOCKOUT_SECONDS", "900")),
     )
 
 

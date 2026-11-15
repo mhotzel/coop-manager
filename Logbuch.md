@@ -692,3 +692,70 @@ uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
   auf. So prüft jeder Test auch, dass die Handler mit `@on` den Zustand richtig wiederherstellen,
   nicht nur, dass die Methode das Objekt geändert hat. Mit `pytest.mark.parametrize` läuft derselbe
   Test mit mehreren ungültigen Eingaben.
+
+## 2026-11-15 – Projektion, Services und `create-admin` (Schritt 3b)
+
+**Was:**
+
+- `users/projections.py`: Der Projektor `UserList` hält die Tabelle `users` aktuell. Dazu die
+  Abfragen `get_user`, `find_by_username` und `list_users`, die `UserView`-Objekte liefern.
+- `users/login_attempts.py`: Die Login-Sperre (`LoginAttempts`), übernommen aus `purchase-prices`.
+- `users/services.py`: `register_user`, die Änderungen (`change_full_name`, `change_password`,
+  `change_role`, `deactivate`, `reactivate`, `terminate`) und `authenticate`.
+- `core/errors.py`: Neu ist `NotFoundError`.
+- `db.prepare()` hat einen neuen Parameter `schemas` für Tabellen, die nicht aus Events entstehen.
+- `app.py`: In `PROJECTORS` und `SCHEMAS` tragen sich die Module ein.
+- `config.py` und `.env.example`: Neu sind `CM_LOGIN_MAX_ATTEMPTS` (3) und
+  `CM_LOGIN_LOCKOUT_SECONDS` (900).
+- `cli.py`: Der Befehl `create-admin`. In `pyproject.toml` zeigt `coop-manager` jetzt auf
+  `coop_manager.cli:main` statt auf das „Hello“ aus `uv init`.
+- Tests: `tests/test_users_services.py` und `tests/test_cli.py`.
+
+**Befehle:**
+
+```bash
+cd backend
+uv sync                                      # Einstiegspunkt coop-manager neu installieren
+uv run coop-manager --help
+uv run --env-file ../.env coop-manager create-admin --username admin --full-name "Erika Muster"
+uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
+```
+
+**Warum so:**
+
+- **Eine Rolle als Spalte:** `purchase-prices` braucht für mehrere Rollen eine zweite Tabelle
+  `user_roles`. Bei uns gibt es genau eine Rolle, also reicht eine Spalte `role` in `users`.
+- **Gelöschte Benutzer verschwinden aus der Projektion,** im Event Store bleiben sie erhalten. So ist
+  der Benutzername wieder frei, und die Liste zeigt nur, wer noch existiert.
+- **Die Datenbank als Parameter:** In Flask holt `purchase-prices` die Datenbank aus einem globalen
+  Objekt (`db.get_read_db()`). Unsere Services bekommen `db: Database` übergeben. In der API liefert
+  sie `Depends(get_db)`, in der CLI und in den Tests legt man sie selbst an. Man sieht so jeder
+  Funktion an, womit sie arbeitet.
+- **`_change(...)`** fasst zusammen, was jede Änderung braucht: Benutzer laden, prüfen, ob es ihn
+  gibt, Methode aufrufen, speichern, loggen. Die einzelnen Services übergeben nur die Methode, z. B.
+  `User.deactivate` oder `lambda user: user.change_role(role)`. Ein `lambda` ist eine kleine
+  namenlose Funktion.
+- **Regeln, die das Aggregat nicht prüfen kann, prüft der Service:** Ist der Benutzername noch frei?
+  Will sich jemand selbst deaktivieren, löschen oder die Admin-Rolle entziehen? Dafür muss man
+  andere Benutzer bzw. den `actor` kennen. Damit bleibt immer mindestens ein aktiver Admin übrig.
+- **`authenticate` verrät nichts:**
+  - Ein unbekannter oder deaktivierter Benutzer bekommt dieselbe Antwort (`None`) wie ein falsches
+    Kennwort.
+  - Für ihn wird trotzdem ein Hash geprüft (`_dummy_hash`), damit die Antwort gleich lange dauert.
+    Sonst könnte man an der Antwortzeit messen, ob ein Name existiert.
+  - Die Fehlversuche zählen auch für unbekannte Namen, damit die Sperre selbst nichts verrät.
+  - `@cache` berechnet den Dummy-Hash nur einmal.
+- **Login-Versuche nicht als Events:** Fehlversuche sind kein fachliches Ereignis. Sie liegen deshalb
+  in einer eigenen Tabelle in `projections.sqlite`, die `prepare()` über `SCHEMAS` anlegt. Beim
+  Neuaufbau der Projektionen bleibt sie unberührt.
+- **CLI mit `argparse`:** Das kommt aus der Standardbibliothek und braucht kein zusätzliches Paket.
+  `add_subparsers` macht aus `create-admin` einen Unterbefehl, später kommen z. B. `backup` oder
+  `rebuild` dazu. `getpass.getpass` liest das Kennwort, ohne es auf dem Bildschirm anzuzeigen. Es
+  wird nicht als Argument übergeben, sonst stünde es in der Shell-History. `sys.exit("Text")` gibt
+  die Meldung aus und beendet mit Fehlercode 1.
+- **Tests:**
+  - Eine Fixture `db` legt für jeden Test frische Datenbanken in `tmp_path` an.
+  - Die Sperrzeit wird nicht abgewartet: Der Test setzt `last_attempt` einfach in die Vergangenheit.
+  - In den CLI-Tests ersetzt `monkeypatch` die Funktion `getpass` durch vorbereitete Antworten und
+    setzt `sys.argv`, als hätte man den Befehl getippt.
+  - `capsys` fängt die Ausgabe ab.
