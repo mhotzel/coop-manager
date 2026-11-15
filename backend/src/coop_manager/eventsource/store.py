@@ -1,7 +1,7 @@
 import json
 import sqlite3
 import uuid
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import datetime
@@ -44,7 +44,7 @@ def connect(path: str) -> sqlite3.Connection:
 
 
 @contextmanager
-def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+def transaction(conn: sqlite3.Connection) -> Generator[sqlite3.Connection]:
     """Schreibtransaktion; verschachtelte Aufrufe schließen sich der äußeren an."""
     if conn.in_transaction:
         yield conn

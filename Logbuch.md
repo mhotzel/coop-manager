@@ -550,3 +550,37 @@ uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
   Rechner, auf dem das Repository liegt.
 - Die Datei wird eingecheckt, weil sie nur den Projektaufbau beschreibt und keine persönlichen
   Vorlieben enthält.
+
+## 2026-11-15 – Generator statt Iterator bei `@contextmanager`
+
+**Was:** VS Code hat `@asynccontextmanager` in `app.py` als veraltet durchgestrichen. Korrigiert:
+
+- `app.py`: `lifespan(...) -> AsyncIterator[None]` → `-> AsyncGenerator[None]`
+- `eventsource/store.py`: `transaction(...) -> Iterator[sqlite3.Connection]` →
+  `-> Generator[sqlite3.Connection]`
+- `pyproject.toml`: unter `[tool.pyright]` neu `reportDeprecated = "warning"`
+
+**Befehle:**
+
+```bash
+cd backend
+uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
+```
+
+**Warum so:**
+
+- Veraltet ist nicht der Decorator, sondern die Typannahme `Iterator` darunter. Pylance bringt die
+  Typbeschreibungen der Standardbibliothek mit (typeshed). Dort ist die Variante mit
+  `AsyncIterator` bzw. `Iterator` als `@deprecated` markiert.
+- Eine Funktion mit `yield` ist ein Generator. Ein Iterator kann nur den nächsten Wert liefern. Ein
+  Generator lässt sich außerdem schließen (`close()`), und man kann einen Fehler an der Stelle des
+  `yield` in ihn hineinwerfen (`throw()`). Genau das nutzt `@contextmanager`: Tritt im `with`-Block
+  ein Fehler auf, kommt er an der Stelle des `yield` in der Funktion an, und sie kann aufräumen,
+  z. B. ein Rollback machen. `Generator` beschreibt das also genauer.
+- Seit Python 3.13 haben die beiden hinteren Typparameter von `Generator[Yield, Send, Return]`
+  Standardwerte. Deshalb reicht `Generator[X]`.
+- `get_db` in `db.py`, `read_all` im Event Store und die Fixture `store` behalten `Iterator`. Sie
+  stehen nicht unter `@contextmanager`, dort gibt es diese Regel nicht.
+- Im Modus `standard` meldet `pyright` Veraltetes nicht. Mit `reportDeprecated = "warning"` fällt es
+  jetzt auch auf der Kommandozeile auf, nicht nur in VS Code bei geöffneter Datei. Zur Probe die
+  alte Schreibweise kurz zurückgesetzt: Die Warnung erschien.

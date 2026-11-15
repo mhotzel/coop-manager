@@ -1,5 +1,5 @@
 import logging
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,7 +16,7 @@ PROJECTORS: list[Projector] = []
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Läuft einmal beim Start der App (vor dem `yield`) und einmal beim Beenden (danach)."""
     prepare(app.state.settings.data_dir, app.state.projectors)
     log.info("app started", extra={"data_dir": app.state.settings.data_dir})

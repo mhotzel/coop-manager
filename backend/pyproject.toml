@@ -37,3 +37,4 @@ extend-select = ["I", "UP", "B"]
 
 [tool.pyright]
 include = ["src", "tests"]
+reportDeprecated = "warning"
