@@ -37,7 +37,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 3d: Login im Frontend mit Vue Router
    - 3e: Benutzerverwaltung durch den Admin, auch Kennwort neu setzen
    - 3f: Eigenes Kennwort ändern
-4. Mitglieder: Aggregat, Nummernvergabe, Suche, Bearbeitung, Adresszeilen und Briefanrede
+4. Mitglieder: Aggregat, Nummernvergabe, Suche, Bearbeitung, Adresszeilen und Briefanrede – erledigt
    - 4a: Aggregat `Member` mit Personendaten und Änderungsbefehlen, Adresszeilen und Briefanrede
    - 4b: Nummernvergabe, Zulassung und Ablehnung, Projektion und Suche, Services
    - 4c: API mit Befehlen und Abfragen
@@ -226,6 +226,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Zulassung, Ablehnung, Rücknahme:** Der Vorstand kann nur ablehnen, solange er nicht zugelassen
   hat. Die Person kann auch nach der Zulassung zurücknehmen, solange sie nicht Mitglied ist. Beides
   führt zum Status „abgelehnt“, bleibt aber als eigenes Event unterscheidbar.
+- **Kein Datum in der Zukunft für Zulassung, Ablehnung und Rücknahme:** Erfasst wird, was
+  geschehen ist, das Datum liegt also zwischen Antrag und heute. Ein Datum in der Zukunft führte
+  zu einem widersprüchlichen Bild („abgelehnt am“ morgen, Status heute noch „Antragsteller“). Das
+  Antragsdatum ist davon ausgenommen. „Heute“ übergibt die API an das Aggregat, wie beim Status.
 - **Änderungen nach fachlicher Absicht:** eigene Befehle und Events für Name, Anschrift, Kontakt,
   Adresszeilen, abweichende Briefanrede, „keine Post“ und Hinweise, kein allgemeines
   „Daten ändern“.

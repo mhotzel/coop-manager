@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -7,6 +7,7 @@ from coop_manager.members.domain import Member
 from coop_manager.members.status import APPLICANT, REJECTED
 from coop_manager.members.values import LEGAL_ENTITY, NATURAL_PERSON, Address, Contact, PersonName
 
+TODAY = date(2026, 11, 30)  # „heute“ für Entscheidungen; die Tests hängen nicht vom echten Datum ab
 ADDRESS = Address(street="Hauptstraße", house_number="1", postal_code="12345", city="Musterstadt")
 ERIKA = PersonName(first_names="Erika", last_name="Muster", gender="w")
 
@@ -168,7 +169,7 @@ def test_status_follows_the_dates():
     assert member.status(date(2026, 11, 1)) is None
     assert member.status(date(2026, 11, 2)) == APPLICANT
 
-    member.reject(date(2026, 11, 20))
+    member.reject(date(2026, 11, 20), TODAY)
 
     assert reloaded(member).status(date(2026, 11, 19)) == APPLICANT
     assert reloaded(member).status(date(2026, 11, 20)) == REJECTED
@@ -176,7 +177,7 @@ def test_status_follows_the_dates():
 
 def test_rejection_is_not_a_withdrawal():
     member = apply()
-    member.reject(date(2026, 11, 10))
+    member.reject(date(2026, 11, 10), TODAY)
 
     assert reloaded(member).rejection_date == date(2026, 11, 10)
     assert not reloaded(member).withdrawn
@@ -185,7 +186,7 @@ def test_rejection_is_not_a_withdrawal():
 def test_admit():
     member = apply()
 
-    member.admit(date(2026, 11, 10))
+    member.admit(date(2026, 11, 10), TODAY)
 
     assert reloaded(member).admission_date == date(2026, 11, 10)
     assert reloaded(member).status(date(2026, 12, 1)) == APPLICANT  # Mitglied erst mit Geldeingang
@@ -193,39 +194,58 @@ def test_admit():
 
 def test_admit_twice_is_rejected():
     member = apply()
-    member.admit(date(2026, 11, 10))
+    member.admit(date(2026, 11, 10), TODAY)
 
     with pytest.raises(DomainError, match="bereits zugelassen"):
-        member.admit(date(2026, 11, 11))
+        member.admit(date(2026, 11, 11), TODAY)
 
 
 def test_board_cannot_reject_after_admission():
     member = apply()
-    member.admit(date(2026, 11, 10))
+    member.admit(date(2026, 11, 10), TODAY)
 
     with pytest.raises(DomainError, match="nicht mehr abgelehnt"):
-        member.reject(date(2026, 11, 20))
+        member.reject(date(2026, 11, 20), TODAY)
 
 
 def test_withdraw_after_admission_is_allowed():
     member = apply()
-    member.admit(date(2026, 11, 10))
+    member.admit(date(2026, 11, 10), TODAY)
 
-    member.withdraw(date(2026, 11, 20))
+    member.withdraw(date(2026, 11, 20), TODAY)
 
     assert reloaded(member).status(date(2026, 11, 20)) == REJECTED
     assert reloaded(member).withdrawn
 
 
-@pytest.mark.parametrize("decide", [lambda m, d: m.admit(d), lambda m, d: m.reject(d), lambda m, d: m.withdraw(d)])
+@pytest.mark.parametrize(
+    "decide", [lambda m, d: m.admit(d, TODAY), lambda m, d: m.reject(d, TODAY), lambda m, d: m.withdraw(d, TODAY)]
+)
 def test_nothing_after_rejection(decide):
     member = apply()
-    member.withdraw(date(2026, 11, 5))
+    member.withdraw(date(2026, 11, 5), TODAY)
 
     with pytest.raises(DomainError, match="bereits abgelehnt oder zurückgenommen"):
         decide(member, date(2026, 11, 6))
 
 
+@pytest.mark.parametrize(
+    "decide", [lambda m, d: m.admit(d, TODAY), lambda m, d: m.reject(d, TODAY), lambda m, d: m.withdraw(d, TODAY)]
+)
+def test_decision_not_in_the_future(decide):
+    member = apply()
+
+    with pytest.raises(DomainError, match="nicht in der Zukunft"):
+        decide(member, TODAY + timedelta(days=1))
+
+
+def test_decision_today_is_allowed():
+    member = apply()
+    member.admit(TODAY, TODAY)
+
+    assert reloaded(member).admission_date == TODAY
+
+
 def test_decision_not_before_application():
     with pytest.raises(DomainError, match="nicht vor dem Antrag"):
-        apply().admit(date(2026, 11, 1))
+        apply().admit(date(2026, 11, 1), TODAY)

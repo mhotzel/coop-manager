@@ -88,31 +88,37 @@ class Member(Aggregate):
         dates = MembershipDates(self.application_date, self.admission_date, self.rejection_date)
         return status_on(dates, day)
 
-    def admit(self, decision_date: date) -> None:
+    def admit(self, decision_date: date, today: date) -> None:
         """Der Vorstand lässt zu (§ 15 GenG). Mitglied wird man erst mit dem Geldeingang (Schritt 5)."""
-        self._ensure_open_application(decision_date)
+        self._ensure_open_application(decision_date, today)
         if self.admission_date is not None:
             raise DomainError("Der Antrag ist bereits zugelassen.")
         self._record("member.admitted", decision_date=decision_date.isoformat())
 
-    def reject(self, decision_date: date) -> None:
+    def reject(self, decision_date: date, today: date) -> None:
         """Der Vorstand lehnt den Antrag ab; nach seiner eigenen Zulassung geht das nicht mehr."""
-        self._ensure_open_application(decision_date)
+        self._ensure_open_application(decision_date, today)
         if self.admission_date is not None:
             raise DomainError("Ein zugelassener Antrag kann nicht mehr abgelehnt werden.")
         self._record("member.rejected", decision_date=decision_date.isoformat())
 
-    def withdraw(self, withdrawal_date: date) -> None:
+    def withdraw(self, withdrawal_date: date, today: date) -> None:
         """Die Person nimmt ihren Antrag zurück, auch nach der Zulassung, solange sie nicht Mitglied ist."""
-        self._ensure_open_application(withdrawal_date)
+        self._ensure_open_application(withdrawal_date, today)
         self._record("member.withdrawn", withdrawal_date=withdrawal_date.isoformat())
 
-    def _ensure_open_application(self, day: date) -> None:
-        """Der Antrag darf noch nicht abgelehnt oder zurückgenommen sein; das Datum nicht davor liegen."""
+    def _ensure_open_application(self, day: date, today: date) -> None:
+        """Der Antrag darf noch nicht abgelehnt oder zurückgenommen sein.
+
+        Das Datum muss zwischen Antrag und heute liegen: Eine Entscheidung wird erfasst, wenn sie
+        gefallen ist. `today` kommt von außen, damit die Tests nicht vom echten Datum abhängen.
+        """
         if self.rejection_date is not None:
             raise DomainError("Der Antrag ist bereits abgelehnt oder zurückgenommen.")
         if self.application_date is not None and day < self.application_date:
             raise DomainError("Das Datum darf nicht vor dem Antrag liegen.")
+        if day > today:
+            raise DomainError("Das Datum darf nicht in der Zukunft liegen.")
 
     def change_name(self, name: PersonName) -> None:
         """Ändert den Namen (z. B. nach Heirat); die Adresszeilen bleiben, wie sie sind."""

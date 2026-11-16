@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 
 from coop_manager.members.status import APPLICANT, REJECTED
@@ -134,6 +136,15 @@ def test_withdraw(client, member_id):
     assert body["rejection_date"] == "2026-11-10"
     assert body["withdrawn"] is True
     assert body["status"] == REJECTED
+
+
+def test_decision_in_the_future_fails(client, member_id):
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+    response = client.post("/api/members/reject", json={"member_id": member_id, "decision_date": tomorrow})
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Das Datum darf nicht in der Zukunft liegen."}
 
 
 def test_reject_after_admission_fails(client, member_id):

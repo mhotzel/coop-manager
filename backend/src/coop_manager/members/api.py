@@ -76,19 +76,19 @@ def apply(body: ApplyForMembership, db: Db, user: Writer) -> MemberDetail:
 @router.post("/admit")
 def admit(body: Decision, db: Db, user: Writer) -> MemberDetail:
     """Zulassung durch den Vorstand."""
-    return _detail(services.admit(db, body.member_id, body.decision_date, actor=user.id))
+    return _detail(services.admit(db, body.member_id, body.decision_date, date.today(), actor=user.id))
 
 
 @router.post("/reject")
 def reject(body: Decision, db: Db, user: Writer) -> MemberDetail:
     """Ablehnung durch den Vorstand."""
-    return _detail(services.reject(db, body.member_id, body.decision_date, actor=user.id))
+    return _detail(services.reject(db, body.member_id, body.decision_date, date.today(), actor=user.id))
 
 
 @router.post("/withdraw")
 def withdraw(body: Withdraw, db: Db, user: Writer) -> MemberDetail:
     """Rücknahme des Antrags durch die Person."""
-    return _detail(services.withdraw(db, body.member_id, body.withdrawal_date, actor=user.id))
+    return _detail(services.withdraw(db, body.member_id, body.withdrawal_date, date.today(), actor=user.id))
 
 
 @router.post("/change-name")

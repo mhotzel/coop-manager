@@ -92,7 +92,7 @@ def test_changes_update_search(db):
 def test_rejection_shows_in_status(db):
     member_id = apply(db)
 
-    services.reject(db, member_id, date(2026, 11, 10), actor="test")
+    services.reject(db, member_id, date(2026, 11, 10), TODAY, actor="test")
 
     [row] = search_members(db.projections.conn, "", TODAY)
     assert row.status == REJECTED
@@ -100,7 +100,7 @@ def test_rejection_shows_in_status(db):
 
 def test_rebuild_restores_projection(db):
     member_id = apply(db)
-    services.withdraw(db, member_id, date(2026, 11, 10), actor="test")
+    services.withdraw(db, member_id, date(2026, 11, 10), TODAY, actor="test")
     before = search_members(db.projections.conn, "", TODAY)
 
     db.projections.rebuild(db.store)

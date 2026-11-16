@@ -47,19 +47,19 @@ def apply_for_membership(
     raise AssertionError("unreachable")  # die Schleife endet immer mit return oder raise
 
 
-def admit(db: Database, member_id: str, decision_date: date, actor: str) -> Member:
+def admit(db: Database, member_id: str, decision_date: date, today: date, actor: str) -> Member:
     """Zulassung durch den Vorstand mit Beschlussdatum."""
-    return _change(db, member_id, actor, lambda member: member.admit(decision_date))
+    return _change(db, member_id, actor, lambda member: member.admit(decision_date, today))
 
 
-def reject(db: Database, member_id: str, decision_date: date, actor: str) -> Member:
+def reject(db: Database, member_id: str, decision_date: date, today: date, actor: str) -> Member:
     """Ablehnung durch den Vorstand mit Beschlussdatum."""
-    return _change(db, member_id, actor, lambda member: member.reject(decision_date))
+    return _change(db, member_id, actor, lambda member: member.reject(decision_date, today))
 
 
-def withdraw(db: Database, member_id: str, withdrawal_date: date, actor: str) -> Member:
+def withdraw(db: Database, member_id: str, withdrawal_date: date, today: date, actor: str) -> Member:
     """Rücknahme des Antrags durch die Person."""
-    return _change(db, member_id, actor, lambda member: member.withdraw(withdrawal_date))
+    return _change(db, member_id, actor, lambda member: member.withdraw(withdrawal_date, today))
 
 
 def change_name(db: Database, member_id: str, name: PersonName, actor: str) -> Member:
