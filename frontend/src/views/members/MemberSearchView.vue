@@ -60,7 +60,9 @@ onMounted(search)
             <tbody>
               <tr v-for="row in rows" :key="row.id">
                 <td>{{ row.member_number }}</td>
-                <td>{{ row.list_name }}</td>
+                <td>
+                  <RouterLink :to="{ name: 'member-detail', params: { id: row.id } }">{{ row.list_name }}</RouterLink>
+                </td>
                 <td>{{ row.street }}, {{ row.postal_code }} {{ row.city }}</td>
                 <td>
                   <span v-if="row.status !== null" class="status-tag" :class="row.status === 'rejected' ? 'warning' : 'info'">

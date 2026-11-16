@@ -174,6 +174,14 @@ def test_status_follows_the_dates():
     assert reloaded(member).status(date(2026, 11, 20)) == REJECTED
 
 
+def test_rejection_is_not_a_withdrawal():
+    member = apply()
+    member.reject(date(2026, 11, 10))
+
+    assert reloaded(member).rejection_date == date(2026, 11, 10)
+    assert not reloaded(member).withdrawn
+
+
 def test_admit():
     member = apply()
 
@@ -206,6 +214,7 @@ def test_withdraw_after_admission_is_allowed():
     member.withdraw(date(2026, 11, 20))
 
     assert reloaded(member).status(date(2026, 11, 20)) == REJECTED
+    assert reloaded(member).withdrawn
 
 
 @pytest.mark.parametrize("decide", [lambda m, d: m.admit(d), lambda m, d: m.reject(d), lambda m, d: m.withdraw(d)])

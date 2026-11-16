@@ -16,6 +16,76 @@ export interface MemberRow {
   status: string | null // null: Das Antragsdatum liegt in der Zukunft.
 }
 
+// Muss zu PersonName, Address und Contact im Backend passen (members/values.py).
+export interface PersonName {
+  company_name: string
+  title: string
+  first_names: string
+  last_name: string
+  gender: string
+}
+
+export interface Address {
+  street: string
+  house_number: string
+  postal_code: string
+  city: string
+  country: string // leer = Deutschland
+}
+
+export interface Contact {
+  phone: string
+  email: string
+}
+
+// Muss zu MemberDetail im Backend passen (members/schemas.py). Datumsangaben kommen als Text
+// im Format "2026-11-02" (ISO 8601) und gehen auch so zurück.
+export interface MemberDetail {
+  id: string
+  member_number: number
+  person_type: string
+  name: PersonName
+  address: Address
+  contact: Contact
+  address_lines: string[]
+  salutation_override: string // abweichende Briefanrede, leer = erzeugt
+  no_mail: boolean
+  notes: string
+  application_date: string
+  shares_subscribed: number
+  admission_date: string | null
+  rejection_date: string | null // Ablehnung oder Rücknahme
+  withdrawn: boolean // true: Rücknahme durch die Person
+  // Berechnet, nicht gespeichert:
+  status: string | null
+  salutation: string
+  generated_address_lines: string[]
+  warnings: string[]
+}
+
+export const NATURAL_PERSON = 'natural_person'
+
+// Die Texte wie in members/values.py.
+const PERSON_TYPE_LABELS: Record<string, string> = {
+  natural_person: 'natürliche Person',
+  legal_entity: 'juristische Person',
+}
+
+const GENDER_LABELS: Record<string, string> = {
+  m: 'männlich',
+  w: 'weiblich',
+  d: 'divers',
+  '': 'keine Angabe',
+}
+
+export function personTypeLabel(personType: string): string {
+  return PERSON_TYPE_LABELS[personType] ?? personType
+}
+
+export function genderLabel(gender: string): string {
+  return GENDER_LABELS[gender] ?? gender
+}
+
 // Die Texte zu den Status wie in members/status.py. Schritt 5 bringt weitere dazu.
 const STATUS_LABELS: Record<string, string> = {
   applicant: 'Antragsteller',
@@ -29,6 +99,25 @@ export function statusLabel(status: string | null): string {
   return STATUS_LABELS[status] ?? status // unbekannter Status: lieber roh anzeigen als nichts
 }
 
+// "2026-11-02" → "02.11.2026". Bewusst ohne new Date(): Das liest den Text als Mitternacht in
+// UTC, und je nach Zeitzone des Browsers käme dann der Vortag heraus.
+export function formatDate(isoDate: string | null): string {
+  if (isoDate === null) {
+    return '–'
+  }
+  const [year, month, day] = isoDate.split('-')
+  return `${day}.${month}.${year}`
+}
+
+// Das heutige Datum als "2026-11-16" in der Zeitzone des Browsers. toISOString() ginge nicht:
+// Es rechnet in UTC, kurz nach Mitternacht wäre das noch gestern.
+export function todayIso(): string {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0') // getMonth zählt ab 0
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 // Der letzte Suchbegriff. Er steht hier im Modul und nicht in der Komponente, damit er erhalten
 // bleibt, wenn man die Suchseite verlässt und zurückkommt. In die Adresse (?q=…) gehört er nicht:
 // Beim Neuladen ginge die Adresse an den Server und der Name stünde im Access-Log.
@@ -40,4 +129,32 @@ export const SEARCH_LIMIT = 50
 // POST statt GET, damit die Suchbegriffe nicht im Access-Log stehen.
 export function searchMembers(query: string): Promise<MemberRow[]> {
   return api<MemberRow[]>('/api/members/search', { method: 'POST', body: { query } })
+}
+
+export function getMember(memberId: string): Promise<MemberDetail> {
+  // encodeURIComponent, damit Sonderzeichen in der ID den Pfad nicht verändern können.
+  return api<MemberDetail>(`/api/members/${encodeURIComponent(memberId)}`)
+}
+
+// Befehle: Jeder antwortet mit der neuen Detailansicht.
+
+export function admit(memberId: string, decisionDate: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/admit', {
+    method: 'POST',
+    body: { member_id: memberId, decision_date: decisionDate },
+  })
+}
+
+export function reject(memberId: string, decisionDate: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/reject', {
+    method: 'POST',
+    body: { member_id: memberId, decision_date: decisionDate },
+  })
+}
+
+export function withdraw(memberId: string, withdrawalDate: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/withdraw', {
+    method: 'POST',
+    body: { member_id: memberId, withdrawal_date: withdrawalDate },
+  })
 }

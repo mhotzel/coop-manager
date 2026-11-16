@@ -44,6 +44,7 @@ class Member(Aggregate):
         self.shares_subscribed = 0
         self.admission_date: date | None = None
         self.rejection_date: date | None = None  # Ablehnung oder Rücknahme
+        self.withdrawn = False  # True: Rücknahme durch die Person, nicht Ablehnung durch den Vorstand
 
     @classmethod
     def apply(
@@ -183,6 +184,7 @@ class Member(Aggregate):
     @on("member.withdrawn")
     def _withdrawn(self, event: Event) -> None:
         self.rejection_date = date.fromisoformat(event.data["withdrawal_date"])
+        self.withdrawn = True
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

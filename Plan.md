@@ -241,6 +241,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **„Adresszeilen erzeugen“ ist kein eigener Befehl:** Das Frontend übernimmt
   `generated_address_lines` in die Felder (mit Rückfrage, wenn die Zeilen von Hand geändert wurden)
   und speichert mit `change-address-lines`. Erzeugt werden die Zeilen im Backend.
+- **Ablehnung oder Rücknahme in der Detailansicht:** Beide setzen `rejection_date`, `withdrawn`
+  sagt, welches von beiden es war (`true` = Rücknahme durch die Person).
+- **Eine Detailseite statt eigener Bearbeitungsseite:** Die Detailseite ist in Abschnitte
+  gegliedert (Antrag, Name, Anschrift, Kontakt, Post, Hinweise). In 4d-4 wird jeder Abschnitt
+  für sich bearbeitet und mit seinem eigenen Befehl gespeichert. Ein großes Formular passte nicht
+  zu den Befehlen nach fachlicher Absicht.
 
 ### Adresszeilen und Briefanrede
 

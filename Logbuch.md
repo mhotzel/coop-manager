@@ -1317,3 +1317,40 @@ Detailseite (ein Abschnitt = ein Befehl, keine eigene Bearbeitungsseite).
   „nichts gefunden“ (`[]`) unterscheiden, und die Meldung erscheint nicht kurz beim Laden.
 - **Hinweis bei 50 Treffern:** Das Backend schneidet dort ab. Ohne Hinweis hielte man die Liste
   für vollständig.
+
+## 2026-11-16 – Detailseite mit Zulassung, Ablehnung und Rücknahme (Schritt 4d-2)
+
+**Was:**
+
+- Backend: `Member.withdrawn` und das Feld `withdrawn` in `MemberDetail`. Ablehnung und Rücknahme
+  setzen beide `rejection_date`, an der Detailansicht ließen sie sich bisher nicht unterscheiden.
+  Neuer Test `test_rejection_is_not_a_withdrawal`, die Tests zur Rücknahme prüfen das Feld mit.
+  Geprüft mit `uv run pytest` (209 grün), `ruff` und `pyright`.
+- `members.ts`: Interfaces `PersonName`, `Address`, `Contact`, `MemberDetail`, dazu
+  `getMember()`, die Befehle `admit()`, `reject()`, `withdraw()` und die Helfer
+  `personTypeLabel()`, `genderLabel()`, `formatDate()` und `todayIso()`.
+- `views/members/MemberDetailView.vue`: alle Daten in Abschnitten (Karten), die Knöpfe
+  Zulassen, Ablehnen, Rücknahme mit einem kleinen Datumsformular.
+- `router.ts`: Route `/members/:id` (`member-detail`). In der Suche führt der Name dorthin.
+- `Plan.md`: Entscheidungen zu `withdrawn` und zur einen Detailseite eingetragen.
+- Geprüft mit `npm run type-check` und von Hand im Browser.
+
+**Warum so:**
+
+- **Ein Feld `withdrawn` statt zweier Datumsfelder:** Es kann nur eines von beiden geben, danach
+  ist der Antrag erledigt. Ein Datum und ein Schalter bilden das genau ab. Der Status rechnet
+  weiter nur mit `rejection_date`.
+- **Datum als Text, ohne `Date`:** `<input type="date">` liefert `"2026-11-16"`, genau das Format
+  des Backends. `new Date("2026-11-02")` gilt dagegen als Mitternacht in UTC und kann je nach
+  Zeitzone den Vortag ergeben, ebenso `toISOString()` kurz nach Mitternacht. `formatDate` zerlegt
+  den Text darum nur, `todayIso` baut das Datum aus den lokalen Angaben.
+- **Union-Typ `'admit' | 'reject' | 'withdraw'`:** Welche Entscheidung gerade erfasst wird, steht
+  in einem `ref` mit diesem Typ. `Record<Action, …>` verlangt dann für jede Aktion genau einen
+  Eintrag (Titel, Befehl). Fehlt einer, meldet TypeScript einen Fehler.
+- **Regeln für die Knöpfe doppelt:** Das Frontend blendet nur aus, was im aktuellen Zustand keinen
+  Sinn hat (und alles für „Buchhaltung lesend“). Verbindlich prüft das Aggregat. Lehnt es ab,
+  steht seine Meldung in der Fehlerbox.
+- **Jeder Befehl antwortet mit der Detailansicht:** Die Seite ersetzt einfach `member` durch die
+  Antwort, ein erneutes Laden ist nicht nötig.
+- **`<dl>` mit CSS-Grid** für Bezeichnung und Wert, auf dem Handy untereinander. Das Styling steht
+  `scoped` in der Komponente, bis eine zweite Seite es braucht.

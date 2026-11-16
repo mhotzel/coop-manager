@@ -38,7 +38,8 @@ class MemberDetail(BaseModel):
     application_date: date
     shares_subscribed: int
     admission_date: date | None
-    rejection_date: date | None
+    rejection_date: date | None  # Ablehnung oder Rücknahme
+    withdrawn: bool  # True: Rücknahme durch die Person
     # Berechnet, nicht gespeichert:
     status: str | None  # zum Tag der Abfrage
     salutation: str  # die Briefanrede, wie sie in den Seriendruck kommt
@@ -65,6 +66,7 @@ class MemberDetail(BaseModel):
             shares_subscribed=member.shares_subscribed,
             admission_date=member.admission_date,
             rejection_date=member.rejection_date,
+            withdrawn=member.withdrawn,
             status=member.status(today),
             salutation=salutation(member.person_type, member.name, member.salutation),
             generated_address_lines=list(generated),

@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { ACCOUNTING, ACCOUNTING_READONLY, ADMIN, currentUser } from './auth'
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
+import MemberDetailView from './views/members/MemberDetailView.vue'
 import MemberSearchView from './views/members/MemberSearchView.vue'
 import PasswordView from './views/PasswordView.vue'
 import UserEditView from './views/users/UserEditView.vue'
@@ -29,6 +30,13 @@ export const router = createRouter({
       path: '/members',
       name: 'members',
       component: MemberSearchView,
+      meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] },
+    },
+    {
+      path: '/members/:id',
+      name: 'member-detail',
+      component: MemberDetailView,
+      props: true,
       meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] },
     },
     { path: '/users', name: 'users', component: UserListView, meta: { roles: [ADMIN] } },

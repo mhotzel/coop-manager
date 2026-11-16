@@ -132,6 +132,7 @@ def test_withdraw(client, member_id):
     body = client.post("/api/members/withdraw", json={"member_id": member_id, "withdrawal_date": "2026-11-10"}).json()
 
     assert body["rejection_date"] == "2026-11-10"
+    assert body["withdrawn"] is True
     assert body["status"] == REJECTED
 
 
