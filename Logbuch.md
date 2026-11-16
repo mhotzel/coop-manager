@@ -1354,3 +1354,83 @@ Detailseite (ein Abschnitt = ein Befehl, keine eigene Bearbeitungsseite).
   Antwort, ein erneutes Laden ist nicht nötig.
 - **`<dl>` mit CSS-Grid** für Bezeichnung und Wert, auf dem Handy untereinander. Das Styling steht
   `scoped` in der Komponente, bis eine zweite Seite es braucht.
+
+## 2026-11-16 – Antrag erfassen und Mitglieder bearbeiten (Schritte 4d-3 und 4d-4)
+
+Matthias hat beide Schritte auf einmal freigegeben („alle restlichen Sachen direkt umsetzen“).
+Damit ist Schritt 4 (Mitglieder) abgeschlossen.
+
+**Was:**
+
+- `members.ts`: `applyForMembership()` und die Befehle `changeName()`, `changeAddress()`,
+  `changeContact()`, `changeAddressLines()`, `changeSalutation()`, `changeMailPreference()`,
+  `changeNotes()`. `PERSON_TYPE_LABELS` und `GENDER_LABELS` sind exportiert, damit die Formulare
+  daraus ihre Auswahl bauen.
+- Drei Feld-Komponenten in `views/members/`: `NameFields.vue`, `AddressFields.vue`,
+  `ContactFields.vue`. Antrag und Bearbeitung benutzen dieselben Felder.
+- `MemberApplyView.vue` unter `/members/new` (nur `accounting`): Art der Person, Name,
+  Anschrift, Kontakt, Antragsdatum (vorbelegt mit heute) und Anteile (vorbelegt mit 1). Nach dem
+  Speichern geht es zur Detailseite. Auf der Suchseite gibt es dafür den Knopf „Neuer Antrag“.
+- `MemberDetailView.vue`: Jeder Abschnitt hat „Bearbeiten“ und speichert mit seinem eigenen
+  Befehl: Name, Anschrift, Kontakt, Adresszeilen, Briefanrede, Hinweise. „Keine Post“ ist ein
+  Knopf „Setzen“/„Aufheben“. Die Warnungen stehen jetzt oben auf der Seite.
+- `style.css`: Eingabefelder vom Typ `tel` und `email` sehen aus wie die übrigen.
+- `Plan.md`: Schritt 4 als erledigt markiert.
+- Geprüft mit `npm run type-check`, `npm run build-only` und von Hand im Browser.
+
+**Warum so:**
+
+- **`defineModel` für die Feld-Komponenten:** Die Elternseite schreibt `<NameFields v-model="name" />`
+  wie bei einem einfachen `<input>`. Die Komponente ändert die Eigenschaften des übergebenen
+  Objekts direkt. Das ist die einfachste Form; „sauberer“ wäre, bei jeder Eingabe ein neues
+  Objekt zurückzumelden, das bringt hier aber nichts.
+- **Entwürfe statt direkter Bindung:** Beim Bearbeiten kopiert `startEdit` die Daten
+  (`{ ...x }`, `[...x]`) in eigene `draft…`-Refs. Ohne Kopie änderte das Formular die Anzeige
+  sofort mit, und „Abbrechen“ müsste den alten Stand wiederherstellen.
+- **Immer nur ein Abschnitt offen:** Solange ein Formular offen ist, verschwinden die anderen
+  „Bearbeiten“-Knöpfe. So kann kein ungespeicherter Entwurf verloren gehen.
+- **Eine Hilfsfunktion `run` für alle Befehle**, wie in `UserEditView.vue`: Fehler anzeigen,
+  Erfolg melden, Formular schließen. Bei einem Fehler bleibt das Formular mit den Eingaben offen.
+- **„Adresszeilen erzeugen“ fragt nur, wenn die Zeilen im Entwurf von den erzeugten abweichen**
+  (`window.confirm`). Ob sie von Hand angepasst oder nur veraltet sind, lässt sich nicht
+  unterscheiden; im Zweifel fragt die Seite lieber.
+- **Länge der Adresszeilen schon beim Tippen:** Über 35 Zeichen steht neben der Zeile ein roter
+  Hinweis. Die Warnung des Backends kommt zusätzlich nach dem Speichern.
+- **Firmenname bei natürlicher Person leeren:** Wechselt man im Antrag von „juristisch“ auf
+  „natürlich“, ist das Firmenfeld ausgeblendet, sein Inhalt aber noch da. Das Backend würde den
+  Antrag dann ablehnen, darum schickt `submit` den Firmennamen in diesem Fall leer.
+- **`router.replace` nach dem Antrag:** „Zurück“ im Browser führt so nicht wieder in das
+  ausgefüllte Formular, mit dem man versehentlich einen zweiten Antrag anlegen könnte.
+- **`noUncheckedIndexedAccess`:** In `tsconfig.app.json` eingeschaltet. `draftLines[index]` hat
+  deshalb den Typ `string | undefined`. In der Vorlage nehmen wir für die Länge darum `line`
+  aus dem `v-for`, das ist sicher ein `string`.
+
+## 2026-11-16 – Kein Datum in der Zukunft bei Entscheidungen
+
+**Anlass:** Beim Testen wurde ein Antrag abgelehnt, im Datumsfeld stand aber versehentlich der
+17.11. statt des 16.11. Gespeichert war damit eine Ablehnung für morgen: Die Detailseite zeigte
+„Abgelehnt am 17.11.2026“, der Status war heute noch „Antragsteller“, Knöpfe gab es keine mehr.
+Die Berechnung war richtig, die Eingabe hätte aber nicht angenommen werden dürfen. Nachgesehen
+mit `sqlite3` direkt in `backend/data/eventstore.sqlite` und `projections.sqlite`.
+
+**Was:**
+
+- `Member.admit`, `reject` und `withdraw` bekommen `today` und lehnen ein Datum nach heute ab:
+  „Das Datum darf nicht in der Zukunft liegen.“ Ebenso die Services, die API übergibt
+  `date.today()`.
+- Tests: Zukunft für alle drei Entscheidungen abgelehnt, heute erlaubt, dazu ein API-Test. In
+  `test_members_domain.py` steht ein festes `TODAY = date(2026, 11, 30)`. Geprüft mit
+  `uv run pytest` (214 grün), `ruff` und `pyright`.
+- Frontend: Das Datumsfeld bekommt `min` (Antragsdatum) und `max` (heute), der Browser bietet
+  andere Tage gar nicht erst an.
+- `Plan.md`: Entscheidung eingetragen.
+
+**Warum so:**
+
+- **`today` als Parameter statt `date.today()` im Aggregat:** Wie bei `status(today)`. Sonst
+  hinge das Ergebnis eines Tests vom Tag ab, an dem er läuft. Ein Test mit dem 20.11. als
+  Entscheidungsdatum würde dann bis zum 19.11. scheitern und danach bestehen.
+- **Prüfung in beiden Schichten:** `max` im Browser ist Komfort und verhindert Versehen. Die Regel
+  selbst steht im Aggregat, denn auch die API ohne Oberfläche muss sie einhalten.
+- **Der Testdatensatz bleibt, wie er ist:** Events werden nicht geändert, und ab dem 17.11. ist
+  er von selbst „abgelehnt“. Es sind nur Entwicklungsdaten.

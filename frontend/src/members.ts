@@ -64,18 +64,20 @@ export interface MemberDetail {
 }
 
 export const NATURAL_PERSON = 'natural_person'
+export const LEGAL_ENTITY = 'legal_entity'
 
 // Die Texte wie in members/values.py.
-const PERSON_TYPE_LABELS: Record<string, string> = {
+export const PERSON_TYPE_LABELS: Record<string, string> = {
   natural_person: 'natürliche Person',
   legal_entity: 'juristische Person',
 }
 
-const GENDER_LABELS: Record<string, string> = {
-  m: 'männlich',
-  w: 'weiblich',
-  d: 'divers',
+// Die Reihenfolge ist auch die der Auswahlliste im Formular.
+export const GENDER_LABELS: Record<string, string> = {
   '': 'keine Angabe',
+  w: 'weiblich',
+  m: 'männlich',
+  d: 'divers',
 }
 
 export function personTypeLabel(personType: string): string {
@@ -157,4 +159,52 @@ export function withdraw(memberId: string, withdrawalDate: string): Promise<Memb
     method: 'POST',
     body: { member_id: memberId, withdrawal_date: withdrawalDate },
   })
+}
+
+export function applyForMembership(application: {
+  person_type: string
+  name: PersonName
+  address: Address
+  contact: Contact
+  application_date: string
+  shares_subscribed: number
+}): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/apply', { method: 'POST', body: application })
+}
+
+export function changeName(memberId: string, name: PersonName): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/change-name', { method: 'POST', body: { member_id: memberId, name } })
+}
+
+export function changeAddress(memberId: string, address: Address): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/change-address', { method: 'POST', body: { member_id: memberId, address } })
+}
+
+export function changeContact(memberId: string, contact: Contact): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/change-contact', { method: 'POST', body: { member_id: memberId, contact } })
+}
+
+export function changeAddressLines(memberId: string, addressLines: string[]): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/change-address-lines', {
+    method: 'POST',
+    body: { member_id: memberId, address_lines: addressLines },
+  })
+}
+
+export function changeSalutation(memberId: string, salutation: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/change-salutation', {
+    method: 'POST',
+    body: { member_id: memberId, salutation },
+  })
+}
+
+export function changeMailPreference(memberId: string, noMail: boolean): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/change-mail-preference', {
+    method: 'POST',
+    body: { member_id: memberId, no_mail: noMail },
+  })
+}
+
+export function changeNotes(memberId: string, notes: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/change-notes', { method: 'POST', body: { member_id: memberId, notes } })
 }

@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { ACCOUNTING, ACCOUNTING_READONLY, ADMIN, currentUser } from './auth'
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
+import MemberApplyView from './views/members/MemberApplyView.vue'
 import MemberDetailView from './views/members/MemberDetailView.vue'
 import MemberSearchView from './views/members/MemberSearchView.vue'
 import PasswordView from './views/PasswordView.vue'
@@ -32,6 +33,8 @@ export const router = createRouter({
       component: MemberSearchView,
       meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] },
     },
+    // Fester Pfad: gewinnt gegen /members/:id, egal in welcher Reihenfolge.
+    { path: '/members/new', name: 'member-new', component: MemberApplyView, meta: { roles: [ACCOUNTING] } },
     {
       path: '/members/:id',
       name: 'member-detail',

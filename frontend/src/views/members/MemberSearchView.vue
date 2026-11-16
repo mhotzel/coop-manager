@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { errorText } from '../../api'
+import { ACCOUNTING, currentUser } from '../../auth'
 import { lastQuery, searchMembers, SEARCH_LIMIT, statusLabel, type MemberRow } from '../../members'
 
 // null heißt: Es wurde noch nicht gesucht (anders als [] = gesucht, nichts gefunden).
 const rows = ref<MemberRow[] | null>(null)
 const error = ref('')
 const busy = ref(false)
+// Neue Anträge erfasst nur die Buchhaltung, nicht „Buchhaltung lesend“.
+const canWrite = computed(() => currentUser.value?.role === ACCOUNTING)
 
 async function search(): Promise<void> {
   error.value = ''
@@ -41,6 +44,9 @@ onMounted(search)
         />
         <button type="submit" class="btn btn-primary" :disabled="busy">Suchen</button>
       </form>
+      <div v-if="canWrite" class="button-row">
+        <RouterLink :to="{ name: 'member-new' }" class="btn btn-secondary">Neuer Antrag</RouterLink>
+      </div>
 
       <template v-if="rows !== null">
         <div v-if="rows.length === 0" class="status-box info"><p>Keine Mitglieder gefunden.</p></div>

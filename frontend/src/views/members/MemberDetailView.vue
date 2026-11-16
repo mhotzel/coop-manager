@@ -4,7 +4,20 @@ import { computed, onMounted, ref } from 'vue'
 import { errorText } from '../../api'
 import { ACCOUNTING, currentUser } from '../../auth'
 import * as members from '../../members'
-import { formatDate, genderLabel, NATURAL_PERSON, personTypeLabel, statusLabel, type MemberDetail } from '../../members'
+import {
+  formatDate,
+  genderLabel,
+  NATURAL_PERSON,
+  personTypeLabel,
+  statusLabel,
+  type Address,
+  type Contact,
+  type MemberDetail,
+  type PersonName,
+} from '../../members'
+import AddressFields from './AddressFields.vue'
+import ContactFields from './ContactFields.vue'
+import NameFields from './NameFields.vue'
 
 // Der Router übergibt :id aus dem Pfad als Prop (siehe props: true in router.ts).
 const props = defineProps<{ id: string }>()
@@ -26,12 +39,30 @@ const ACTION_TITLES: Record<Action, string> = {
   withdraw: 'Rücknahme durch die Person',
 }
 
+// Welcher Abschnitt gerade bearbeitet wird; immer nur einer, jeder mit seinem eigenen Befehl.
+type Section = 'name' | 'address' | 'contact' | 'addressLines' | 'salutation' | 'notes'
+const editing = ref<Section | null>(null)
+
+// Entwürfe: Kopien der Daten, die das Formular ändert. Erst „Speichern“ schickt sie ans Backend,
+// „Abbrechen“ verwirft sie einfach. Die Anzeige bleibt bis dahin unverändert.
+const draftName = ref<PersonName>({ company_name: '', title: '', first_names: '', last_name: '', gender: '' })
+const draftAddress = ref<Address>({ street: '', house_number: '', postal_code: '', city: '', country: '' })
+const draftContact = ref<Contact>({ phone: '', email: '' })
+const draftLines = ref<string[]>([])
+const draftSalutation = ref('')
+const draftNotes = ref('')
+
+// Längere Zeilen passen nicht mehr ins Sichtfenster des Umschlags (siehe Plan.md).
+const LINE_WARN_LENGTH = 35
+
 // Was ist im aktuellen Zustand erlaubt? Nur damit keine sinnlosen Knöpfe erscheinen;
 // verbindlich prüft das Backend (members/domain.py).
 const canWrite = computed(() => currentUser.value?.role === ACCOUNTING)
 const isOpen = computed(() => member.value !== null && member.value.rejection_date === null)
 const canDecide = computed(() => canWrite.value && isOpen.value && member.value?.admission_date === null)
 const canWithdraw = computed(() => canWrite.value && isOpen.value)
+// Bearbeiten nur, solange kein anderes Formular offen ist; so geht kein Entwurf verloren.
+const canEdit = computed(() => canWrite.value && editing.value === null && action.value === null)
 
 const isNaturalPerson = computed(() => member.value?.person_type === NATURAL_PERSON)
 
@@ -52,6 +83,24 @@ onMounted(async () => {
   }
 })
 
+// Führt einen Befehl aus und zeigt danach Erfolg oder Fehler an. Jeder Befehl antwortet mit der
+// neuen Detailansicht, die einfach die alte ersetzt. Bei einem Fehler bleibt das Formular offen.
+async function run(command: () => Promise<MemberDetail>, success: string): Promise<void> {
+  message.value = ''
+  error.value = ''
+  busy.value = true
+  try {
+    member.value = await command()
+    message.value = success
+    action.value = null
+    editing.value = null
+  } catch (e) {
+    error.value = errorText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
 function startAction(chosen: Action): void {
   message.value = ''
   error.value = ''
@@ -59,7 +108,7 @@ function startAction(chosen: Action): void {
   actionDate.value = members.todayIso()
 }
 
-async function confirmAction(): Promise<void> {
+function confirmAction(): void {
   if (action.value === null) {
     return
   }
@@ -69,18 +118,55 @@ async function confirmAction(): Promise<void> {
     reject: members.reject,
     withdraw: members.withdraw,
   }
-  const title = ACTION_TITLES[action.value]
-  error.value = ''
-  busy.value = true
-  try {
-    member.value = await commands[action.value](props.id, actionDate.value)
-    message.value = `${title} wurde gespeichert.`
-    action.value = null
-  } catch (e) {
-    error.value = errorText(e)
-  } finally {
-    busy.value = false
+  const command = commands[action.value]
+  const day = actionDate.value
+  void run(() => command(props.id, day), `${ACTION_TITLES[action.value]} wurde gespeichert.`)
+}
+
+// Öffnet einen Abschnitt zum Bearbeiten und füllt den Entwurf mit den gespeicherten Daten.
+// { ...x } und [...x] machen Kopien; sonst änderte das Formular direkt die Anzeige mit.
+function startEdit(section: Section): void {
+  const m = member.value
+  if (m === null) {
+    return
   }
+  message.value = ''
+  error.value = ''
+  draftName.value = { ...m.name }
+  draftAddress.value = { ...m.address }
+  draftContact.value = { ...m.contact }
+  draftLines.value = [...m.address_lines]
+  draftSalutation.value = m.salutation_override
+  draftNotes.value = m.notes
+  editing.value = section
+}
+
+const saveName = () => run(() => members.changeName(props.id, draftName.value), 'Der Name wurde geändert.')
+const saveAddress = () => run(() => members.changeAddress(props.id, draftAddress.value), 'Die Anschrift wurde geändert.')
+const saveContact = () => run(() => members.changeContact(props.id, draftContact.value), 'Der Kontakt wurde geändert.')
+const saveLines = () =>
+  run(() => members.changeAddressLines(props.id, draftLines.value), 'Die Adresszeilen wurden geändert.')
+const saveSalutation = () =>
+  run(() => members.changeSalutation(props.id, draftSalutation.value), 'Die Briefanrede wurde geändert.')
+const saveNotes = () => run(() => members.changeNotes(props.id, draftNotes.value), 'Die Hinweise wurden geändert.')
+
+function toggleNoMail(): void {
+  const noMail = !member.value?.no_mail
+  void run(
+    () => members.changeMailPreference(props.id, noMail),
+    noMail ? 'Das Mitglied bekommt keine Post mehr.' : 'Das Mitglied bekommt wieder Post.',
+  )
+}
+
+// Übernimmt die im Backend aus Name und Anschrift erzeugten Zeilen in den Entwurf. Stehen dort
+// andere Zeilen (z. B. von Hand angepasst), wird vorher gefragt. Gespeichert wird erst danach.
+function generateLines(): void {
+  const generated = member.value?.generated_address_lines ?? []
+  const differs = draftLines.value.some((line, index) => line !== generated[index])
+  if (differs && !window.confirm('Die Adresszeilen weichen von den erzeugten ab. Überschreiben?')) {
+    return
+  }
+  draftLines.value = [...generated]
 }
 </script>
 
@@ -93,6 +179,11 @@ async function confirmAction(): Promise<void> {
   <div v-if="message" class="status-box info"><p>{{ message }}</p></div>
 
   <template v-if="member">
+    <!-- Oben, damit man die Warnungen direkt nach dem Speichern sieht. Speichern geht trotzdem. -->
+    <div v-if="member.warnings.length > 0" class="status-box warning">
+      <p v-for="warning in member.warnings" :key="warning">{{ warning }}</p>
+    </div>
+
     <div class="card">
       <div class="card-header">
         Nr. {{ member.member_number }}:
@@ -117,7 +208,7 @@ async function confirmAction(): Promise<void> {
           </template>
         </dl>
 
-        <div v-if="action === null && (canDecide || canWithdraw)" class="button-row">
+        <div v-if="editing === null && action === null && (canDecide || canWithdraw)" class="button-row">
           <button v-if="canDecide" type="button" class="btn btn-primary" @click="startAction('admit')">Zulassen</button>
           <button v-if="canDecide" type="button" class="btn btn-secondary" @click="startAction('reject')">Ablehnen</button>
           <button v-if="canWithdraw" type="button" class="btn btn-secondary" @click="startAction('withdraw')">
@@ -128,7 +219,15 @@ async function confirmAction(): Promise<void> {
         <form v-if="action !== null" @submit.prevent="confirmAction">
           <div class="form-group">
             <label for="action-date">{{ ACTION_TITLES[action] }} am</label>
-            <input id="action-date" v-model="actionDate" type="date" required />
+            <!-- min/max: Der Browser bietet nur Tage zwischen Antrag und heute an (geprüft wird im Backend). -->
+            <input
+              id="action-date"
+              v-model="actionDate"
+              type="date"
+              :min="member.application_date"
+              :max="members.todayIso()"
+              required
+            />
             <div class="button-row">
               <button type="submit" class="btn btn-primary" :disabled="busy">Bestätigen</button>
               <button type="button" class="btn btn-secondary" @click="action = null">Abbrechen</button>
@@ -141,68 +240,151 @@ async function confirmAction(): Promise<void> {
     <div class="card">
       <div class="card-header">{{ isNaturalPerson ? 'Name' : 'Firma und Ansprechpartner' }}</div>
       <div class="card-content">
-        <dl>
-          <template v-if="!isNaturalPerson">
-            <dt>Firma</dt>
-            <dd>{{ member.name.company_name }}</dd>
-          </template>
-          <dt>Titel</dt>
-          <dd>{{ member.name.title || '–' }}</dd>
-          <dt>Vornamen</dt>
-          <dd>{{ member.name.first_names || '–' }}</dd>
-          <dt>Nachname</dt>
-          <dd>{{ member.name.last_name || '–' }}</dd>
-          <dt>Geschlecht</dt>
-          <dd>{{ genderLabel(member.name.gender) }}</dd>
-        </dl>
+        <form v-if="editing === 'name'" @submit.prevent="saveName">
+          <NameFields v-model="draftName" :person-type="member.person_type" />
+          <p class="hint">Die Adresszeilen ändern sich nicht von selbst, bitte danach prüfen.</p>
+          <div class="button-row">
+            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+          </div>
+        </form>
+        <template v-else>
+          <dl>
+            <template v-if="!isNaturalPerson">
+              <dt>Firma</dt>
+              <dd>{{ member.name.company_name }}</dd>
+            </template>
+            <dt>Titel</dt>
+            <dd>{{ member.name.title || '–' }}</dd>
+            <dt>Vornamen</dt>
+            <dd>{{ member.name.first_names || '–' }}</dd>
+            <dt>Nachname</dt>
+            <dd>{{ member.name.last_name || '–' }}</dd>
+            <dt>Geschlecht</dt>
+            <dd>{{ genderLabel(member.name.gender) }}</dd>
+          </dl>
+          <div v-if="canEdit" class="button-row">
+            <button type="button" class="btn btn-outline" @click="startEdit('name')">Bearbeiten</button>
+          </div>
+        </template>
       </div>
     </div>
 
     <div class="card">
       <div class="card-header">Anschrift</div>
       <div class="card-content">
-        <dl>
-          <dt>Straße</dt>
-          <dd>{{ member.address.street }} {{ member.address.house_number }}</dd>
-          <dt>Ort</dt>
-          <dd>{{ member.address.postal_code }} {{ member.address.city }}</dd>
-          <dt>Land</dt>
-          <dd>{{ member.address.country || 'Deutschland' }}</dd>
-        </dl>
+        <form v-if="editing === 'address'" @submit.prevent="saveAddress">
+          <AddressFields v-model="draftAddress" />
+          <p class="hint">Die Adresszeilen ändern sich nicht von selbst, bitte danach prüfen.</p>
+          <div class="button-row">
+            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+          </div>
+        </form>
+        <template v-else>
+          <dl>
+            <dt>Straße</dt>
+            <dd>{{ member.address.street }} {{ member.address.house_number }}</dd>
+            <dt>Ort</dt>
+            <dd>{{ member.address.postal_code }} {{ member.address.city }}</dd>
+            <dt>Land</dt>
+            <dd>{{ member.address.country || 'Deutschland' }}</dd>
+          </dl>
+          <div v-if="canEdit" class="button-row">
+            <button type="button" class="btn btn-outline" @click="startEdit('address')">Bearbeiten</button>
+          </div>
+        </template>
       </div>
     </div>
 
     <div class="card">
       <div class="card-header">Kontakt</div>
       <div class="card-content">
-        <dl>
-          <dt>Telefon</dt>
-          <dd>{{ member.contact.phone || '–' }}</dd>
-          <dt>E-Mail</dt>
-          <dd>{{ member.contact.email || '–' }}</dd>
-        </dl>
+        <form v-if="editing === 'contact'" @submit.prevent="saveContact">
+          <ContactFields v-model="draftContact" />
+          <div class="button-row">
+            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+          </div>
+        </form>
+        <template v-else>
+          <dl>
+            <dt>Telefon</dt>
+            <dd>{{ member.contact.phone || '–' }}</dd>
+            <dt>E-Mail</dt>
+            <dd>{{ member.contact.email || '–' }}</dd>
+          </dl>
+          <div v-if="canEdit" class="button-row">
+            <button type="button" class="btn btn-outline" @click="startEdit('contact')">Bearbeiten</button>
+          </div>
+        </template>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header">Post</div>
+      <div class="card-header">Adresszeilen</div>
       <div class="card-content">
-        <div v-if="member.warnings.length > 0" class="status-box warning">
-          <p v-for="warning in member.warnings" :key="warning">{{ warning }}</p>
-        </div>
-        <dl>
-          <dt>Adresszeilen</dt>
-          <dd>
-            <!-- Leere Zeilen mittendrin als geschütztes Leerzeichen, sonst fielen sie weg. -->
+        <form v-if="editing === 'addressLines'" @submit.prevent="saveLines">
+          <div class="form-group">
+            <!-- v-model auf ein Element der Liste: draftLines[index] wird direkt geändert. -->
+            <template v-for="(line, index) in draftLines" :key="index">
+              <label :for="`line-${index}`">
+                Zeile {{ index + 1 }}
+                <span v-if="line.length > LINE_WARN_LENGTH" class="too-long">
+                  ({{ line.length }} Zeichen, höchstens {{ LINE_WARN_LENGTH }} passen)
+                </span>
+              </label>
+              <input :id="`line-${index}`" v-model="draftLines[index]" type="text" maxlength="100" />
+            </template>
+          </div>
+          <div class="button-row">
+            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+            <button type="button" class="btn btn-outline" @click="generateLines">Adresszeilen erzeugen</button>
+            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+          </div>
+        </form>
+        <template v-else>
+          <!-- Leere Zeilen mittendrin als geschütztes Leerzeichen, sonst fielen sie weg. -->
+          <div class="address-lines">
             <div v-for="(line, index) in visibleAddressLines" :key="index">{{ line || ' ' }}</div>
-          </dd>
+          </div>
+          <div v-if="canEdit" class="button-row">
+            <button type="button" class="btn btn-outline" @click="startEdit('addressLines')">Bearbeiten</button>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Briefanrede und Post</div>
+      <div class="card-content">
+        <form v-if="editing === 'salutation'" @submit.prevent="saveSalutation">
+          <div class="form-group">
+            <label for="salutation">Abweichende Briefanrede</label>
+            <input id="salutation" v-model="draftSalutation" type="text" maxlength="100" />
+            <p class="hint">Leer lassen, dann wird die Anrede aus Name und Geschlecht erzeugt.</p>
+          </div>
+          <div class="button-row">
+            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+          </div>
+        </form>
+        <dl v-else>
           <dt>Briefanrede</dt>
           <dd>
             {{ member.salutation }}
             <span v-if="member.salutation_override" class="status-tag info">abweichend</span>
+            <button v-if="canEdit" type="button" class="btn btn-outline btn-inline" @click="startEdit('salutation')">
+              Bearbeiten
+            </button>
           </dd>
           <dt>Keine Post</dt>
-          <dd>{{ member.no_mail ? 'ja' : 'nein' }}</dd>
+          <dd>
+            {{ member.no_mail ? 'ja, keine Einladungen per Seriendruck' : 'nein' }}
+            <button v-if="canEdit" type="button" class="btn btn-outline btn-inline" :disabled="busy" @click="toggleNoMail">
+              {{ member.no_mail ? 'Aufheben' : 'Setzen' }}
+            </button>
+          </dd>
         </dl>
       </div>
     </div>
@@ -210,8 +392,23 @@ async function confirmAction(): Promise<void> {
     <div class="card">
       <div class="card-header">Hinweise</div>
       <div class="card-content">
-        <!-- pre-line: Zeilenumbrüche aus dem Text bleiben erhalten. -->
-        <p class="notes">{{ member.notes || 'keine' }}</p>
+        <form v-if="editing === 'notes'" @submit.prevent="saveNotes">
+          <div class="form-group">
+            <label for="notes">Hinweise</label>
+            <textarea id="notes" v-model="draftNotes" rows="6" maxlength="5000"></textarea>
+          </div>
+          <div class="button-row">
+            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+          </div>
+        </form>
+        <template v-else>
+          <!-- pre-line: Zeilenumbrüche aus dem Text bleiben erhalten. -->
+          <p class="notes">{{ member.notes || 'keine' }}</p>
+          <div v-if="canEdit" class="button-row">
+            <button type="button" class="btn btn-outline" @click="startEdit('notes')">Bearbeiten</button>
+          </div>
+        </template>
       </div>
     </div>
   </template>
@@ -247,5 +444,25 @@ dd {
 
 .notes {
   white-space: pre-line;
+}
+
+.address-lines {
+  margin-bottom: 0.8rem;
+}
+
+.hint {
+  color: var(--text-label);
+}
+
+.too-long {
+  color: var(--error-color);
+  font-weight: normal;
+}
+
+/* Kleiner Knopf hinter einem Wert in derselben Zeile. */
+.btn-inline {
+  margin-left: 0.8rem;
+  padding: 2px 8px;
+  font-size: 0.85rem;
 }
 </style>
