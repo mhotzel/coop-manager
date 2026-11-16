@@ -1237,3 +1237,49 @@ uv run ruff check                                                           # je
 - **Umbenannt: `Facts` → `MembershipDates`** (Matthias' Hinweis). Die Klasse ist nicht der Status,
   sondern enthält die Daten der Mitgliedschaft (Antrag, Zulassung, Ablehnung, in Schritt 5 auch
   Eintritt, Kündigung und Ausscheiden), aus denen `status_on` den Status für einen Tag berechnet.
+
+## 2026-11-15 – Mitglieder-API mit Befehlen und Abfragen (Schritt 4c)
+
+**Was:**
+
+- `members/schemas.py`: Pydantic-Modelle. `SearchRequest`, `MemberDetail` mit
+  `from_member(member, today)` und je ein Befehl pro fachlicher Aktion: `ApplyForMembership`,
+  `Decision`, `Withdraw` und `ChangeName` bis `ChangeNotes`.
+- `members/api.py`: Router unter `/api/members`.
+  - Abfragen: `POST /search` und `GET /{member_id}`.
+  - Befehle: `POST /apply`, `/admit`, `/reject`, `/withdraw`, `/change-name`, `/change-address`,
+    `/change-contact`, `/change-address-lines`, `/change-salutation`, `/change-mail-preference`
+    und `/change-notes`.
+- `members/addressing.py`: `address_warnings(lines, generated)` mit den deutschen Warntexten.
+- `app.py`: Der Router ist eingebunden.
+- Tests: `test_members_api.py` und drei neue Tests in `test_members_addressing.py`.
+- Geprüft mit `uv run pytest` (208 grün), `uv run ruff check` und `uv run ruff format`.
+
+**Warum so:**
+
+- **Rechte über zwei Kurzformen:** `Reader = require_role(ACCOUNTING, ACCOUNTING_READONLY)` und
+  `Writer = require_role(ACCOUNTING)`. Am Parameter jedes Endpunkts sieht man so sofort, wer ihn
+  benutzen darf. Der Admin steht in keiner der beiden Listen und bekommt 403. Der bestehende Test
+  in `test_access.py` prüft die neuen Routen automatisch mit: Jede braucht einen angemeldeten
+  Benutzer.
+- **Dataclasses als Pydantic-Feldtypen:** `PersonName`, `Address` und `Contact` stehen direkt in
+  den Schemas. Pydantic prüft dann Typen und Pflichtfelder (fehlt z. B. der Ort: 422), die
+  fachlichen Regeln prüft weiter das Aggregat (400). So gibt es die Felder nur einmal. In der
+  OpenAPI-Beschreibung erscheinen sie als eigene Schemas.
+- **Die Detailansicht kommt aus dem Aggregat, nicht aus der Projektion.** Die Projektion
+  `members` enthält nur, was Suche und Liste brauchen, keinen Kontakt und keine Hinweise. Ein
+  einzelnes Mitglied aus seinen Events zu laden ist billig, und die Services liefern das
+  Aggregat nach jedem Befehl ohnehin zurück.
+- **Berechnete Angaben werden beim Lesen gebildet:** Status von heute, Briefanrede,
+  `generated_address_lines` und `warnings`. Die Warnung „passt nicht“ vergleicht einfach die
+  gespeicherten mit den neu erzeugten Zeilen. Speichert das Frontend die erzeugten Zeilen mit
+  `change-address-lines`, verschwindet sie wieder.
+- **`salutation_override` und `salutation`:** Das gespeicherte Feld (abweichende Anrede, oft
+  leer) und die tatsächlich verwendete Anrede heißen in der Antwort verschieden. Sonst wüsste das
+  Frontend nicht, was in das Eingabefeld gehört.
+- **Stolperstein `date: date`:** Ein Feld, das so heißt wie sein Typ, überdeckt den Typ im
+  Klassenkörper, das ist bei Pydantic eine bekannte Fehlerquelle. Die Felder heißen darum wie in
+  den Events `decision_date` bzw. `withdrawal_date`. Für die Rücknahme gibt es deshalb ein eigenes
+  Schema `Withdraw`.
+- **Obergrenzen (`max_length`) in den Schemas** nur als Schutz vor riesigen Anfragen, wie bei den
+  Benutzern. Die fachlichen Längen prüft das Aggregat.

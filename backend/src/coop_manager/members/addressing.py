@@ -37,6 +37,21 @@ def long_address_lines(lines: tuple[str, ...]) -> list[int]:
     return [number for number, line in enumerate(lines, start=1) if len(line) > MAX_LINE_LENGTH]
 
 
+def address_warnings(lines: tuple[str, ...], generated: tuple[str, ...]) -> list[str]:
+    """Hinweise zu den gespeicherten Adresszeilen; Speichern bleibt trotzdem möglich (siehe Plan).
+
+    `generated` sind die Zeilen, die sich aus Name und Anschrift ergeben würden. Weichen die
+    gespeicherten davon ab, wurden sie von Hand geändert oder nach einer Änderung von Name oder
+    Anschrift nicht neu erzeugt.
+    """
+    warnings = []
+    if lines != generated:
+        warnings.append("Die Adresszeilen passen nicht zu Name und Anschrift.")
+    for number in long_address_lines(lines):
+        warnings.append(f"Adresszeile {number} ist länger als {MAX_LINE_LENGTH} Zeichen.")
+    return warnings
+
+
 def salutation(person_type: str, name: PersonName, override: str = "", deceased: bool = False) -> str:
     """Die Briefanrede, wie sie in den Seriendruck kommt."""
     if deceased:

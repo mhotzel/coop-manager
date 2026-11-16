@@ -1,6 +1,12 @@
 import pytest
 
-from coop_manager.members.addressing import address_lines, list_name, long_address_lines, salutation
+from coop_manager.members.addressing import (
+    address_lines,
+    address_warnings,
+    list_name,
+    long_address_lines,
+    salutation,
+)
 from coop_manager.members.values import LEGAL_ENTITY, NATURAL_PERSON, Address, PersonName
 
 ADDRESS = Address(street="Hauptstraße", house_number="1a", postal_code="12345", city="Musterstadt")
@@ -97,3 +103,24 @@ def test_deceased_always_get_formal_salutation():
 def test_list_name():
     assert list_name(NATURAL_PERSON, ERIKA) == "Muster, Erika Maria"
     assert list_name(LEGAL_ENTITY, COMPANY) == "Musterbau GmbH"
+
+
+def test_no_warnings_when_lines_match():
+    lines = address_lines(NATURAL_PERSON, ERIKA, ADDRESS)
+
+    assert address_warnings(lines, lines) == []
+
+
+def test_warning_when_lines_differ_from_generated():
+    lines = address_lines(NATURAL_PERSON, ERIKA, ADDRESS)
+    moved = Address(street="Dorfweg", house_number="2", postal_code="12345", city="Musterstadt")
+
+    assert address_warnings(lines, address_lines(NATURAL_PERSON, ERIKA, moved)) == [
+        "Die Adresszeilen passen nicht zu Name und Anschrift."
+    ]
+
+
+def test_warning_for_long_line():
+    lines = ("Frau", "Erika Maria Musterfrau-Beispielhausen", "Hauptstraße 1a", "12345 Musterstadt", "", "")
+
+    assert address_warnings(lines, lines) == ["Adresszeile 2 ist länger als 35 Zeichen."]

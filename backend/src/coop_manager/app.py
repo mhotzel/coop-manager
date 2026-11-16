@@ -12,6 +12,7 @@ from .core import DomainError, NotFoundError
 from .db import prepare
 from .eventsource import Projector
 from .logs import init_logging
+from .members import api as members_api
 from .members.projections import MemberList
 from .security import init_security
 from .users import api as users_api
@@ -44,6 +45,7 @@ def create_app(settings: Settings | None = None, projectors: Sequence[Projector]
     init_error_handlers(app)
 
     app.include_router(users_api.router)
+    app.include_router(members_api.router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
