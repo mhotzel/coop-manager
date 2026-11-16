@@ -24,6 +24,7 @@ Sie löst die bisherige Access-Datenbank ab.
 | [Konzeption.md](Konzeption.md) | Die ursprüngliche Beschreibung des Vorhabens: Ziele, Technik, Datenstrukturen, Buchungssätze, Reports. Sie bleibt als Ausgangspunkt erhalten und wird nicht fortgeschrieben. |
 | [Plan.md](Plan.md) | Alle abgestimmten fachlichen und technischen Entscheidungen, das Vorgehen in Schritten, das Glossar Deutsch–Englisch sowie offene Punkte und mögliche Weiterentwicklungen. **Bei Abweichungen gilt der Plan vor der Konzeption.** |
 | [Logbuch.md](Logbuch.md) | Chronik der Entwicklung: was in jedem Schritt gemacht wurde, mit welchen Werkzeugen und Befehlen und warum. Zum Nachvollziehen und Nachschlagen. |
+| [DEV_HINTS.md](DEV_HINTS.md) | Entwicklung: Backend und Frontend starten, ersten Admin anlegen, API von Hand ausprobieren, Prüfungen. |
 | [AGENTS.md](AGENTS.md) | Arbeitsregeln für KI-Assistenten, die an diesem Projekt mitarbeiten. |
 
 ## Lizenz
