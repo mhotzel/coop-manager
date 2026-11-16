@@ -23,7 +23,7 @@ interface MenuEntry {
 const FACHLICH = [ACCOUNTING, ACCOUNTING_READONLY]
 
 const menuEntries: MenuEntry[] = [
-  { title: 'Mitglieder', roles: FACHLICH },
+  { title: 'Mitglieder', to: 'members', roles: FACHLICH },
   { title: 'Konten', roles: FACHLICH },
   { title: 'Reports', roles: FACHLICH },
   { title: 'Benutzer', to: 'users', roles: [ADMIN] },

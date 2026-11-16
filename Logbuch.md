@@ -1283,3 +1283,37 @@ uv run ruff check                                                           # je
   Schema `Withdraw`.
 - **Obergrenzen (`max_length`) in den Schemas** nur als Schutz vor riesigen Anfragen, wie bei den
   Benutzern. Die fachlichen Längen prüft das Aggregat.
+
+## 2026-11-16 – Mitgliedersuche im Frontend (Schritt 4d-1)
+
+Schritt 4d (Frontend für die Mitglieder) ist aufgeteilt in 4d-1 Suche, 4d-2 Detailseite mit
+Zulassung/Ablehnung/Rücknahme, 4d-3 Antrag erfassen und 4d-4 Bearbeiten in Abschnitten auf der
+Detailseite (ein Abschnitt = ein Befehl, keine eigene Bearbeitungsseite).
+
+**Was:**
+
+- `frontend/src/members.ts`: Interface `MemberRow` (Gegenstück zur Dataclass im Backend),
+  `searchMembers()`, `statusLabel()` mit den deutschen Texten zu den Status und `lastQuery`.
+- `frontend/src/views/members/MemberSearchView.vue`: Suchfeld und Ergebnistabelle (Nr., Name,
+  Anschrift, Status). Beim Öffnen läuft gleich eine Suche, leer liefert sie die ersten 50.
+- `router.ts`: Route `/members` für `accounting` und `accounting_readonly`.
+- `App.vue`: Der Menüeintrag „Mitglieder“ führt jetzt zur Suche.
+- Geprüft mit `npm run type-check` und von Hand im Browser.
+
+**Warum so:**
+
+- **`interface` statt Laufzeitprüfung:** TypeScript prüft die Form nur beim Übersetzen. Ob das
+  Backend wirklich so antwortet, prüft niemand, darum der Kommentar „Muss zu … passen“.
+  `string | null` entspricht `str | None`, `Record<string, string>` einem `dict[str, str]`.
+- **Status-Texte im Frontend:** Für zwei selten geänderte Werte ist eine kleine Tabelle einfacher
+  als ein eigener Endpunkt wie bei den Rollen. Kommen in Schritt 5 viele dazu, lässt sich das
+  umstellen.
+- **Suchbegriff im Modul, nicht in der Adresse:** `lastQuery` lebt in `members.ts` (wie
+  `currentUser` in `auth.ts`) und bleibt so beim Zurückkommen von einer anderen Seite erhalten.
+  Ein Zustand mit `ref` in der Komponente verschwindet dagegen, sobald man die Seite verlässt.
+  `/members?q=…` wäre üblich, ginge aber beim Neuladen an den Server und stünde im Access-Log,
+  genau das vermeidet `POST /search`.
+- **`rows` ist `null`, solange nicht gesucht wurde:** So lässt sich „noch nichts geladen“ von
+  „nichts gefunden“ (`[]`) unterscheiden, und die Meldung erscheint nicht kurz beim Laden.
+- **Hinweis bei 50 Treffern:** Das Backend schneidet dort ab. Ohne Hinweis hielte man die Liste
+  für vollständig.
