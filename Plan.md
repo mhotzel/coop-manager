@@ -348,6 +348,16 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Mitglieds-ID bzw. Bezeichnung). So prüft jede Buchung direkt, ob es ihre Konten gibt. Der Antrag
   speichert Nummernregister, Mitglied und Hauptbuch zusammen (`save_all`), ein Mitglied ohne
   Konto kann es nicht geben.
+- **Grundregeln jeder Buchung** (Stand 2026-11-17, im `Ledger`): bekannte Buchungsart; beide Konten
+  existieren und sind verschieden; Betrag (Cent) und Anteile nicht negativ und nicht beide 0;
+  Buchungstext Pflicht; **Wertstellung nicht nach dem Buchungstag**; Buchungstag ist der Tag der
+  Erfassung. Ein Mitgliedskonto darf weder beim Saldo noch bei den Anteilen ins Minus gehen.
+  Regeln der einzelnen Buchungsart (z. B. „Betrag = Anteile × Preis“, erlaubte Konten) prüfen die
+  Vorgänge ab 5c.
+- **Vorzeichen:** Haben zählt auf dem Konto positiv, Soll negativ, für Betrag und Anteile
+  gleichermaßen (Eintritt: Soll Genossenschaftskonto an Haben Mitgliedskonto).
+- **Saldo und Anteile werden aus den Buchungen berechnet**, nicht gespeichert. Jede Buchung hat
+  eine eigene UUIDv7 (Referenz für das Storno), Event `booking.posted`.
 
 ### Buchungsarten
 

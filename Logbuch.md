@@ -1525,3 +1525,46 @@ Anteilspreis und Genossenschaftskonto neu angelegt werden (siehe `DEV_HINTS.md`)
   wird, denn bei der Migration ist es ohnehin das Konto 9999.
 - **Keine Projektion, keine API:** Die kommen mit der Kontoansicht in 5d.
 
+## 2026-11-17 – Schritt 5b, Teil 2: Buchungen, Saldo und Anteile
+
+Matthias hat diesen Teil zur selbstständigen Umsetzung freigegeben.
+
+**Was:**
+
+- `accounts/domain.py`:
+  - Konstanten für die acht Buchungsarten aus dem Plan (`SUBSCRIPTION`, `REFUND`, `TRANSFER`,
+    `EXIT`, `LOSS_DEDUCTION`, `PAYOUT`, `LIMITATION_WRITEOFF`, `REVERSAL`).
+  - Datenklasse `Booking`: ID (UUIDv7), Art, Soll- und Habenkonto, Betrag in Cent, Anteile,
+    Text, Buchungstag und Wertstellung.
+  - `Ledger.post_booking(...)` mit den Grundregeln jeder Buchung, Event `booking.posted`.
+  - Abfragen `balance(number)`, `shares(number)` und `bookings_of(number)`.
+- `tests/test_ledger.py`: 19 neue Fälle, u. a. Vorzeichen, Ausscheiden (Anteile weg, Saldo
+  bleibt), Auszahlung, jede Eingabeprüfung, kein Minus auf Mitgliedskonten, kein Event bei
+  Fehler, Laden aus dem echten Event Store. Geprüft mit `uv run pytest` (273 grün),
+  `uv run ruff check .`, `uv run ruff format --check .` und `uv run pyright`.
+- `Plan.md`: Grundregeln, Vorzeichen und Berechnung von Saldo und Anteilen eingetragen.
+
+**Warum so:**
+
+- **Nur die Grundregeln im Hauptbuch:** Was für *jede* Buchung gilt, prüft `post_booking`. Was nur
+  für eine Art gilt (Eintritt: Betrag = Anteile × Preis, Umbuchung: nicht auf das
+  Genossenschaftskonto), gehört zu den Vorgängen in 5c bis 5h. So bleibt `post_booking` kurz,
+  und jede Regel steht dort, wo man sie sucht.
+- **Haben positiv, Soll negativ:** So steht es in `Konzeption.md`. Der Saldo eines Mitgliedskontos
+  ist dann, was die Genossenschaft dem Mitglied schuldet, und das Genossenschaftskonto wird mit
+  jedem Eintritt negativ, wie im Altsystem.
+- **Anteile buchen wie Beträge:** Dieselbe Regel für beide macht das Ausscheiden einfach: Anteile
+  gehen auf das Genossenschaftskonto, der Betrag 0 lässt den Saldo als Anspruch stehen.
+- **Saldo berechnen statt speichern:** Ein gespeicherter Saldo könnte von den Buchungen abweichen.
+  Für die Zahl der Buchungen im Dorfladen ist das Aufsummieren schnell genug. Für Listen und
+  Kontoansicht kommt später eine Projektion.
+- **Wertstellung nicht nach dem Buchungstag:** Wie bei Zulassung und Ablehnung wird erfasst, was
+  geschehen ist. Ein Zahlungseingang von letzter Woche ist erlaubt, einer von morgen nicht.
+- **`booking_date` als Parameter:** Der Service übergibt später `date.today()`, die Tests ein
+  festes Datum, damit sie nicht vom Tag abhängen.
+- **Eigene ID je Buchung:** Das Storno (5e) braucht eine Referenz auf die Originalbuchung. Die
+  Event-ID wäre auch eindeutig, aber eine eigene ID im Event bleibt bei einer Migration stabil
+  und ist im Code leichter zu finden.
+- **Noch kein Service:** Es gibt noch keinen Vorgang, der bucht. Der erste Service kommt mit dem
+  Eintritt in 5c, ebenso die Wiederholung bei `ConcurrencyError`.
+

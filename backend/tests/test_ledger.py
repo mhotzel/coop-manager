@@ -1,17 +1,26 @@
+from datetime import date
+
 import pytest
 
 from coop_manager.accounts import services
 from coop_manager.accounts.domain import (
     COOPERATIVE_ACCOUNT,
     COOPERATIVE_ACCOUNT_NUMBER,
+    EXIT,
     MEMBER_ACCOUNT,
+    PAYOUT,
     SUBJECT,
+    SUBSCRIPTION,
+    TRANSFER,
     Account,
+    Booking,
     Ledger,
 )
 from coop_manager.core import DomainError
 
 COOP_NAME = "Musterladen eG"  # erfunden
+COOP = COOPERATIVE_ACCOUNT_NUMBER
+TODAY = date(2026, 11, 30)
 
 
 def ledger_with(*numbers: int) -> Ledger:
@@ -81,3 +90,139 @@ def test_service_opens_cooperative_account(db):
     account = services.get_ledger(db).cooperative_account()
     assert account is not None and account.name == COOP_NAME
     assert db.store.read_stream(SUBJECT)[0].actor == "admin"
+
+
+# --- Buchungen ---
+
+
+def ledger_for_bookings() -> Ledger:
+    """Hauptbuch mit Genossenschaftskonto und den Mitgliedskonten 1 und 2."""
+    ledger = ledger_with(1, 2)
+    ledger.open_cooperative_account(COOP_NAME)
+    return ledger
+
+
+def post(ledger: Ledger, debit: int = COOP, credit: int = 1, amount: int = 10000, shares: int = 2, **overrides):
+    """Bucht mit erfundenen Werten; Vorgabe ist ein Eintritt über 2 Anteile zu 100,00 €."""
+    data = {"kind": SUBSCRIPTION, "text": "Eintritt", "value_date": date(2026, 11, 20), "booking_date": TODAY}
+    return ledger.post_booking(debit=debit, credit=credit, amount=amount, shares=shares, **(data | overrides))
+
+
+def test_new_account_has_balance_and_shares_zero():
+    ledger = ledger_for_bookings()
+
+    assert (ledger.balance(1), ledger.shares(1), ledger.bookings_of(1)) == (0, 0, [])
+
+
+def test_post_booking():
+    ledger = ledger_for_bookings()
+    booking = post(ledger, text="  Eintritt 2 Anteile ")
+
+    reloaded = Ledger.from_events(SUBJECT, ledger.uncommitted_events)
+    assert reloaded.bookings == [booking]
+    assert booking == Booking(
+        id=booking.id,
+        kind=SUBSCRIPTION,
+        debit=COOP,
+        credit=1,
+        amount=10000,
+        shares=2,
+        text="Eintritt 2 Anteile",
+        booking_date=TODAY,
+        value_date=date(2026, 11, 20),
+    )
+    assert len(booking.id) == 36  # UUID als Text
+
+
+def test_balance_and_shares_credit_positive_debit_negative():
+    ledger = ledger_for_bookings()
+    post(ledger, credit=1, amount=10000, shares=2)  # Eintritt Mitglied 1
+    post(ledger, credit=2, amount=5000, shares=1)  # Eintritt Mitglied 2
+    post(ledger, kind=TRANSFER, debit=1, credit=2, amount=5000, shares=1)  # Umbuchung 1 → 2
+
+    assert (ledger.balance(1), ledger.shares(1)) == (5000, 1)
+    assert (ledger.balance(2), ledger.shares(2)) == (10000, 2)
+    assert (ledger.balance(COOP), ledger.shares(COOP)) == (-15000, -3)  # darf negativ werden
+    assert len(ledger.bookings_of(1)) == 2
+
+
+def test_exit_moves_shares_but_keeps_balance():
+    """Ausscheiden: Die Anteile verlassen den Bestand, der Saldo bleibt als Anspruch stehen."""
+    ledger = ledger_for_bookings()
+    post(ledger)
+    post(ledger, kind=EXIT, debit=1, credit=COOP, amount=0, shares=2)
+
+    assert (ledger.balance(1), ledger.shares(1)) == (10000, 0)
+
+
+def test_payout_moves_amount_without_shares():
+    ledger = ledger_for_bookings()
+    post(ledger)
+    post(ledger, kind=EXIT, debit=1, credit=COOP, amount=0, shares=2)
+    post(ledger, kind=PAYOUT, debit=1, credit=COOP, amount=4000, shares=0)
+
+    assert (ledger.balance(1), ledger.shares(1)) == (6000, 0)
+
+
+@pytest.mark.parametrize(
+    "overrides, message",
+    [
+        ({"kind": "gift"}, "Unbekannte Buchungsart"),
+        ({"debit": 7}, "Konto 7 gibt es nicht"),
+        ({"credit": 7}, "Konto 7 gibt es nicht"),
+        ({"debit": 1, "credit": 1}, "verschieden"),
+        ({"amount": -1}, "nicht negativ"),
+        ({"shares": -1}, "nicht negativ"),
+        ({"amount": 0, "shares": 0}, "größer als 0"),
+        ({"text": "  "}, "Buchungstext fehlt"),
+        ({"value_date": date(2026, 12, 1)}, "nicht nach dem Buchungstag"),
+    ],
+)
+def test_post_booking_checks_input(overrides, message):
+    with pytest.raises(DomainError, match=message):
+        post(ledger_for_bookings(), **overrides)
+
+
+def test_value_date_may_be_booking_date():
+    booking = post(ledger_for_bookings(), value_date=TODAY)
+
+    assert booking.value_date == TODAY
+
+
+def test_member_account_balance_must_not_become_negative():
+    ledger = ledger_for_bookings()
+    post(ledger, amount=10000, shares=2)
+
+    with pytest.raises(DomainError, match="Saldo von Konto 1 reicht nicht"):
+        post(ledger, kind=PAYOUT, debit=1, credit=COOP, amount=10001, shares=0)
+    post(ledger, kind=PAYOUT, debit=1, credit=COOP, amount=10000, shares=0)  # genau der Saldo geht
+
+
+def test_member_account_shares_must_not_become_negative():
+    ledger = ledger_for_bookings()
+    post(ledger, amount=10000, shares=2)
+
+    with pytest.raises(DomainError, match="Konto 1 hat nicht so viele Anteile"):
+        post(ledger, kind=EXIT, debit=1, credit=COOP, amount=0, shares=3)
+
+
+def test_failed_booking_records_no_event():
+    ledger = ledger_for_bookings()
+    events_before = len(ledger.uncommitted_events)
+
+    with pytest.raises(DomainError):
+        post(ledger, debit=1, credit=COOP)  # Konto 1 ist noch leer
+
+    assert len(ledger.uncommitted_events) == events_before
+    assert ledger.bookings == []
+
+
+def test_bookings_survive_event_store(db):
+    """Über den echten Event Store, also mit JSON dazwischen (Datum als Text)."""
+    ledger = ledger_for_bookings()
+    booking = post(ledger)
+    db.save(ledger, "test")
+
+    reloaded = services.get_ledger(db)
+    assert reloaded.bookings == [booking]
+    assert (reloaded.balance(1), reloaded.shares(1)) == (10000, 2)
