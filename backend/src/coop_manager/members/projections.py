@@ -47,6 +47,7 @@ class MemberList(Projector):
         application_date TEXT NOT NULL,
         admission_date   TEXT,
         rejection_date   TEXT,
+        payment_date     TEXT,
         search_text      TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_members_number ON members (member_number);
@@ -122,6 +123,12 @@ class MemberList(Projector):
             "UPDATE members SET rejection_date = ? WHERE member_id = ?", (event.data["withdrawal_date"], event.subject)
         )
 
+    @on("member.paid-in")
+    def _paid_in(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute(
+            "UPDATE members SET payment_date = ? WHERE member_id = ?", (event.data["payment_date"], event.subject)
+        )
+
 
 def _refresh_search_text(conn: sqlite3.Connection, member_id: str) -> None:
     """Setzt `search_text` aus den aktuellen Spalten neu zusammen."""
@@ -180,6 +187,7 @@ def _to_row(row: sqlite3.Row, today: date) -> MemberRow:
         application_date=date.fromisoformat(row["application_date"]),
         admission_date=date.fromisoformat(row["admission_date"]) if row["admission_date"] else None,
         rejection_date=date.fromisoformat(row["rejection_date"]) if row["rejection_date"] else None,
+        payment_date=date.fromisoformat(row["payment_date"]) if row["payment_date"] else None,
     )
     return MemberRow(
         id=row["member_id"],

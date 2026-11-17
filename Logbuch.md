@@ -1568,3 +1568,74 @@ Matthias hat diesen Teil zur selbstständigen Umsetzung freigegeben.
 - **Noch kein Service:** Es gibt noch keinen Vorgang, der bucht. Der erste Service kommt mit dem
   Eintritt in 5c, ebenso die Wiederholung bei `ConcurrencyError`.
 
+
+## 2026-11-17 – Schritt 5c, Teil 1: Eintritt, Rückzahlung, Status „Mitglied“
+
+Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
+
+**Was:**
+
+- Entscheidungen in `Plan.md`:
+  - Variante A: Der Service hält den Geldeingang am Mitglied fest (`member.paid-in`).
+  - 5c ist in zwei Teile aufgeteilt (Domäne/Services, dann API).
+  - Neuer Schritt 5i für weitere Anteile.
+  - Rückzahlung zum aktuellen Anteilspreis.
+  - Die API bucht nur über fachliche Vorgänge.
+  - Offener Punkt: Schemaänderungen an Projektionen.
+- Unterschritt 1, Mitglied:
+  - `members/status.py`: Status `MEMBER` („Mitglied“), `MembershipDates.payment_date` und
+    `entry_date()`, das spätere Datum von Zulassung und Geldeingang.
+  - `members/domain.py`:
+    - `Member.record_payment(payment_date, today)` erzeugt das Event `member.paid-in`, nur
+      einmal und nicht nach Ablehnung oder Rücknahme.
+    - Neue Abfrage `entry_date()`.
+    - `withdraw` lehnt ab, wenn die Person schon Mitglied ist.
+- Unterschritt 2, neue Datei `accounts/bookings.py`:
+  - `subscribe(...)` (Eintritt) und `refund(...)` (Rückzahlung) liefern ein
+    `BookingResult(booking, warning)`.
+  - Gemeinsamer Ablauf in `_book`: laden, prüfen, buchen, abgleichen, dann Hauptbuch und Mitglied
+    zusammen speichern (`save_all`). Bei `ConcurrencyError` wird bis zu dreimal wiederholt.
+  - Abgleich in `_reconcile`: Stimmen eingezahlte und gezeichnete Anteile genau überein, wird
+    `record_payment` mit der Wertstellung aufgerufen. Sonst kommt eine Warnung zurück:
+    zu wenig, zu viel, oder Antrag abgelehnt.
+- Unterschritt 3, Projektion:
+  - `members/projections.py`: Spalte `payment_date` und Handler für `member.paid-in`. Liste und
+    Suche zeigen damit den Status „Mitglied“.
+  - `frontend/src/members.ts`: Label „Mitglied“.
+  - `DEV_HINTS.md`: was nach einer Schemaänderung zu tun ist.
+- Tests:
+  - `tests/test_members_domain.py`: 8 neue Fälle.
+  - Neue Datei `tests/test_bookings.py` mit 17 Fällen, darunter Teilzahlung, Überzahlung mit
+    Rückzahlung des Überschusses, Zahlung nach Ablehnung, gleichzeitige Buchung und der Weg bis
+    in die Liste.
+- Geprüft mit `uv run pytest` (299 grün), `uv run ruff check .`, `uv run ruff format --check .`,
+  `uv run pyright` und im Frontend `npm run type-check`.
+- Dev-Daten: `backend/data/projections.sqlite` gelöscht, damit die neue Spalte entsteht. Beim
+  Start wurde die Projektion aus dem Event Store neu aufgebaut.
+
+**Warum so:**
+
+- **Der Status bleibt aus den Fakten berechnet:** Das Mitglied speichert nur das Datum des
+  Geldeingangs, wie zuvor Zulassung und Ablehnung. „Mitglied“ ist, wer beides hat. Ab dem
+  späteren der beiden Daten gilt die Person als Mitglied. Darum funktioniert die Reihenfolge
+  Zulassung, dann Zahlung genauso wie Zahlung, dann Zulassung.
+- **Die API bucht nur über Vorgänge:** Jeder Vorgang prüft seine eigenen Regeln, `post_booking`
+  nur die Grundregeln. Wer bucht, kann so die Fachlichkeit nicht umgehen. Es gibt also keinen
+  Endpunkt, mit dem man frei buchen kann.
+- **Eigene Datei `bookings.py`:** `members/services.py` importiert `accounts/services.py`, weil mit
+  dem Antrag das Konto eröffnet wird. Die Buchungsvorgänge brauchen umgekehrt das Mitglied. In
+  einer dritten Datei gibt es keinen Importzyklus.
+- **Wiederholen mit frischem Stand:** Bucht jemand gleichzeitig, scheitert das Speichern an der
+  Versionsprüfung des Hauptbuchs. Der neue Versuch rechnet mit dem aktuellen Kontostand, sonst
+  könnte der Abgleich den Geldeingang verpassen. Der Test simuliert genau das.
+- **Warnung statt Fehler bei falschem Betrag:** Das Geld ist auf dem Bankkonto angekommen und muss
+  gebucht werden. Die Mitgliedschaft kommt erst zustande, wenn der Vorgang geklärt ist (siehe
+  Plan).
+- **Strengere Rückzahlungsregel:** Zurückgezahlt wird nur bei abgelehntem oder zurückgenommenem
+  Antrag oder bei ungeklärter Zahlung. Das schließt auch den Fall aus, dass jemand passend gezahlt
+  hat, das Geld zurückbekommt und nach der Zulassung „Mitglied“ mit 0 Anteilen wäre.
+- **Rücknahme nur, solange die Person nicht Mitglied ist:** Für Mitglieder gibt es später die
+  Kündigung (5f).
+- **Schemaänderung vorerst durch Löschen der Projektion:** `CREATE TABLE IF NOT EXISTS` ändert
+  bestehende Tabellen nicht. Solange es nur Dev-Daten gibt, reicht Löschen und Neuaufbau. Vor dem
+  Produktivbetrieb braucht es eine Lösung (offener Punkt im Plan).

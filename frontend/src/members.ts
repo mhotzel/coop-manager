@@ -91,6 +91,7 @@ export function genderLabel(gender: string): string {
 // Die Texte zu den Status wie in members/status.py. Schritt 5 bringt weitere dazu.
 const STATUS_LABELS: Record<string, string> = {
   applicant: 'Antragsteller',
+  member: 'Mitglied',
   rejected: 'abgelehnt',
 }
 

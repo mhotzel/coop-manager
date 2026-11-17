@@ -7,7 +7,7 @@ from typing import Self
 from ..core import DomainError
 from ..eventsource import Aggregate, Event, on
 from .addressing import address_lines
-from .status import MembershipDates, status_on
+from .status import MembershipDates, entry_date, status_on
 from .values import (
     ADDRESS_LINE_COUNT,
     Address,
@@ -45,6 +45,7 @@ class Member(Aggregate):
         self.admission_date: date | None = None
         self.rejection_date: date | None = None  # Ablehnung oder Rücknahme
         self.withdrawn = False  # True: Rücknahme durch die Person, nicht Ablehnung durch den Vorstand
+        self.payment_date: date | None = None  # Geldeingang, erfasst vom Buchungsservice
 
     @classmethod
     def apply(
@@ -84,9 +85,15 @@ class Member(Aggregate):
 
     def status(self, day: date) -> str | None:
         """Der Status am Tag `day` (siehe status.py)."""
+        return status_on(self._dates(), day)
+
+    def entry_date(self) -> date | None:
+        """Eintrittsdatum: das spätere von Zulassung und Geldeingang; None, solange eines fehlt."""
+        return entry_date(self._dates())
+
+    def _dates(self) -> MembershipDates:
         assert self.application_date is not None  # gesetzt durch member.applied
-        dates = MembershipDates(self.application_date, self.admission_date, self.rejection_date)
-        return status_on(dates, day)
+        return MembershipDates(self.application_date, self.admission_date, self.rejection_date, self.payment_date)
 
     def admit(self, decision_date: date, today: date) -> None:
         """Der Vorstand lässt zu (§ 15 GenG). Mitglied wird man erst mit dem Geldeingang (Schritt 5)."""
@@ -105,7 +112,20 @@ class Member(Aggregate):
     def withdraw(self, withdrawal_date: date, today: date) -> None:
         """Die Person nimmt ihren Antrag zurück, auch nach der Zulassung, solange sie nicht Mitglied ist."""
         self._ensure_open_application(withdrawal_date, today)
+        if self.entry_date() is not None:
+            raise DomainError("Die Person ist bereits Mitglied.")
         self._record("member.withdrawn", withdrawal_date=withdrawal_date.isoformat())
+
+    def record_payment(self, payment_date: date, today: date) -> None:
+        """Hält den Geldeingang fest: Die gezeichneten Anteile sind voll eingezahlt.
+
+        Ob Betrag und Anteile passen, prüft der Buchungsservice; er ruft das mit der Wertstellung
+        auf (siehe Plan: Variante A). Mit Zulassung und Geldeingang ist die Person Mitglied.
+        """
+        self._ensure_open_application(payment_date, today)
+        if self.payment_date is not None:
+            raise DomainError("Die Zahlung ist bereits erfasst.")
+        self._record("member.paid-in", payment_date=payment_date.isoformat())
 
     def _ensure_open_application(self, day: date, today: date) -> None:
         """Der Antrag darf noch nicht abgelehnt oder zurückgenommen sein.
@@ -191,6 +211,10 @@ class Member(Aggregate):
     def _withdrawn(self, event: Event) -> None:
         self.rejection_date = date.fromisoformat(event.data["withdrawal_date"])
         self.withdrawn = True
+
+    @on("member.paid-in")
+    def _paid_in(self, event: Event) -> None:
+        self.payment_date = date.fromisoformat(event.data["payment_date"])
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

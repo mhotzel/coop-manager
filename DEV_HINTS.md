@@ -129,3 +129,6 @@ Alle Daten liegen in `backend/data/` (`eventstore.sqlite` und `projections.sqlit
 Zurücksetzen das Backend beenden, den Ordner löschen und Admin, Anteilspreis und
 Genossenschaftskonto neu anlegen (siehe oben). Die Projektionen
 allein lassen sich auch löschen, sie werden beim Start aus dem Event Store neu aufgebaut.
+Das ist nötig, wenn sich der Aufbau einer Lesetabelle geändert hat (z. B. eine neue Spalte):
+Backend beenden, `backend/data/projections.sqlite` löschen, Backend starten. Der Event Store und
+damit alle Daten bleiben erhalten.

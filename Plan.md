@@ -48,11 +48,15 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 1: Konten eröffnen (Mitgliedskonto mit dem Antrag, Genossenschaftskonto per CLI)
      - Teil 2: Buchungen, Saldo und Anteile je Konto
    - 5c: Eintritt und Rückzahlung, Status „Mitglied“
+     - Teil 1: Domäne und Services (Eintritt, Rückzahlung, `member.paid-in`, Status „Mitglied“ mit
+       Eintrittsdatum), Projektion, Tests
+     - Teil 2: API-Endpunkte für Buchungen und Kontostand
    - 5d: Frontend: Kontoansicht und Buchungsmaske
    - 5e: Storno
    - 5f: Kündigung, Teilkündigung, Tod und Ausschluss
    - 5g: „Ausscheiden zum Jahresende buchen“
    - 5h: Umbuchung, Auszahlung, Verlustvortrag, Verjährung, Liste offener Ansprüche
+   - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
 6. Reports: die drei Excel-Listen zum Stichtag
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
@@ -358,6 +362,24 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   gleichermaßen (Eintritt: Soll Genossenschaftskonto an Haben Mitgliedskonto).
 - **Saldo und Anteile werden aus den Buchungen berechnet**, nicht gespeichert. Jede Buchung hat
   eine eigene UUIDv7 (Referenz für das Storno), Event `booking.posted`.
+- **Zahlung am Mitglied festhalten (Variante A, Stand 2026-11-17, vorläufig):** Bringt eine
+  Eintritts- oder Rückzahlungsbuchung die Anteile auf dem Konto genau auf die gezeichneten, zeichnet
+  der Service am Mitglied zusätzlich `member.paid-in` mit der Wertstellung auf; beides wird mit
+  `save_all` gemeinsam gespeichert. Der Status bleibt so aus den Events des Mitglieds berechenbar.
+  Ein Storno der Eintrittsbuchung (5e) braucht dann ein Gegen-Event am Mitglied. Verworfen vorerst:
+  Variante B, den Status direkt aus den Buchungen abzuleiten (Projektion verarbeitet
+  `booking.posted`). Ein späterer Wechsel zu B ist möglich, weil die Buchungen alle Informationen
+  enthalten; die `member.paid-in`-Events würden dann ignoriert.
+- **Weitere Anteile:** Ein Mitglied darf später weitere Anteile zeichnen und einzahlen (Stand
+  2026-11-17). Umsetzung als eigener Vorgang in 5i. Bis dahin ist eine Eintrittsbuchung nur
+  möglich, solange die gezeichneten Anteile noch nicht voll eingezahlt sind.
+- **Die API bucht nur über fachliche Vorgänge** (Stand 2026-11-17): Es gibt keinen Endpunkt, der
+  frei eine Buchung mit beliebigen Konten, Beträgen und Anteilen anlegt. Jeder Endpunkt ruft einen
+  Service für einen Vorgang (Eintritt, Rückzahlung, später Storno, Umbuchung usw.), der dessen
+  Regeln prüft; `Ledger.post_booking` prüft darunter nur, was für jede Buchung gilt.
+- **Rückzahlung zum aktuellen Anteilspreis** (Stand 2026-11-17, vorerst), wie jede neue Buchung.
+  Hat jemand zu einem früheren Preis eingezahlt, kann der Betrag abweichen; das nehmen wir als
+  seltenen Randfall hin.
 
 ### Buchungsarten
 
@@ -449,6 +471,11 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 ## Offene Punkte
 
 - Access-Datei bzw. Tabellenexporte des Altsystems bereitstellen (in `Beispieldaten/`).
+- **Schemaänderungen an Projektionen vor dem Produktivbetrieb lösen:** `CREATE TABLE IF NOT
+  EXISTS` ändert eine bestehende Tabelle nicht, und `rebuild()` leert die Tabellen nur. Bis zum
+  Produktivbetrieb wird nach einer Änderung `projections.sqlite` gelöscht und beim Start neu
+  aufgebaut. Idee: Schemaversion je Projektor; weicht sie ab, Tabellen löschen, neu anlegen und
+  neu abspielen.
 
 ## Mögliche Weiterentwicklungen
 

@@ -4,7 +4,7 @@ import pytest
 
 from coop_manager.core import DomainError
 from coop_manager.members.domain import Member
-from coop_manager.members.status import APPLICANT, REJECTED
+from coop_manager.members.status import APPLICANT, MEMBER, REJECTED
 from coop_manager.members.values import LEGAL_ENTITY, NATURAL_PERSON, Address, Contact, PersonName
 
 TODAY = date(2026, 11, 30)  # „heute“ für Entscheidungen; die Tests hängen nicht vom echten Datum ab
@@ -249,3 +249,76 @@ def test_decision_today_is_allowed():
 def test_decision_not_before_application():
     with pytest.raises(DomainError, match="nicht vor dem Antrag"):
         apply().admit(date(2026, 11, 1), TODAY)
+
+
+# --- Geldeingang und Status „Mitglied“ ---
+
+
+def test_admission_then_payment():
+    member = apply()
+    member.admit(date(2026, 11, 10), TODAY)
+    member.record_payment(date(2026, 11, 20), TODAY)
+
+    member = reloaded(member)
+    assert member.payment_date == date(2026, 11, 20)
+    assert member.entry_date() == date(2026, 11, 20)  # das spätere der beiden Daten
+    assert member.status(date(2026, 11, 19)) == APPLICANT
+    assert member.status(date(2026, 11, 20)) == MEMBER
+
+
+def test_payment_then_admission():
+    member = apply()
+    member.record_payment(date(2026, 11, 5), TODAY)
+
+    assert member.entry_date() is None  # ohne Zulassung noch kein Mitglied
+    assert member.status(TODAY) == APPLICANT
+
+    member.admit(date(2026, 11, 10), TODAY)
+
+    assert reloaded(member).entry_date() == date(2026, 11, 10)
+    assert reloaded(member).status(date(2026, 11, 10)) == MEMBER
+
+
+def test_payment_only_once():
+    member = apply()
+    member.record_payment(date(2026, 11, 5), TODAY)
+
+    with pytest.raises(DomainError, match="Zahlung ist bereits erfasst"):
+        member.record_payment(date(2026, 11, 6), TODAY)
+
+
+@pytest.mark.parametrize("decide", [lambda m, d: m.reject(d, TODAY), lambda m, d: m.withdraw(d, TODAY)])
+def test_no_payment_after_rejection(decide):
+    member = apply()
+    decide(member, date(2026, 11, 5))
+
+    with pytest.raises(DomainError, match="bereits abgelehnt oder zurückgenommen"):
+        member.record_payment(date(2026, 11, 6), TODAY)
+
+
+@pytest.mark.parametrize(
+    "payment_date, message",
+    [(date(2026, 11, 1), "nicht vor dem Antrag"), (TODAY + timedelta(days=1), "nicht in der Zukunft")],
+)
+def test_payment_date_checks(payment_date, message):
+    with pytest.raises(DomainError, match=message):
+        apply().record_payment(payment_date, TODAY)
+
+
+def test_rejection_after_payment_before_admission():
+    """Gezahlt, aber der Vorstand lehnt ab: Die Person wird nicht Mitglied, das Geld geht zurück."""
+    member = apply()
+    member.record_payment(date(2026, 11, 5), TODAY)
+    member.reject(date(2026, 11, 10), TODAY)
+
+    assert reloaded(member).status(TODAY) == REJECTED
+    assert reloaded(member).entry_date() is None
+
+
+def test_member_cannot_withdraw():
+    member = apply()
+    member.admit(date(2026, 11, 10), TODAY)
+    member.record_payment(date(2026, 11, 20), TODAY)
+
+    with pytest.raises(DomainError, match="bereits Mitglied"):
+        member.withdraw(date(2026, 11, 25), TODAY)
