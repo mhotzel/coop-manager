@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
+from .accounts import api as accounts_api
 from .config import Settings, load_settings
 from .core import DomainError, NotFoundError
 from .db import prepare
@@ -46,6 +47,7 @@ def create_app(settings: Settings | None = None, projectors: Sequence[Projector]
 
     app.include_router(users_api.router)
     app.include_router(members_api.router)
+    app.include_router(accounts_api.router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

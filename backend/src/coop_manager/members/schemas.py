@@ -40,8 +40,10 @@ class MemberDetail(BaseModel):
     admission_date: date | None
     rejection_date: date | None  # Ablehnung oder Rücknahme
     withdrawn: bool  # True: Rücknahme durch die Person
+    payment_date: date | None  # Geldeingang: gezeichnete Anteile voll eingezahlt
     # Berechnet, nicht gespeichert:
     status: str | None  # zum Tag der Abfrage
+    entry_date: date | None  # Eintrittsdatum: das spätere von Zulassung und Geldeingang
     salutation: str  # die Briefanrede, wie sie in den Seriendruck kommt
     generated_address_lines: list[str]
     warnings: list[str]
@@ -67,7 +69,9 @@ class MemberDetail(BaseModel):
             admission_date=member.admission_date,
             rejection_date=member.rejection_date,
             withdrawn=member.withdrawn,
+            payment_date=member.payment_date,
             status=member.status(today),
+            entry_date=member.entry_date(),
             salutation=salutation(member.person_type, member.name, member.salutation),
             generated_address_lines=list(generated),
             warnings=address_warnings(member.address_lines, generated),

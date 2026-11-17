@@ -56,8 +56,10 @@ export interface MemberDetail {
   admission_date: string | null
   rejection_date: string | null // Ablehnung oder Rücknahme
   withdrawn: boolean // true: Rücknahme durch die Person
+  payment_date: string | null // Geldeingang: gezeichnete Anteile voll eingezahlt
   // Berechnet, nicht gespeichert:
   status: string | null
+  entry_date: string | null // das spätere von Zulassung und Geldeingang
   salutation: string
   generated_address_lines: string[]
   warnings: string[]

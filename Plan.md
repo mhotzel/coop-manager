@@ -377,6 +377,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   frei eine Buchung mit beliebigen Konten, Beträgen und Anteilen anlegt. Jeder Endpunkt ruft einen
   Service für einen Vorgang (Eintritt, Rückzahlung, später Storno, Umbuchung usw.), der dessen
   Regeln prüft; `Ledger.post_booking` prüft darunter nur, was für jede Buchung gilt.
+- **Konten werden in der API über die Kontonummer angesprochen** (Stand 2026-11-17):
+  `GET /api/accounts/{number}` (auch 9999), Befehle `POST /api/accounts/subscribe` und
+  `/refund` mit `{account_number, shares, value_date, text}`. Einen Betrag nimmt die API nicht
+  an, der Service berechnet ihn. Die Kontoansicht enthält den aktuellen Anteilspreis für die
+  Buchungsmaske.
 - **Rückzahlung zum aktuellen Anteilspreis** (Stand 2026-11-17, vorerst), wie jede neue Buchung.
   Hat jemand zu einem früheren Preis eingezahlt, kann der Betrag abweichen; das nehmen wir als
   seltenen Randfall hin.

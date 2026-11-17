@@ -1639,3 +1639,48 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
 - **Schemaänderung vorerst durch Löschen der Projektion:** `CREATE TABLE IF NOT EXISTS` ändert
   bestehende Tabellen nicht. Solange es nur Dev-Daten gibt, reicht Löschen und Neuaufbau. Vor dem
   Produktivbetrieb braucht es eine Lösung (offener Punkt im Plan).
+
+## 2026-11-17 – Schritt 5c, Teil 2: API für Eintritt, Rückzahlung und Kontostand
+
+**Was:**
+
+- Neue Datei `accounts/schemas.py`:
+  - `AccountView`: Nummer, Art, Inhaber, Saldo, Anteile, aktueller Anteilspreis und alle
+    Buchungen. Die Dataclass `Booking` dient direkt als Feldtyp.
+  - `BookingResponse`: das Konto nach der Buchung und ggf. eine Warnung.
+  - `ShareBooking`: der Befehl mit Kontonummer, Anteilen, Wertstellung und optionalem Text.
+- Neue Datei `accounts/api.py`:
+  - `GET /api/accounts/{number}` dürfen beide Buchhaltungsrollen aufrufen.
+  - `POST /api/accounts/subscribe` und `POST /api/accounts/refund` darf nur die Buchhaltung
+    aufrufen.
+  - In `app.py` eingehängt.
+- `accounts/bookings.py`: `subscribe` und `refund` nehmen jetzt die Kontonummer statt der
+  Mitglieds-ID. Den Inhaber finden sie im Hauptbuch.
+  - Eine unbekannte Nummer ergibt `NotFoundError` (404).
+  - Das Genossenschaftskonto als Ziel ergibt einen `DomainError` (400).
+  - Ein leerer Text wird zu „Eintritt“ bzw. „Rückzahlung“.
+- `members/schemas.py` und `frontend/src/members.ts`: Die Detailansicht hat jetzt
+  `payment_date` und `entry_date`.
+- `Plan.md`: Kontonummer in der API eingetragen.
+- Tests:
+  - Neue Datei `tests/test_accounts_api.py` mit 14 Fällen, unter anderem Eintritt bis zum Status
+    „Mitglied“, Warnung, ein mitgeschickter Betrag wird ignoriert, Rückzahlung, 400, 404,
+    Genossenschaftskonto, Rechte, ohne Anmeldung.
+  - `tests/test_bookings.py` auf Kontonummern umgestellt, dazu drei neue Fälle.
+- Geprüft mit `uv run pytest` (314 grün), `uv run ruff check .`, `uv run ruff format --check .`,
+  `uv run pyright` und `npm run type-check`.
+
+**Warum so:**
+
+- **Kontonummer statt Mitglieds-ID:** Matthias fand `/api/accounts/{nummer}` natürlicher. Damit
+  ist auch das Genossenschaftskonto abrufbar. Die Befehle tragen dieselbe Nummer, damit die API
+  das Konto überall gleich anspricht.
+- **Kein Betrag im Befehl:** Der Service rechnet Anteile × aktuellen Preis. Wer die API aufruft,
+  kann keinen abweichenden Betrag buchen. Pydantic ignoriert unbekannte Felder wie `amount`, ein
+  Test zeigt das.
+- **Antwort mit Kontoansicht und Warnung:** Das Frontend zeigt nach dem Buchen gleich den neuen
+  Stand und die Warnung, ohne die Daten noch einmal zu laden, wie bei den Mitglieds-Befehlen.
+- **Anteilspreis in der Kontoansicht:** Die Buchungsmaske (5d) kann den Betrag vorab anzeigen,
+  ohne dass es dafür einen eigenen Endpunkt braucht.
+- **Ohne Anmeldung 401, auch bei POST:** Die Anmeldung wird vor dem CSRF-Token geprüft. Ich hatte
+  zuerst 403 erwartet, der Test hat das richtiggestellt.

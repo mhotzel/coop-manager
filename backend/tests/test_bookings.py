@@ -51,19 +51,25 @@ def apply(db: Database, shares_subscribed: int = 2) -> str:
     ).subject
 
 
+def number_of(db: Database, member_id: str) -> int:
+    """Die Kontonummer des Mitglieds; die Vorgänge sprechen das Konto über seine Nummer an."""
+    account = get_ledger(db).account_of(member_id)
+    assert account is not None
+    return account.number
+
+
 def subscribe(db: Database, member_id: str, shares: int = 2, value_date: date = date(2026, 11, 10)):
-    return bookings.subscribe(db, member_id, shares, value_date, TODAY, actor="erika")
+    return bookings.subscribe(db, number_of(db, member_id), shares, value_date, TODAY, actor="erika")
 
 
 def refund(db: Database, member_id: str, shares: int = 1, value_date: date = date(2026, 11, 20)):
-    return bookings.refund(db, member_id, shares, value_date, TODAY, actor="erika")
+    return bookings.refund(db, number_of(db, member_id), shares, value_date, TODAY, actor="erika")
 
 
 def balance_and_shares(db: Database, member_id: str) -> tuple[int, int]:
+    number = number_of(db, member_id)
     ledger = get_ledger(db)
-    account = ledger.account_of(member_id)
-    assert account is not None
-    return ledger.balance(account.number), ledger.shares(account.number)
+    return ledger.balance(number), ledger.shares(number)
 
 
 def test_subscribe_with_subscribed_shares_records_payment(db):
@@ -210,9 +216,24 @@ def test_needs_cooperative_account(bare_db):
         subscribe(bare_db, member_id)
 
 
-def test_unknown_member(db):
-    with pytest.raises(NotFoundError):
-        subscribe(db, "member-unbekannt")
+def test_unknown_account(db):
+    with pytest.raises(NotFoundError, match="Konto 7 gibt es nicht"):
+        bookings.subscribe(db, 7, 1, date(2026, 11, 10), TODAY, actor="erika")
+
+
+def test_cooperative_account_is_not_a_member_account(db):
+    with pytest.raises(DomainError, match="kein Mitgliedskonto"):
+        bookings.refund(db, COOP, 1, date(2026, 11, 10), TODAY, actor="erika")
+
+
+def test_own_booking_text(db):
+    member_id = apply(db)
+
+    result = bookings.subscribe(
+        db, number_of(db, member_id), 2, date(2026, 11, 10), TODAY, "erika", "Eintritt Überweisung"
+    )
+
+    assert result.booking.text == "Eintritt Überweisung"
 
 
 def test_failed_booking_saves_nothing(db):
