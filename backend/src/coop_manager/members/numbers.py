@@ -1,9 +1,12 @@
+from collections.abc import Collection
+
+from ..accounts.domain import COOPERATIVE_ACCOUNT_NUMBER
 from ..core import DomainError
 from ..eventsource import Aggregate, Event, on
 
 SUBJECT = "member-numbers"
 # 9999 gehört dem Konto der Genossenschaft und wird nie an ein Mitglied vergeben (siehe Plan).
-RESERVED = {9999}
+RESERVED = {COOPERATIVE_ACCOUNT_NUMBER}
 
 
 class MemberNumbers(Aggregate):
@@ -19,10 +22,16 @@ class MemberNumbers(Aggregate):
         super().__init__(subject)
         self.assigned: dict[int, str] = {}  # Nummer → Mitglieds-ID
 
-    def next_number(self) -> int:
-        """Höchste vergebene Nummer + 1; reservierte und belegte Nummern werden übersprungen."""
-        number = max(self.assigned, default=0) + 1
-        while number in RESERVED or number in self.assigned:
+    def next_number(self, account_numbers: Collection[int] = ()) -> int:
+        """Höchste vergebene Mitglieds- oder Kontonummer + 1 (siehe Plan: Nummernvergabe).
+
+        `account_numbers` sind die Nummern der Mitgliedskonten aus dem Hauptbuch. Reservierte und
+        belegte Nummern werden übersprungen. So sind Mitglieds- und Kontonummer gleich, solange
+        keine abweichenden Nummern manuell vergeben wurden.
+        """
+        taken = set(self.assigned) | set(account_numbers)
+        number = max(taken, default=0) + 1
+        while number in RESERVED or number in taken:
             number += 1
         return number
 

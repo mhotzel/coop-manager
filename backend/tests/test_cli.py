@@ -57,3 +57,13 @@ def test_set_share_price_rejects_invalid_amount(monkeypatch, tmp_path):
 def test_set_share_price_rejects_zero(monkeypatch, tmp_path):
     with pytest.raises(SystemExit, match="größer als 0"):
         run_cli(monkeypatch, tmp_path, ["set-share-price", "0"], [])
+
+
+def test_create_cooperative_account(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("CM_COOPERATIVE_ACCOUNT_NAME", "Musterladen eG")
+
+    run_cli(monkeypatch, tmp_path, ["create-cooperative-account"], [])
+    assert "Genossenschaftskonto 9999 „Musterladen eG“ angelegt." in capsys.readouterr().out
+
+    with pytest.raises(SystemExit, match="gibt es bereits"):
+        run_cli(monkeypatch, tmp_path, ["create-cooperative-account"], [])

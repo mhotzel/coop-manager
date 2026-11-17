@@ -45,6 +45,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 5. Konten und Buchungen: Eintritt, Kündigung, Austritt/Auszahlung, Umbuchung, Kontoansicht
    - 5a: Anteilspreis als Systemeinstellung, vorerst per CLI
    - 5b: Konten und Hauptbuch (Aggregat `Ledger`)
+     - Teil 1: Konten eröffnen (Mitgliedskonto mit dem Antrag, Genossenschaftskonto per CLI)
+     - Teil 2: Buchungen, Saldo und Anteile je Konto
    - 5c: Eintritt und Rückzahlung, Status „Mitglied“
    - 5d: Frontend: Kontoansicht und Buchungsmaske
    - 5e: Storno
@@ -300,8 +302,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Mitgliedsnummer irgendwann 9999, wird die Nummer übersprungen.
 - **Kontoart:** `Mitgliedskonto` oder `Genossenschaftskonto`. Das Genossenschaftskonto gibt es
   genau einmal, es wird an der Kontoart erkannt, nicht an der Nummer. Es wird bei der
-  Ersteinrichtung angelegt, Nummer und Bezeichnung („Unser Dorfladen Schlichten eG“) kommen aus
-  der Konfiguration; bei der Migration wird es auf das alte Konto 9999 abgebildet.
+  Ersteinrichtung per CLI `create-cooperative-account` angelegt. Die **Nummer 9999 steht fest im
+  Code** (Stand 2026-11-17), nur die Bezeichnung („Unser Dorfladen Schlichten eG“) kommt aus der
+  Konfiguration (`CM_COOPERATIVE_ACCOUNT_NAME`); bei der Migration wird es auf das alte Konto 9999
+  abgebildet.
 - **Regeln am Genossenschaftskonto:** Vorbelegung der Gegenseite bei Eintritt, Austritt und
   Rückzahlung; nur dieses Konto darf negativ werden; bei Umbuchungen nicht wählbar; erscheint
   nicht in der Mitgliedersuche, in der Kontenauswahl mit eigener Bezeichnung.
@@ -340,6 +344,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Versionsprüfung (`ConcurrencyError`). Für die Größe des Dorfladens ist die Länge des Streams
   kein Problem. Verworfen: je Buchung ein Aggregat, weil Prüfungen über mehrere Buchungen dann
   umständlich werden.
+- **Auch die Konten liegen im `Ledger`-Stream** (Event `account.opened` mit Nummer, Kontoart,
+  Mitglieds-ID bzw. Bezeichnung). So prüft jede Buchung direkt, ob es ihre Konten gibt. Der Antrag
+  speichert Nummernregister, Mitglied und Hauptbuch zusammen (`save_all`), ein Mitglied ohne
+  Konto kann es nicht geben.
 
 ### Buchungsarten
 

@@ -1,0 +1,1 @@
+"""Konten und Hauptbuch (`Ledger`)."""

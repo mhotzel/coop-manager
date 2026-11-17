@@ -17,6 +17,7 @@ class Settings:
     secret_key: str = ""  # leer: Die App erzeugt beim Start einen zufälligen Schlüssel.
     session_timeout: int = 1800
     session_cookie_secure: bool = True
+    cooperative_account_name: str = "Unser Dorfladen Schlichten eG"
 
 
 def find_env_file() -> str:
@@ -43,6 +44,7 @@ def load_settings() -> Settings:
         secret_key=env.get("CM_SECRET_KEY", ""),
         session_timeout=int(env.get("CM_SESSION_TIMEOUT", "1800")),
         session_cookie_secure=_bool(env.get("CM_SESSION_COOKIE_SECURE", "true")),
+        cooperative_account_name=env.get("CM_COOPERATIVE_ACCOUNT_NAME", "Unser Dorfladen Schlichten eG"),
     )
 
 

@@ -23,6 +23,12 @@ def test_9999_is_skipped():
     assert numbers_with(9998).next_number() == 10000
 
 
+def test_next_number_also_considers_account_numbers():
+    assert numbers_with(1, 2).next_number(account_numbers={1, 2, 5}) == 6
+    assert numbers_with(1, 6).next_number(account_numbers={1, 2}) == 7
+    assert numbers_with().next_number(account_numbers={9998}) == 10000
+
+
 @pytest.mark.parametrize("number, message", [(7, "bereits vergeben"), (9999, "reserviert"), (0, "positiv")])
 def test_assign_checks_number(number, message):
     with pytest.raises(DomainError, match=message):

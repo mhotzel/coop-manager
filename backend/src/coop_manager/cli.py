@@ -4,6 +4,7 @@ import argparse
 import getpass
 import sys
 
+from .accounts import services as accounts
 from .app import PROJECTORS, SCHEMAS
 from .config import load_settings
 from .core import DomainError
@@ -60,6 +61,19 @@ def show_settings() -> None:
     print(f"Anteilspreis: {'nicht festgelegt' if share_price is None else format_euro(share_price)}")
 
 
+def create_cooperative_account() -> None:
+    """Eröffnet einmalig das Konto der Genossenschaft; die Bezeichnung kommt aus der Konfiguration."""
+    name = load_settings().cooperative_account_name
+    db = open_db()
+    try:
+        account = accounts.open_cooperative_account(db, name, actor="cli")
+    except DomainError as exc:
+        sys.exit(str(exc))
+    finally:
+        db.close()
+    print(f"Genossenschaftskonto {account.number} „{account.name}“ angelegt.")
+
+
 def main() -> None:
     """Einstiegspunkt für `coop-manager`: liest den Unterbefehl und führt ihn aus."""
     parser = argparse.ArgumentParser(prog="coop-manager")
@@ -74,6 +88,8 @@ def main() -> None:
 
     commands.add_parser("show-settings", help="Systemeinstellungen anzeigen")
 
+    commands.add_parser("create-cooperative-account", help="Konto der Genossenschaft anlegen (einmalig)")
+
     args = parser.parse_args()
     if args.command == "create-admin":
         create_admin(args.username, args.full_name)
@@ -81,3 +97,5 @@ def main() -> None:
         set_share_price(args.amount)
     elif args.command == "show-settings":
         show_settings()
+    elif args.command == "create-cooperative-account":
+        create_cooperative_account()

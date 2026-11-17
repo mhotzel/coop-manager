@@ -3,6 +3,7 @@ from datetime import date
 
 import pytest
 
+from coop_manager.accounts.services import get_ledger
 from coop_manager.app import PROJECTORS, SCHEMAS
 from coop_manager.db import Database, prepare
 from coop_manager.eventsource import ConcurrencyError
@@ -36,6 +37,12 @@ def apply(db: Database, first_names="Erika", last_name="Muster", city="Mustersta
     return services.apply_for_membership(db, **(data | overrides)).subject
 
 
+def account_number(db: Database, member_id: str) -> int | None:
+    """Die Kontonummer des Mitglieds im Hauptbuch; None, wenn es kein Konto hat."""
+    account = get_ledger(db).account_of(member_id)
+    return None if account is None else account.number
+
+
 def search(db: Database, query: str) -> list[str]:
     return [row.list_name for row in search_members(db.projections.conn, query, TODAY)]
 
@@ -45,6 +52,24 @@ def test_numbers_are_assigned_in_order(db):
 
     assert services.get_member(db, first).member_number == 1
     assert services.get_member(db, second).member_number == 2
+
+
+def test_application_opens_account_with_same_number(db):
+    first, second = apply(db), apply(db, "Max", "Beispiel")
+
+    assert (account_number(db, first), account_number(db, second)) == (1, 2)
+
+
+def test_application_opens_account_with_same_number_after_manual_account(db):
+    """Ist eine Kontonummer schon belegt (z. B. von Hand bei der Migration), geht es danach weiter."""
+    ledger = get_ledger(db)
+    ledger.open_member_account(5, "member-migrated")
+    db.save(ledger, "test")
+
+    member_id = apply(db)
+
+    assert services.get_member(db, member_id).member_number == 6
+    assert account_number(db, member_id) == 6
 
 
 def test_application_appears_in_search(db):
@@ -130,6 +155,7 @@ def test_concurrent_applications_get_different_numbers(db, tmp_path, monkeypatch
 
     assert len(calls) == 2  # einmal gescheitert, einmal geklappt
     assert services.get_member(db, member_id).member_number == 2
+    assert account_number(db, member_id) == 2
     assert search(db, "") == ["Beispiel, Max", "Muster, Erika"]
 
 

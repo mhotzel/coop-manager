@@ -1476,3 +1476,52 @@ Kommandozeile, wie beim Anlegen des Admins.
   es wird nur mit ganzen Zahlen gerechnet. Mehr als zwei Nachkommastellen werden abgelehnt.
 - **Gleicher Preis, kein Event:** Sonst stünde im Verlauf eine „Änderung“, die nichts geändert
   hat.
+
+## 2026-11-17 – Schritt 5b, Teil 1: Konten eröffnen
+
+**Vorab:** Die Entwicklungsdaten in `backend/data/` gelöscht (`eventstore.sqlite`,
+`projections.sqlite`), weil die alten Anträge noch kein Konto haben. Danach müssen Admin,
+Anteilspreis und Genossenschaftskonto neu angelegt werden (siehe `DEV_HINTS.md`).
+
+**Was:**
+
+- Neues Paket `accounts/`:
+  - `domain.py`: Aggregat `Ledger` im Stream `ledger`, Datenklasse `Account` (Nummer, Kontoart,
+    Mitglieds-ID, Bezeichnung). Befehle `open_member_account(number, member_id)` und
+    `open_cooperative_account(name)`, beide erzeugen das Event `account.opened`. Regeln: Nummer
+    positiv und frei, 9999 nur für die Genossenschaft, ein Konto je Mitglied, das
+    Genossenschaftskonto nur einmal und mit Bezeichnung. Abfragen `cooperative_account()`,
+    `account_of(member_id)` und `member_account_numbers()`.
+  - `services.py`: `get_ledger(db)` und `open_cooperative_account(db, name, actor)`.
+- `members/numbers.py`: `next_number(account_numbers)` berücksichtigt jetzt auch die Nummern der
+  Mitgliedskonten. `RESERVED` nutzt die Konstante `COOPERATIVE_ACCOUNT_NUMBER`.
+- `members/services.py`: `apply_for_membership` eröffnet das Konto mit derselben Nummer und
+  speichert Nummernregister, Mitglied und Hauptbuch mit `save_all` in einer Transaktion.
+- `config.py`, `.env.example`: neue Einstellung `CM_COOPERATIVE_ACCOUNT_NAME`.
+- `cli.py`: neuer Befehl `create-cooperative-account`. Ausprobiert in einem Wegwerf-Ordner mit
+  `CM_DATA_DIR=<ordner> uv run coop-manager create-cooperative-account`: Der erste Aufruf legt
+  das Konto an, der zweite bricht mit „Das Genossenschaftskonto gibt es bereits.“ ab.
+- Tests: `test_ledger.py`, dazu neue Fälle in `test_members_numbers.py`,
+  `test_members_services.py` und `test_cli.py`. Geprüft mit `uv run pytest` (254 grün),
+  `uv run ruff check .`, `uv run ruff format --check .` und `uv run pyright`.
+- `Plan.md`: 5b in zwei Teile aufgeteilt, Entscheidungen „Nummer 9999 fest im Code“ und „Konten
+  im `Ledger`-Stream“. `DEV_HINTS.md`: Abschnitt „Genossenschaftskonto anlegen“.
+
+**Warum so:**
+
+- **Konten im selben Stream wie die Buchungen:** Eine Buchung muss prüfen können, ob ihre Konten
+  existieren. Liegt alles in einem Aggregat, ist das eine einfache Abfrage, ohne einen zweiten
+  Stream zu laden.
+- **Ein Event für beide Kontoarten:** Ein Konto ist ein Konto, nur die Art unterscheidet sich.
+  Weil die Art im Event steht, wird das Genossenschaftskonto an ihr erkannt, nicht an der Nummer.
+- **`save_all` mit drei Aggregaten:** Entweder entstehen Nummer, Mitglied und Konto zusammen oder
+  gar nichts. Die vorhandene Wiederholschleife bei `ConcurrencyError` gilt damit auch für das
+  Hauptbuch: Bucht jemand gleichzeitig, wird der Antrag einfach noch einmal versucht.
+- **Nummernregel an einer Stelle:** Statt einer zweiten Funktion bekommt `next_number` die
+  Kontonummern als Parameter. So bleiben Mitglieds- und Kontonummer gleich, auch wenn bei der
+  Migration einmal eine Kontonummer von Hand vergeben wurde.
+- **9999 fest im Code statt einstellbar:** Wäre die Nummer einstellbar, müsste auch
+  `MemberNumbers` sie aus der Konfiguration kennen. Das wäre aufwendiger, ohne dass es gebraucht
+  wird, denn bei der Migration ist es ohnehin das Konto 9999.
+- **Keine Projektion, keine API:** Die kommen mit der Kontoansicht in 5d.
+

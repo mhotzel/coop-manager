@@ -2,6 +2,7 @@ import logging
 from collections.abc import Callable
 from datetime import date
 
+from ..accounts.services import get_ledger
 from ..core import NotFoundError
 from ..db import Database
 from ..eventsource import ConcurrencyError
@@ -24,19 +25,22 @@ def apply_for_membership(
     contact: Contact | None,
     actor: str,
 ) -> Member:
-    """Erfasst eine Beitrittserklärung mit der nächsten freien Mitgliedsnummer.
+    """Erfasst eine Beitrittserklärung mit der nächsten freien Nummer und eröffnet das Konto.
 
-    Nummernregister und Mitglied werden zusammen gespeichert. Hat jemand anderes in der
-    Zwischenzeit eine Nummer vergeben, scheitert das Speichern an der Versionsprüfung, und es
-    geht mit der dann nächsten freien Nummer von vorn los.
+    Mitglieds- und Kontonummer sind dieselbe. Nummernregister, Mitglied und Hauptbuch werden
+    zusammen gespeichert, alle oder keines; ein Mitglied ohne Konto kann es also nicht geben. Hat
+    jemand anderes in der Zwischenzeit eine Nummer vergeben oder gebucht, scheitert das Speichern
+    an der Versionsprüfung, und es geht mit der dann nächsten freien Nummer von vorn los.
     """
     for attempt in range(1, MAX_ATTEMPTS + 1):
         numbers = _load_numbers(db)
-        number = numbers.next_number()
+        ledger = get_ledger(db)
+        number = numbers.next_number(ledger.member_account_numbers())
         member = Member.apply(number, person_type, name, address, application_date, shares_subscribed, contact)
         numbers.assign(number, member.subject)
+        ledger.open_member_account(number, member.subject)
         try:
-            db.save_all([numbers, member], actor)
+            db.save_all([numbers, member, ledger], actor)
         except ConcurrencyError:
             log.warning("member number taken concurrently", extra={"number": number, "attempt": attempt})
             if attempt == MAX_ATTEMPTS:

@@ -43,6 +43,17 @@ uv run coop-manager set-share-price 50,00     # Betrag in Euro, auch „50“ od
 uv run coop-manager show-settings             # zeigt den aktuellen Anteilspreis
 ```
 
+## Genossenschaftskonto anlegen
+
+Ebenfalls aus `backend/` heraus, einmalig. Das Konto hat immer die Nummer 9999, die Bezeichnung
+kommt aus `CM_COOPERATIVE_ACCOUNT_NAME` (Vorgabe „Unser Dorfladen Schlichten eG“).
+
+```bash
+uv run coop-manager create-cooperative-account
+```
+
+Die Konten der Mitglieder entstehen von selbst mit dem Antrag, mit derselben Nummer.
+
 ## Starten
 
 Zwei Terminals, Backend und Frontend laufen nebeneinander:
@@ -115,5 +126,6 @@ npm run type-check       # TypeScript prüfen
 ## Neu anfangen
 
 Alle Daten liegen in `backend/data/` (`eventstore.sqlite` und `projections.sqlite`). Zum
-Zurücksetzen das Backend beenden, den Ordner löschen und den Admin neu anlegen. Die Projektionen
+Zurücksetzen das Backend beenden, den Ordner löschen und Admin, Anteilspreis und
+Genossenschaftskonto neu anlegen (siehe oben). Die Projektionen
 allein lassen sich auch löschen, sie werden beim Start aus dem Event Store neu aufgebaut.
