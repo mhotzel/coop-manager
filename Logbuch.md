@@ -1723,3 +1723,30 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
   und hängt nicht von den Spracheinstellungen des Browsers ab.
 - **Browser-Konsole statt Swagger:** Swagger kann den CSRF-Header nicht mitschicken. In der
   Konsole hat man Cookie und Token der angemeldeten Sitzung.
+
+## 2026-11-17 – Schritt 5d, Teil 2a: Buchungsbefehle im Frontend
+
+**Was:**
+
+- `frontend/src/accounts.ts` erweitert:
+  - Typen `ShareBooking` (Befehl) und `BookingResponse` (Konto danach plus Warnung) passend zu
+    `accounts/schemas.py`.
+  - `subscribe()` und `refund()` rufen `POST /api/accounts/subscribe` bzw. `/refund` auf.
+  - `parseEuro()` macht aus der Eingabe im Betragsfeld ganze Cent, in deutscher Schreibweise:
+    Komma als Dezimaltrenner, Punkte als Tausendertrenner („1.500,50“, „150,5“, auch mit
+    €-Zeichen). Ungültiges ergibt `null`.
+  - `sharesForAmount()` rechnet einen Betrag in Anteile um. Geht der Betrag nicht glatt auf,
+    ergibt das `null`.
+- Geprüft mit `npm run type-check`. Die beiden Rechenfunktionen habe ich in ein Wegwerfskript
+  kopiert und mit `node check.ts` an Beispielen ausprobiert. Node 24 versteht TypeScript direkt,
+  weil es die Typangaben einfach weglässt.
+
+**Warum so:**
+
+- **Kein Betrag im Befehl:** Der Server rechnet Anteile × aktuellen Preis selbst. So kann das
+  Frontend keinen Betrag schicken, der nicht zum Preis passt.
+- **Komma für Cent, Punkte für Tausender (Matthias' Vorgabe):** Die Tausenderpunkte müssen
+  richtig gruppiert sein, also immer genau drei Ziffern dahinter. „150.50“ wird deshalb abgelehnt
+  und nicht stillschweigend als 15.050 € gelesen.
+- **Mit ganzen Cent gerechnet:** Der Text wird in Euro- und Centteil zerlegt, nicht über
+  `parseFloat`. So entsteht kein Rundungsfehler wie bei 0,1 + 0,2.

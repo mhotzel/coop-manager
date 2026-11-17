@@ -111,7 +111,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 
 - **Zeitstempel intern immer in UTC**, Anzeige in Europe/Berlin. Fachliche Daten (Buchungstag,
   Wertstellung, Eintrittsdatum usw.) sind reine Datumswerte ohne Uhrzeit.
-- **Geldbeträge** als ganze Cent (`int`) in Events und Datenbank, Umrechnung nur an der Oberfläche.
+- **Geldbeträge** als ganze Cent (`int`) in Events, Datenbank und API, Umrechnung nur an der
+  Oberfläche. Eingabe dort in deutscher Schreibweise: Komma als Dezimaltrenner, Punkte als
+  Tausendertrenner, richtig gruppiert („1.500,50“). „150.50“ ist ungültig.
 - **Login:** signiertes HttpOnly-Session-Cookie mit Timeout, CSRF-Token im Header. Standard ist
   „Zugriff verweigert“, Rollen je Endpoint; Rollen und Aktiv-Status bei jedem Request frisch
   gelesen; Login-Sperre und einheitliche Fehlermeldung; Ersteinrichtung per CLI `create-admin`.

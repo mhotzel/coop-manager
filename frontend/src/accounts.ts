@@ -70,3 +70,56 @@ export function counterAccount(accountNumber: number, booking: Booking): number 
 export function getAccount(accountNumber: number): Promise<AccountView> {
   return api<AccountView>(`/api/accounts/${accountNumber}`)
 }
+
+// --- Buchungsmaske ---
+
+// Muss zu ShareBooking im Backend passen (accounts/schemas.py). Einen Betrag gibt es hier bewusst
+// nicht: Der Server rechnet ihn selbst aus (Anteile × aktueller Anteilspreis).
+export interface ShareBooking {
+  account_number: number
+  shares: number
+  value_date: string // JJJJ-MM-TT
+  text: string | null // null = Standardtext „Eintritt“ bzw. „Rückzahlung“
+}
+
+// Muss zu BookingResponse im Backend passen: das Konto nach der Buchung und ggf. eine Warnung.
+// Die Buchung gilt auch mit Warnung; die Warnung ist ein Hinweis für die Buchhaltung.
+export interface BookingResponse {
+  account: AccountView
+  warning: string | null
+}
+
+export function subscribe(command: ShareBooking): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/subscribe', { method: 'POST', body: command })
+}
+
+export function refund(command: ShareBooking): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/refund', { method: 'POST', body: command })
+}
+
+// Eingabe im Betragsfeld → ganze Cent, oder null, wenn die Eingabe kein Betrag ist.
+// Deutsche Schreibweise: Komma trennt die Cent ab, Punkte trennen Tausender.
+// Erlaubt: "1500", "1.500", "1.500,00", "150,5", auch mit Leerzeichen und €-Zeichen.
+// Tausenderpunkte müssen richtig stehen (immer drei Ziffern danach); "150.50" ist also ungültig
+// und wird nicht stillschweigend zu 15.050 €.
+export function parseEuro(text: string): number | null {
+  const cleaned = text.replace('€', '').trim()
+  // ^ und $: der ganze Text muss passen. Euro entweder mit Tausenderpunkten (1–3 Ziffern, dann
+  // Gruppen aus Punkt und drei Ziffern) oder ohne Punkte; danach optional Komma und 1–2 Ziffern Cent.
+  const match = /^(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?$/.exec(cleaned)
+  if (match === null) {
+    return null
+  }
+  const euros = Number((match[1] ?? '').replaceAll('.', ''))
+  // padEnd: "5" heißt 50 Cent, nicht 5 Cent.
+  const cents = Number((match[2] ?? '0').padEnd(2, '0'))
+  return euros * 100 + cents
+}
+
+// Wie viele Anteile ergibt ein Betrag? null, wenn er nicht glatt im Anteilspreis aufgeht.
+export function sharesForAmount(cents: number, sharePrice: number): number | null {
+  if (sharePrice <= 0 || cents % sharePrice !== 0) {
+    return null
+  }
+  return cents / sharePrice
+}
