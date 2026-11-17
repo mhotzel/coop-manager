@@ -1684,3 +1684,42 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
   ohne dass es dafür einen eigenen Endpunkt braucht.
 - **Ohne Anmeldung 401, auch bei POST:** Die Anmeldung wird vor dem CSRF-Token geprüft. Ich hatte
   zuerst 403 erwartet, der Test hat das richtiggestellt.
+
+## 2026-11-17 – Schritt 5d, Teil 1: Kontoansicht
+
+**Was:**
+
+- Neue Datei `frontend/src/accounts.ts`:
+  - Typen `AccountView` und `Booking` passend zur API, dazu `getAccount()`.
+  - Texte zu den acht Buchungsarten.
+  - `formatEuro()` rechnet mit ganzen Cent wie `format_euro` im Backend.
+  - `signedFor()` liefert Betrag und Anteile aus Sicht eines Kontos, `counterAccount()` das
+    Gegenkonto.
+- Neue Seite `frontend/src/views/accounts/AccountView.vue`, Route `/accounts/:number`, für beide
+  Buchhaltungsrollen:
+  - Oben stehen Inhaber mit Status, Saldo, Anteile, gezeichnete Anteile, Geldeingang, Eintritt
+    und Anteilspreis.
+  - Darunter folgt die Buchungstabelle, die älteste zuerst, mit dem Gegenkonto als Link.
+- Menü: neuer Eintrag „Gen.-Kto“ mit dem Tooltip „Genossenschaftskonto“. Das ausgeschriebene Wort
+  ragte über die Seitenleiste hinaus. Menüeinträge nehmen jetzt ein vollständiges Routenziel mit
+  Parametern und optional einen `hint`.
+- Mitglied-Detailseite: „Geldeingang am“, „Eintritt am“ und ein Knopf „Konto anzeigen“.
+- Status-Tag „Mitglied“ in Grün, über `statusTagClass()` in Suche, Detail- und Kontoansicht.
+- `Plan.md`: 5d in Teil 1 (Ansicht) und Teil 2 (Buchungsmaske) aufgeteilt.
+- `DEV_HINTS.md`: Abschnitt „API in der Browser-Konsole ausprobieren“.
+- Geprüft mit `npm run type-check` und `npm run build`. Matthias hat die Seiten im Browser
+  angesehen und abgenommen.
+
+**Warum so:**
+
+- **`watch` statt `onMounted`:** Ein Klick auf das Gegenkonto bleibt auf derselben Seite, nur der
+  Parameter ändert sich. Vue verwendet die Komponente weiter, `onMounted` liefe nicht noch
+  einmal, und die Seite zeigte das alte Konto. `watch(..., { immediate: true })` lädt beim
+  ersten Anzeigen und bei jedem neuen Parameter.
+- **Vorzeichen aus Sicht des Kontos:** Dieselbe Buchung steht auf dem Mitgliedskonto mit +, auf
+  dem Genossenschaftskonto mit −, wie `balance()` im Backend rechnet. So passt die Summe der
+  Tabelle immer zum Saldo.
+- **Euro selbst formatieren statt mit `Intl`:** Das Ergebnis sieht genauso aus wie im Backend
+  und hängt nicht von den Spracheinstellungen des Browsers ab.
+- **Browser-Konsole statt Swagger:** Swagger kann den CSRF-Header nicht mitschicken. In der
+  Konsole hat man Cookie und Token der angemeldeten Sitzung.

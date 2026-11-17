@@ -72,7 +72,7 @@ npm run dev
   weiter (siehe `frontend/vite.config.ts`).
 - **http://localhost:8000/docs** zeigt die API-Beschreibung (Swagger). Die Endpunkte brauchen
   eine Anmeldung und bei POST das CSRF-Token im Header `X-CSRF-Token`. Zum Ausprobieren ist
-  deshalb meist das Frontend oder ein Test einfacher.
+  deshalb meist das Frontend, die Browser-Konsole (siehe unten) oder ein Test einfacher.
 - `--reload` startet das Backend bei jeder Codeänderung neu.
 
 ## API von Hand ausprobieren (curl)
@@ -99,6 +99,23 @@ curl -s -b /tmp/cm-cookies -H "X-CSRF-Token: $TOKEN" -H 'Content-Type: applicati
 ```
 
 `erika` muss dafür die Rolle „Buchhaltung“ haben (siehe oben).
+
+## API in der Browser-Konsole ausprobieren
+
+Swagger (`/docs`) kann den Header `X-CSRF-Token` nicht mitschicken. Einfacher ist die Konsole
+des Browsers (F12) im angemeldeten Frontend unter http://localhost:5173: Das Session-Cookie
+schickt der Browser von selbst mit, das CSRF-Token liefert `/api/me`. Beispiel Eintritt auf
+Konto 1 (Firefox verlangt beim ersten Einfügen `allow pasting`):
+
+```js
+const me = await (await fetch('/api/me')).json()
+const response = await fetch('/api/accounts/subscribe', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': me.csrf_token },
+  body: JSON.stringify({ account_number: 1, shares: 1, value_date: '2026-11-17' }),
+})
+console.log(response.status, await response.json())
+```
 
 ## Von einem anderen Rechner (SSH-Tunnel)
 

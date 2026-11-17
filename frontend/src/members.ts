@@ -104,6 +104,14 @@ export function statusLabel(status: string | null): string {
   return STATUS_LABELS[status] ?? status // unbekannter Status: lieber roh anzeigen als nichts
 }
 
+// Farbe des Status-Tags: grün für Mitglieder, orange für abgelehnt, sonst blau.
+export function statusTagClass(status: string): string {
+  if (status === 'member') {
+    return 'success'
+  }
+  return status === 'rejected' ? 'warning' : 'info'
+}
+
 // "2026-11-02" → "02.11.2026". Bewusst ohne new Date(): Das liest den Text als Mitternacht in
 // UTC, und je nach Zeitzone des Browsers käme dann der Vortag heraus.
 export function formatDate(isoDate: string | null): string {

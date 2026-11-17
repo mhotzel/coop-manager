@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import { errorText } from '../../api'
 import { ACCOUNTING, currentUser } from '../../auth'
-import { lastQuery, searchMembers, SEARCH_LIMIT, statusLabel, type MemberRow } from '../../members'
+import { lastQuery, searchMembers, SEARCH_LIMIT, statusLabel, statusTagClass, type MemberRow } from '../../members'
 
 // null heißt: Es wurde noch nicht gesucht (anders als [] = gesucht, nichts gefunden).
 const rows = ref<MemberRow[] | null>(null)
@@ -71,7 +71,7 @@ onMounted(search)
                 </td>
                 <td>{{ row.street }}, {{ row.postal_code }} {{ row.city }}</td>
                 <td>
-                  <span v-if="row.status !== null" class="status-tag" :class="row.status === 'rejected' ? 'warning' : 'info'">
+                  <span v-if="row.status !== null" class="status-tag" :class="statusTagClass(row.status)">
                     {{ statusLabel(row.status) }}
                   </span>
                 </td>

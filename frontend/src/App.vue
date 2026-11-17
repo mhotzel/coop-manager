@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 
+import { COOPERATIVE_ACCOUNT_NUMBER } from './accounts'
 import logoUrl from './assets/img/dlslogo.png'
 import { ACCOUNTING, ACCOUNTING_READONLY, ADMIN, currentUser, logout } from './auth'
 
@@ -12,21 +13,29 @@ interface Health {
   status: string
 }
 
-// Ein Eintrag im Menü: Ziel (Name der Route) und die Rollen, die ihn sehen.
+// Ein Eintrag im Menü: Ziel (Route mit Name und ggf. Parametern) und die Rollen, die ihn sehen.
 // Einträge ohne Ziel sind Platzhalter für Seiten, die erst noch entstehen.
 interface MenuEntry {
   title: string
-  to?: string
+  to?: RouteLocationRaw
   roles: string[]
+  hint?: string // Tooltip beim Überfahren, z. B. der ausgeschriebene Titel
 }
 
 const FACHLICH = [ACCOUNTING, ACCOUNTING_READONLY]
 
 const menuEntries: MenuEntry[] = [
-  { title: 'Mitglieder', to: 'members', roles: FACHLICH },
+  { title: 'Mitglieder', to: { name: 'members' }, roles: FACHLICH },
+  // Kurzer Titel, weil das ausgeschriebene Wort nicht in die Seitenleiste passt.
+  {
+    title: 'Gen.-Kto',
+    hint: 'Genossenschaftskonto',
+    to: { name: 'account', params: { number: COOPERATIVE_ACCOUNT_NUMBER } },
+    roles: FACHLICH,
+  },
   { title: 'Konten', roles: FACHLICH },
   { title: 'Reports', roles: FACHLICH },
-  { title: 'Benutzer', to: 'users', roles: [ADMIN] },
+  { title: 'Benutzer', to: { name: 'users' }, roles: [ADMIN] },
 ]
 
 // Nur die Einträge, die zur Rolle des angemeldeten Benutzers passen.
@@ -105,7 +114,7 @@ onUnmounted(() => {
         <ul>
           <li v-for="entry in visibleEntries" :key="entry.title">
             <!-- active-class: style.css markiert den aktiven Eintrag mit der Klasse „active“. -->
-            <RouterLink v-if="entry.to" :to="{ name: entry.to }" active-class="active">{{ entry.title }}</RouterLink>
+            <RouterLink v-if="entry.to" :to="entry.to" :title="entry.hint" active-class="active">{{ entry.title }}</RouterLink>
             <a v-else>{{ entry.title }}</a>
           </li>
         </ul>

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { ACCOUNTING, ACCOUNTING_READONLY, ADMIN, currentUser } from './auth'
+import AccountView from './views/accounts/AccountView.vue'
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
 import MemberApplyView from './views/members/MemberApplyView.vue'
@@ -39,6 +40,13 @@ export const router = createRouter({
       path: '/members/:id',
       name: 'member-detail',
       component: MemberDetailView,
+      props: true,
+      meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] },
+    },
+    {
+      path: '/accounts/:number',
+      name: 'account',
+      component: AccountView,
       props: true,
       meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] },
     },

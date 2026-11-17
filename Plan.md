@@ -52,6 +52,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
        Eintrittsdatum), Projektion, Tests
      - Teil 2: API-Endpunkte für Buchungen und Kontostand
    - 5d: Frontend: Kontoansicht und Buchungsmaske
+     - Teil 1: Kontoansicht (auch Genossenschaftskonto im Menü), Konto-Link am Mitglied
+     - Teil 2: Buchungsmaske für Eintritt und Rückzahlung
    - 5e: Storno
    - 5f: Kündigung, Teilkündigung, Tod und Ausschluss
    - 5g: „Ausscheiden zum Jahresende buchen“

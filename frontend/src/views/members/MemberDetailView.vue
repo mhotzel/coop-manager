@@ -10,6 +10,7 @@ import {
   NATURAL_PERSON,
   personTypeLabel,
   statusLabel,
+  statusTagClass,
   type Address,
   type Contact,
   type MemberDetail,
@@ -188,7 +189,7 @@ function generateLines(): void {
       <div class="card-header">
         Nr. {{ member.member_number }}:
         {{ isNaturalPerson ? `${member.name.first_names} ${member.name.last_name}` : member.name.company_name }}
-        <span v-if="member.status !== null" class="status-tag" :class="member.status === 'rejected' ? 'warning' : 'info'">
+        <span v-if="member.status !== null" class="status-tag" :class="statusTagClass(member.status)">
           {{ statusLabel(member.status) }}
         </span>
       </div>
@@ -206,7 +207,18 @@ function generateLines(): void {
             <dt>{{ member.withdrawn ? 'Zurückgenommen am' : 'Abgelehnt am' }}</dt>
             <dd>{{ formatDate(member.rejection_date) }}</dd>
           </template>
+          <dt>Geldeingang am</dt>
+          <dd>{{ formatDate(member.payment_date) }}</dd>
+          <dt>Eintritt am</dt>
+          <dd>{{ formatDate(member.entry_date) }}</dd>
         </dl>
+
+        <div class="button-row">
+          <!-- Mitglieds- und Kontonummer sind gleich (siehe Plan). -->
+          <RouterLink :to="{ name: 'account', params: { number: member.member_number } }" class="btn btn-outline">
+            Konto anzeigen
+          </RouterLink>
+        </div>
 
         <div v-if="editing === null && action === null && (canDecide || canWithdraw)" class="button-row">
           <button v-if="canDecide" type="button" class="btn btn-primary" @click="startAction('admit')">Zulassen</button>

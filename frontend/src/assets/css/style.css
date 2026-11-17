@@ -656,6 +656,11 @@ tbody tr:hover {
     color: var(--info-color);
 }
 
+.status-tag.success {
+    background: var(--primary-light-hover);
+    color: var(--primary-hover);
+}
+
 .status-tag.warning {
     background: var(--warning-bg);
     color: var(--warning-color);
