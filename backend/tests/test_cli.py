@@ -36,3 +36,24 @@ def test_create_admin_rejects_different_passwords(monkeypatch, tmp_path):
 def test_create_admin_reports_weak_password(monkeypatch, tmp_path):
     with pytest.raises(SystemExit, match="Kennwort muss"):
         run_cli(monkeypatch, tmp_path, ["create-admin"], ["kurz", "kurz"])
+
+
+def test_set_and_show_share_price(monkeypatch, tmp_path, capsys):
+    run_cli(monkeypatch, tmp_path, ["show-settings"], [])
+    assert "Anteilspreis: nicht festgelegt" in capsys.readouterr().out
+
+    run_cli(monkeypatch, tmp_path, ["set-share-price", "50,00"], [])
+    assert "Anteilspreis auf 50,00 € gesetzt." in capsys.readouterr().out
+
+    run_cli(monkeypatch, tmp_path, ["show-settings"], [])
+    assert "Anteilspreis: 50,00 €" in capsys.readouterr().out
+
+
+def test_set_share_price_rejects_invalid_amount(monkeypatch, tmp_path):
+    with pytest.raises(SystemExit, match="kein gültiger Euro-Betrag"):
+        run_cli(monkeypatch, tmp_path, ["set-share-price", "50,005"], [])
+
+
+def test_set_share_price_rejects_zero(monkeypatch, tmp_path):
+    with pytest.raises(SystemExit, match="größer als 0"):
+        run_cli(monkeypatch, tmp_path, ["set-share-price", "0"], [])

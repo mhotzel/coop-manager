@@ -7,7 +7,9 @@ import sys
 from .app import PROJECTORS, SCHEMAS
 from .config import load_settings
 from .core import DomainError
+from .core.money import format_euro, parse_euro
 from .db import Database, prepare
+from .system_settings import services as system_settings
 from .users import services
 from .users.domain import ADMIN
 
@@ -18,9 +20,7 @@ def create_admin(username: str, full_name: str) -> None:
     if getpass.getpass("Kennwort wiederholen: ") != password:
         sys.exit("Die Kennwörter stimmen nicht überein.")
 
-    settings = load_settings()
-    prepare(settings.data_dir, PROJECTORS, SCHEMAS)
-    db = Database(settings.data_dir, PROJECTORS)
+    db = open_db()
     try:
         user = services.register_user(db, username, full_name, password, ADMIN, actor="cli")
     except DomainError as exc:
@@ -28,6 +28,36 @@ def create_admin(username: str, full_name: str) -> None:
     finally:
         db.close()
     print(f"Admin '{user.username}' angelegt.")
+
+
+def open_db() -> Database:
+    """Öffnet die Datenbank im konfigurierten Datenverzeichnis (legt sie bei Bedarf an)."""
+    settings = load_settings()
+    prepare(settings.data_dir, PROJECTORS, SCHEMAS)
+    return Database(settings.data_dir, PROJECTORS)
+
+
+def set_share_price(amount: str) -> None:
+    """Setzt den Anteilspreis; der Betrag kommt in Euro, z. B. „50“ oder „50,00“."""
+    db = open_db()
+    try:
+        share_price = parse_euro(amount)
+        system_settings.change_share_price(db, share_price, actor="cli")
+    except DomainError as exc:
+        sys.exit(str(exc))
+    finally:
+        db.close()
+    print(f"Anteilspreis auf {format_euro(share_price)} gesetzt.")
+
+
+def show_settings() -> None:
+    """Zeigt die aktuellen Systemeinstellungen."""
+    db = open_db()
+    try:
+        share_price = system_settings.get_system_settings(db).share_price
+    finally:
+        db.close()
+    print(f"Anteilspreis: {'nicht festgelegt' if share_price is None else format_euro(share_price)}")
 
 
 def main() -> None:
@@ -39,6 +69,15 @@ def main() -> None:
     admin.add_argument("--username", default="admin")
     admin.add_argument("--full-name", default="Administrator")
 
+    price = commands.add_parser("set-share-price", help="Anteilspreis in Euro festlegen")
+    price.add_argument("amount", help="Betrag in Euro, z. B. 50 oder 50,00")
+
+    commands.add_parser("show-settings", help="Systemeinstellungen anzeigen")
+
     args = parser.parse_args()
     if args.command == "create-admin":
         create_admin(args.username, args.full_name)
+    elif args.command == "set-share-price":
+        set_share_price(args.amount)
+    elif args.command == "show-settings":
+        show_settings()

@@ -1434,3 +1434,45 @@ mit `sqlite3` direkt in `backend/data/eventstore.sqlite` und `projections.sqlite
   selbst steht im Aggregat, denn auch die API ohne Oberfläche muss sie einhalten.
 - **Der Testdatensatz bleibt, wie er ist:** Events werden nicht geändert, und ab dem 17.11. ist
   er von selbst „abgelehnt“. Es sind nur Entwicklungsdaten.
+
+## 2026-11-17 – Schritt 5a: Anteilspreis als Systemeinstellung
+
+**Entscheidungen vorab:** Die Aufteilung von Schritt 5 in 5a bis 5h steht jetzt in `Plan.md`.
+Für das Hauptbuch nehmen wir Variante A: ein Aggregat `Ledger` mit einem einzigen Stream. Die
+Systemeinstellungen sollen später in der Oberfläche durch den Admin änderbar sein. Darum werden
+sie schon jetzt per Event Sourcing gespeichert, gesetzt werden sie vorerst aber nur über die
+Kommandozeile, wie beim Anlegen des Admins.
+
+**Was:**
+
+- `core/money.py`: `parse_euro("50,00")` → `5000` Cent und `format_euro(5000)` → `„50,00 €“`.
+  Wird ab 5b auch für die Buchungen gebraucht.
+- Neues Paket `system_settings/`:
+  - `domain.py`: Aggregat `SystemSettings` im Stream `system-settings`. `change_share_price(cents)`
+    prüft „größer als 0“ und erzeugt bei unverändertem Preis kein Event. Event:
+    `settings.share-price-changed` mit `share_price` in Cent.
+  - `services.py`: `get_system_settings(db)` und `change_share_price(db, cents, actor)`.
+- `cli.py`: neue Unterbefehle `set-share-price <betrag>` und `show-settings`. Das Öffnen der
+  Datenbank steckt jetzt in `open_db()`, das auch `create-admin` nutzt.
+- Tests: `test_money.py`, `test_system_settings.py` und drei neue Fälle in `test_cli.py`. Geprüft
+  mit `uv run pytest` (240 grün), `uv run ruff check .`, `uv run ruff format --check .` und
+  `uv run pyright`.
+- `Plan.md`: Aufteilung 5a–5h, Entscheidungen zu Systemeinstellungen und Hauptbuch, Glossar
+  (`Ledger`, `SystemSettings`), die Admin-Seite unter „Mögliche Weiterentwicklungen“.
+  `DEV_HINTS.md`: Abschnitt „Anteilspreis festlegen“.
+
+**Warum so:**
+
+- **`SystemSettings` statt `Settings`:** `config.Settings` gibt es schon, das ist die technische
+  Konfiguration aus der `.env` (Datenverzeichnis, Schlüssel). Der Anteilspreis ist dagegen
+  fachlich und gehört mit Verlauf in den Event Store.
+- **Ein Stream für alle Einstellungen:** Es gibt nur ein Objekt „Systemeinstellungen“, also eine
+  feste Subject-Kennung wie bei `MemberNumbers`. Weitere Einstellungen bekommen später einfach
+  eigene Events im selben Stream.
+- **Keine Projektion, keine API:** Der Stream ist winzig und wird bei Bedarf direkt geladen.
+  Projektion und Endpunkte kommen erst mit der Admin-Seite, wenn sie gebraucht werden.
+- **Euro als Text parsen, nicht über `float`:** `float("0.1") + float("0.2")` ergibt
+  `0.30000000000000004`. Darum zerlegt ein regulärer Ausdruck die Eingabe in Euro und Cent, und
+  es wird nur mit ganzen Zahlen gerechnet. Mehr als zwei Nachkommastellen werden abgelehnt.
+- **Gleicher Preis, kein Event:** Sonst stünde im Verlauf eine „Änderung“, die nichts geändert
+  hat.

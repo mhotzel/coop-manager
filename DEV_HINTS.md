@@ -34,6 +34,15 @@ Das Kennwort wird verdeckt abgefragt. Danach legt der Admin im Frontend unter
 **Hinweis:** Der Admin darf nicht an die Mitglieder. Zum Testen der Mitglieder braucht es einen
 Benutzer mit der Rolle „Buchhaltung“ (ändern) bzw. „Buchhaltung lesend“ (nur ansehen).
 
+## Anteilspreis festlegen
+
+Ebenfalls aus `backend/` heraus. Ohne Anteilspreis sind keine Buchungen möglich.
+
+```bash
+uv run coop-manager set-share-price 50,00     # Betrag in Euro, auch „50“ oder „50.00“
+uv run coop-manager show-settings             # zeigt den aktuellen Anteilspreis
+```
+
 ## Starten
 
 Zwei Terminals, Backend und Frontend laufen nebeneinander:

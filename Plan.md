@@ -43,6 +43,14 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 4c: API mit Befehlen und Abfragen
    - 4d: Frontend: Suche, Antrag, Detail- und Bearbeitungsseite
 5. Konten und Buchungen: Eintritt, Kündigung, Austritt/Auszahlung, Umbuchung, Kontoansicht
+   - 5a: Anteilspreis als Systemeinstellung, vorerst per CLI
+   - 5b: Konten und Hauptbuch (Aggregat `Ledger`)
+   - 5c: Eintritt und Rückzahlung, Status „Mitglied“
+   - 5d: Frontend: Kontoansicht und Buchungsmaske
+   - 5e: Storno
+   - 5f: Kündigung, Teilkündigung, Tod und Ausschluss
+   - 5g: „Ausscheiden zum Jahresende buchen“
+   - 5h: Umbuchung, Auszahlung, Verlustvortrag, Verjährung, Liste offener Ansprüche
 6. Reports: die drei Excel-Listen zum Stichtag
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
@@ -205,6 +213,13 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Schlüssel aus `CM_SECRET_KEY`. Rolle und Aktiv-Status werden bei jeder Anfrage aus der Projektion
   gelesen; ein deaktivierter Benutzer verliert so sofort den Zugriff.
 - **Anteilspreis** ist eine Systemeinstellung des Admins. Eine Änderung gilt nur für neue Buchungen.
+- **Systemeinstellungen per Event Sourcing** im Aggregat `SystemSettings` mit einem einzigen Stream
+  `system-settings`, Event `settings.share-price-changed` (Betrag in Cent). So ist nachvollziehbar,
+  wer wann welchen Wert gesetzt hat. Nicht zu verwechseln mit `config.Settings` (technische
+  Konfiguration aus der `.env`). Ohne Event ist der Anteilspreis nicht festgelegt, Buchungen mit
+  Betrag sind dann nicht möglich.
+- **Vorerst nur per Kommandozeile:** `coop-manager set-share-price 50,00` und `show-settings`, wie
+  `create-admin`. Die Seite „Einstellungen“ für den Admin kommt später.
 
 ### Mitglieder im Modell (Schritt 4)
 
@@ -317,6 +332,15 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Verjährung** (Satzung 2.7) überwacht die App nicht. Sie bietet eine **Liste der offenen
   Ansprüche** mit Ausscheidensdatum; die Ausbuchung erfolgt von Hand.
 
+### Hauptbuch
+
+- **Ein Aggregat `Ledger` mit einem einzigen Stream für alle Buchungen** (Variante A, Stand
+  2026-11-17), wie `MemberNumbers`. Jede neue Buchung lässt sich so gegen alle bisherigen prüfen,
+  etwa ob eine Rückzahlung den Saldo übersteigt. Zwei gleichzeitige Buchungen scheitern an der
+  Versionsprüfung (`ConcurrencyError`). Für die Größe des Dorfladens ist die Länge des Streams
+  kein Problem. Verworfen: je Buchung ein Aggregat, weil Prüfungen über mehrere Buchungen dann
+  umständlich werden.
+
 ### Buchungsarten
 
 - **Das Konto weist Anteile und Saldo getrennt aus:** Anteile = aktuell gehaltene Anteile, Saldo =
@@ -374,6 +398,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 | Mitgliedsnummer, Kontonummer | `member_number`, `account_number` |
 | Mitgliedskonto / Genossenschaftskonto | `member_account` / `cooperative_account` |
 | Buchung, Buchungstext | `booking`, `text` |
+| Hauptbuch | `Ledger` |
 | Soll / Haben | `debit` / `credit` |
 | Buchungstag / Wertstellung | `booking_date` / `value_date` |
 | Saldo | `balance` |
@@ -398,6 +423,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 | Generalversammlung | `general_meeting` |
 | Rollen Admin / Buchhaltung / Buchhaltung lesend | `admin` / `accounting` / `accounting_readonly` |
 | Daten der Mitgliedschaft (Antrag, Zulassung, …) | `MembershipDates` |
+| Systemeinstellungen | `SystemSettings` |
 
 Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `expelled`,
 `deceased`, `exited`.
@@ -411,6 +437,8 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 - **Eintrittsgeld** (Satzung 2.3), falls die Generalversammlung eines beschließt: eigene
   Buchungsart ohne Anteile, Zuführung zu den Rücklagen.
 - **Rückvergütung** (Satzung 2.6) über die Mitgliedskonten.
+- **Seite „Einstellungen“ für den Admin**, um den Anteilspreis in der Oberfläche zu ändern (bisher
+  nur per CLI).
 - Mehrere Rollen je Benutzer statt mehrerer Benutzerkonten je Person.
 - Späteste Absendung der Einladung zur GV aus dem GV-Datum berechnen (Satzung 3.1: zwei Wochen
   plus zwei Werktage).
