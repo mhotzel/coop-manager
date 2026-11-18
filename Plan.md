@@ -56,7 +56,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 2: Buchungsmaske für Eintritt und Rückzahlung
    - 5e: Storno
      - Teil 1: Domäne und Service (Vorgang Storno mit Prüfungen und Pflichtgrund, Geldeingang am
-       Mitglied zurücknehmen bzw. neu festhalten), Projektion mit Referenz, Tests
+       Mitglied zurücknehmen bzw. neu festhalten), Referenz im Event `booking.posted`, Tests
      - Teil 2: API `POST /api/accounts/reverse` mit `{booking_id, reason}`, Kontoansicht mit
        „storniert durch“ bzw. „Storno zu“ je Buchung
      - Teil 3: Frontend: Knopf „Stornieren“ je Buchung (nur Buchhaltung), Abfrage des Grundes,
@@ -211,7 +211,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Storno- bzw. Korrekturbuchungen.
 - **Storno:** Gegenbuchung mit vertauschten Konten, gleichem Betrag und gleichen Anteilen, Text
   „Storno zu …“. Sie führt die **UUIDv7 der Originalbuchung** als Referenz mit.
-- **Pflichtangabe Stornogrund.**
+- **Pflichtangabe Stornogrund.** Er steht im Buchungstext (Stand 2026-11-18), z. B.
+  „Storno zu „Eintritt“: Zahlung falsch zugeordnet“; ein eigenes Feld gibt es nicht.
 - Jede Buchung kann nur einmal storniert werden, ein Storno nicht. In der Kontoansicht sind
   Original und Storno als Paar gekennzeichnet und per Filter ausblendbar.
 - **Wertstellung des Stornos = Wertstellung der Originalbuchung** (Stand 2026-11-18). Das Storno

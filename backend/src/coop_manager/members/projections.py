@@ -129,6 +129,10 @@ class MemberList(Projector):
             "UPDATE members SET payment_date = ? WHERE member_id = ?", (event.data["payment_date"], event.subject)
         )
 
+    @on("member.paid-in-revoked")
+    def _paid_in_revoked(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute("UPDATE members SET payment_date = NULL WHERE member_id = ?", (event.subject,))
+
 
 def _refresh_search_text(conn: sqlite3.Connection, member_id: str) -> None:
     """Setzt `search_text` aus den aktuellen Spalten neu zusammen."""

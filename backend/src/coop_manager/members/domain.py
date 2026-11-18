@@ -127,6 +127,16 @@ class Member(Aggregate):
             raise DomainError("Die Zahlung ist bereits erfasst.")
         self._record("member.paid-in", payment_date=payment_date.isoformat())
 
+    def revoke_payment(self) -> None:
+        """Nimmt den Geldeingang zurück, weil ein Storno die Einzahlung aufgehoben hat.
+
+        Damit entfallen Eintrittsdatum und Status „Mitglied“. Der Buchungsservice ruft das auf und
+        gibt eine Warnung aus; der Mitarbeiter klärt den Vorgang (siehe Plan: Buchungen und Storno).
+        """
+        if self.payment_date is None:
+            raise DomainError("Es ist kein Geldeingang erfasst.")
+        self._record("member.paid-in-revoked")
+
     def _ensure_open_application(self, day: date, today: date) -> None:
         """Der Antrag darf noch nicht abgelehnt oder zurückgenommen sein.
 
@@ -215,6 +225,10 @@ class Member(Aggregate):
     @on("member.paid-in")
     def _paid_in(self, event: Event) -> None:
         self.payment_date = date.fromisoformat(event.data["payment_date"])
+
+    @on("member.paid-in-revoked")
+    def _paid_in_revoked(self, event: Event) -> None:
+        self.payment_date = None
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

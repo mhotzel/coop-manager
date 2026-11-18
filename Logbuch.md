@@ -1856,3 +1856,49 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
 - **Wertstellung wie das Original:** Das Storno soll die Buchung so aufheben, als hätte es sie nie
   gegeben, auch in Reports zu einem früheren Stichtag.
 - **`reverse` im Endpunkt:** Storno heißt laut Glossar `reversal`.
+
+## 2026-11-18 – Schritt 5e, Teil 1: Storno in Domäne und Service
+
+**Was:**
+
+- `accounts/domain.py`:
+  - `Booking` hat das Feld `reverses` (ID der stornierten Buchung, sonst `None`). Es steht auch
+    im Event `booking.posted`. Beim Einlesen `data.get("reverses")`, damit ältere Events ohne das
+    Feld weiter laden.
+  - `Ledger.reverse(booking_id, text, booking_date)`: prüft „Buchung gibt es“, „ist kein Storno“,
+    „noch nicht storniert“ und bucht dann über `post_booking` mit vertauschten Konten, gleichem
+    Betrag, gleichen Anteilen und der Wertstellung des Originals.
+  - `booking(id)` und `reversal_of(id)` zum Nachschlagen.
+- `members/domain.py`: `Member.revoke_payment()` mit dem Event `member.paid-in-revoked`; setzt
+  `payment_date` zurück, damit entfallen Eintrittsdatum und Status „Mitglied“. Die Projektion
+  setzt `payment_date` auf `NULL`.
+- `accounts/bookings.py`:
+  - `reverse(db, booking_id, reason, today, actor)`: Grund ist Pflicht und kommt in den Text
+    („Storno zu „Eintritt“: …“), dann derselbe Ablauf `_book` wie bei Eintritt und Rückzahlung.
+  - Die Prüfung „mindestens ein Anteil“ ist aus `_book` in `_ensure_shares` gewandert, das
+    Eintritt und Rückzahlung aufrufen; beim Storno gibt es keine eingegebene Anzahl.
+  - `_reconcile` bekommt die ganze Buchung statt nur der Wertstellung. Neu: Ist ein Geldeingang
+    erfasst, passen die Anteile aber nicht mehr, wird er mit Warnung zurückgenommen. Erfasst ein
+    Storno den Geldeingang neu, gibt es ebenfalls eine Warnung.
+- Tests in `test_ledger.py`, `test_members_domain.py` und `test_bookings.py`; geprüft mit
+  `uv run pytest` (330 grün), `uv run ruff check` und `uv run pyright`.
+- `Plan.md`: Referenz im Event statt „Projektion mit Referenz“ (die Buchungen haben keine eigene
+  Projektion, die Kontoansicht liest das `Ledger`); Stornogrund steht im Buchungstext.
+
+**Warum so:**
+
+- **Storno über `post_booking`:** Alle Grundregeln gelten damit auch für das Storno, insbesondere
+  „Mitgliedskonto nicht ins Minus“. Ein Eintritt, der schon zurückgezahlt ist, lässt sich so nicht
+  stornieren, ohne dass `reverse` das eigens prüfen muss.
+- **Grund im Text (Variante A):** kein zusätzliches Feld in Event, Klasse, API und Tabelle; in
+  der Kontoansicht ist der Grund sofort lesbar.
+- **Neues Feld mit Vorgabewert `None`:** So brauchen bestehende Aufrufe und alte Events keine
+  Änderung. Event Sourcing verlangt, dass alte Events immer lesbar bleiben; daher `data.get`.
+- **Ein Zweig, den es heute noch nicht gibt:** Dass ein Storno den Geldeingang *neu* erfasst, kann
+  mit den heutigen Vorgängen nicht eintreten (wer die gezeichneten Anteile erreicht, hat sofort
+  den Geldeingang, danach ist keine Rückzahlung mehr erlaubt). Der Zweig steht trotzdem drin, weil
+  der Plan es so festlegt und spätere Vorgänge (5i, weitere Anteile) ihn brauchen können. Getestet
+  wird er direkt über `_reconcile`. Mein erster Testfall dafür war falsch und schlug fehl, daran
+  ist das aufgefallen.
+- **`revoke_payment` ohne Datum:** Das Event hält nur die Tatsache fest; wann storniert wurde,
+  steht in der Eventzeit und in der Stornobuchung.

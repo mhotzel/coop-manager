@@ -51,6 +51,7 @@ class Booking:
     text: str
     booking_date: date  # Tag, an dem in der App gebucht wurde
     value_date: date  # Tag, an dem die Buchung fachlich gilt
+    reverses: str | None = None  # nur beim Storno: die ID der stornierten Buchung
 
 
 class Ledger(Aggregate):
@@ -103,6 +104,7 @@ class Ledger(Aggregate):
         text: str,
         value_date: date,
         booking_date: date,
+        reverses: str | None = None,
     ) -> Booking:
         """Bucht Betrag (in Cent) und Anteile vom Soll- auf das Habenkonto.
 
@@ -141,8 +143,34 @@ class Ledger(Aggregate):
             text=text.strip(),
             booking_date=booking_date.isoformat(),
             value_date=value_date.isoformat(),
+            reverses=reverses,
         )
         return self.bookings[-1]
+
+    def reverse(self, booking_id: str, text: str, booking_date: date) -> Booking:
+        """Storniert eine Buchung mit einer Gegenbuchung (siehe Plan: Buchungen und Storno).
+
+        Die Konten sind vertauscht, Betrag, Anteile und Wertstellung gleich wie beim Original, damit
+        das Storno die Buchung auch zum selben Stichtag aufhebt. Das Storno verweist auf das Original.
+        """
+        original = self.booking(booking_id)
+        if original is None:
+            raise DomainError("Die Buchung gibt es nicht.")
+        if original.kind == REVERSAL:
+            raise DomainError("Ein Storno kann nicht storniert werden.")
+        if self.reversal_of(booking_id) is not None:
+            raise DomainError("Die Buchung ist bereits storniert.")
+        return self.post_booking(
+            REVERSAL,
+            debit=original.credit,
+            credit=original.debit,
+            amount=original.amount,
+            shares=original.shares,
+            text=text,
+            value_date=original.value_date,
+            booking_date=booking_date,
+            reverses=original.id,
+        )
 
     def balance(self, number: int) -> int:
         """Saldo des Kontos in Cent: Haben zählt positiv, Soll negativ."""
@@ -157,6 +185,14 @@ class Ledger(Aggregate):
         for booking in self.bookings_of(number):
             total += booking.shares if booking.credit == number else -booking.shares
         return total
+
+    def booking(self, booking_id: str) -> Booking | None:
+        """Die Buchung mit dieser ID; None, wenn es sie nicht gibt."""
+        return next((b for b in self.bookings if b.id == booking_id), None)
+
+    def reversal_of(self, booking_id: str) -> Booking | None:
+        """Das Storno zu einer Buchung; None, solange sie nicht storniert ist."""
+        return next((b for b in self.bookings if b.reverses == booking_id), None)
 
     def bookings_of(self, number: int) -> list[Booking]:
         """Alle Buchungen, an denen das Konto im Soll oder Haben beteiligt ist."""
@@ -197,5 +233,7 @@ class Ledger(Aggregate):
             text=data["text"],
             booking_date=date.fromisoformat(data["booking_date"]),
             value_date=date.fromisoformat(data["value_date"]),
+            # get statt []: Ältere Events haben das Feld noch nicht.
+            reverses=data.get("reverses"),
         )
         self.bookings.append(booking)

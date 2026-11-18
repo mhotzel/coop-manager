@@ -18,7 +18,7 @@ from ..eventsource import ConcurrencyError
 from ..members.domain import Member
 from ..members.services import MAX_ATTEMPTS, get_member
 from ..system_settings.services import get_system_settings
-from .domain import COOPERATIVE_ACCOUNT_NUMBER, MEMBER_ACCOUNT, REFUND, SUBSCRIPTION, Booking, Ledger
+from .domain import COOPERATIVE_ACCOUNT_NUMBER, MEMBER_ACCOUNT, REFUND, REVERSAL, SUBSCRIPTION, Booking, Ledger
 from .services import get_ledger
 
 log = logging.getLogger(__name__)
@@ -47,6 +47,8 @@ def subscribe(
 ) -> BookingResult:
     """Eintritt: Geldeingang für gezeichnete Anteile, Soll Genossenschaftskonto an Haben Mitgliedskonto."""
 
+    _ensure_shares(shares)
+
     def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
         if member.payment_date is not None or ledger.shares(account) >= member.shares_subscribed:
             raise DomainError("Die gezeichneten Anteile sind bereits eingezahlt.")
@@ -58,7 +60,7 @@ def subscribe(
             SUBSCRIPTION, COOPERATIVE_ACCOUNT_NUMBER, account, amount, shares, text or "Eintritt", value_date, today
         )
 
-    return _book(db, account_number, shares, today, actor, book)
+    return _book(db, account_number, today, actor, book)
 
 
 def refund(
@@ -76,6 +78,8 @@ def refund(
     kein Geldeingang erfasst). Mitglieder bekommen ihr Geld über die Kündigung zurück (Schritt 5f).
     """
 
+    _ensure_shares(shares)
+
     def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
         if member.rejection_date is None and member.payment_date is not None:
             raise DomainError(
@@ -87,10 +91,36 @@ def refund(
             REFUND, account, COOPERATIVE_ACCOUNT_NUMBER, amount, shares, text or "Rückzahlung", value_date, today
         )
 
-    return _book(db, account_number, shares, today, actor, book)
+    return _book(db, account_number, today, actor, book)
 
 
-def _book(db: Database, account_number: int, shares: int, today: date, actor: str, book: BookAction) -> BookingResult:
+def reverse(db: Database, booking_id: str, reason: str, today: date, actor: str) -> BookingResult:
+    """Storno: Gegenbuchung zu einer Buchung, mit Pflichtgrund (siehe Plan: Buchungen und Storno).
+
+    Der Grund steht im Buchungstext, z. B. „Storno zu „Eintritt“: Zahlung falsch zugeordnet“.
+    Danach wird wie bei jeder Buchung der Geldeingang am Mitglied abgeglichen.
+    """
+    if not reason.strip():
+        raise DomainError("Der Stornogrund fehlt.")
+    original = get_ledger(db).booking(booking_id)
+    if original is None:
+        raise NotFoundError("Die Buchung gibt es nicht.")
+    # Eintritt und Rückzahlung berühren genau ein Mitgliedskonto, die Gegenseite ist das
+    # Genossenschaftskonto. Die Umbuchung zwischen zwei Mitgliedskonten kommt erst in 5h.
+    account_number = original.credit if original.debit == COOPERATIVE_ACCOUNT_NUMBER else original.debit
+
+    def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
+        return ledger.reverse(booking_id, f"Storno zu „{original.text}“: {reason.strip()}", today)
+
+    return _book(db, account_number, today, actor, book)
+
+
+def _ensure_shares(shares: int) -> None:
+    if shares < 1:
+        raise DomainError("Es muss mindestens ein Anteil gebucht werden.")
+
+
+def _book(db: Database, account_number: int, today: date, actor: str, book: BookAction) -> BookingResult:
     """Gemeinsamer Ablauf: laden, prüfen, buchen, abgleichen, zusammen speichern.
 
     Das Konto wird über seine Nummer angesprochen; das Mitglied dazu steht im Hauptbuch.
@@ -112,10 +142,8 @@ def _book(db: Database, account_number: int, shares: int, today: date, actor: st
             raise DomainError("Es ist noch kein Anteilspreis festgelegt.")
         if ledger.cooperative_account() is None:
             raise DomainError("Das Genossenschaftskonto fehlt.")
-        if shares < 1:
-            raise DomainError("Es muss mindestens ein Anteil gebucht werden.")
         booking = book(member, ledger, account.number, share_price)
-        warning = _reconcile(member, ledger, account.number, booking.value_date, today)
+        warning = _reconcile(member, ledger, account.number, booking, today)
         try:
             db.save_all([ledger, member], actor)
         except ConcurrencyError:
@@ -137,11 +165,14 @@ def _book(db: Database, account_number: int, shares: int, today: date, actor: st
     raise AssertionError("unreachable")  # die Schleife endet immer mit return oder raise
 
 
-def _reconcile(member: Member, ledger: Ledger, account: int, value_date: date, today: date) -> str | None:
+def _reconcile(member: Member, ledger: Ledger, account: int, booking: Booking, today: date) -> str | None:
     """Gleicht eingezahlte und gezeichnete Anteile ab (siehe Plan: Variante A).
 
     Stimmen sie nach der Buchung genau überein, wird der Geldeingang am Mitglied erfasst, mit der
     Wertstellung dieser Buchung. Sonst kommt eine Warnung zurück, der Vorgang ist zu klären.
+
+    Nach einem Storno kann ein erfasster Geldeingang seine Grundlage verlieren; dann wird er
+    zurückgenommen. Beides geschieht beim Storno nie still, sondern immer mit Warnung.
     """
     paid, subscribed = ledger.shares(account), member.shares_subscribed
     if member.rejection_date is not None:
@@ -149,9 +180,18 @@ def _reconcile(member: Member, ledger: Ledger, account: int, value_date: date, t
             return "Der Antrag ist abgelehnt oder zurückgenommen; das Geld muss zurückgezahlt werden."
         return None
     if member.payment_date is not None:
-        return None
+        if paid == subscribed:
+            return None
+        was_member = member.entry_date() is not None
+        member.revoke_payment()
+        warning = f"Der Geldeingang ist zurückgenommen, {paid} von {subscribed} gezeichneten Anteilen eingezahlt."
+        if was_member:
+            warning += " Die Person ist nicht mehr Mitglied."
+        return warning + " Bitte klären."
     if paid == subscribed:
-        member.record_payment(value_date, today)
+        member.record_payment(booking.value_date, today)
+        if booking.kind == REVERSAL:
+            return f"Der Geldeingang ist jetzt mit Wertstellung {booking.value_date:%d.%m.%Y} erfasst. Bitte prüfen."
         return None
     if paid < subscribed:
         return f"{paid} von {subscribed} gezeichneten Anteilen eingezahlt."

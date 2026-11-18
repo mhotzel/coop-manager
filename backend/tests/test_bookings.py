@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from coop_manager.accounts import bookings
-from coop_manager.accounts.domain import COOPERATIVE_ACCOUNT_NUMBER, REFUND, SUBSCRIPTION
+from coop_manager.accounts.domain import COOPERATIVE_ACCOUNT_NUMBER, REFUND, REVERSAL, SUBSCRIPTION
 from coop_manager.accounts.services import get_ledger, open_cooperative_account
 from coop_manager.app import PROJECTORS, SCHEMAS
 from coop_manager.core import DomainError, NotFoundError
@@ -279,3 +279,114 @@ def test_concurrent_booking_is_retried_with_fresh_balance(db, tmp_path, monkeypa
     assert result.warning is None
     assert balance_and_shares(db, member_id) == (10000, 2)
     assert services.get_member(db, member_id).payment_date == date(2026, 11, 12)
+
+
+# --- Storno ---
+
+
+def reverse(db: Database, booking_id: str, reason: str = "falsch zugeordnet"):
+    return bookings.reverse(db, booking_id, reason, TODAY, actor="erika")
+
+
+def status_in_list(db: Database, member_id: str) -> str | None:
+    rows = search_members(db.projections.conn, "muster", TODAY)
+    return next(row.status for row in rows if row.id == member_id)
+
+
+def test_reverse_subscription_revokes_payment_and_membership(db):
+    member_id = apply(db)
+    original = subscribe(db, member_id, value_date=date(2026, 11, 10)).booking
+    services.admit(db, member_id, date(2026, 11, 15), TODAY, actor="test")
+    assert status_in_list(db, member_id) == MEMBER
+
+    result = reverse(db, original.id, " falsch zugeordnet ")
+
+    booking = result.booking
+    assert (booking.kind, booking.debit, booking.credit) == (REVERSAL, 1, COOP)
+    assert booking.text == "Storno zu „Eintritt“: falsch zugeordnet"
+    assert (booking.value_date, booking.reverses) == (date(2026, 11, 10), original.id)
+    assert result.warning == (
+        "Der Geldeingang ist zurückgenommen, 0 von 2 gezeichneten Anteilen eingezahlt. "
+        "Die Person ist nicht mehr Mitglied. Bitte klären."
+    )
+    assert balance_and_shares(db, member_id) == (0, 0)
+    member = services.get_member(db, member_id)
+    assert (member.payment_date, member.status(TODAY)) == (None, APPLICANT)
+    assert status_in_list(db, member_id) == APPLICANT  # auch die Projektion
+    assert db.store.read_stream(member_id)[-1].type == "member.paid-in-revoked"
+
+
+def test_reverse_subscription_before_admission_warns_without_membership_note(db):
+    member_id = apply(db)
+    original = subscribe(db, member_id).booking
+
+    result = reverse(db, original.id)
+
+    assert (
+        result.warning == "Der Geldeingang ist zurückgenommen, 0 von 2 gezeichneten Anteilen eingezahlt. Bitte klären."
+    )
+    assert services.get_member(db, member_id).payment_date is None
+
+
+def test_reverse_partial_payment_leaves_member_unchanged(db):
+    member_id = apply(db, shares_subscribed=2)
+    original = subscribe(db, member_id, shares=1).booking
+    member_events = len(db.store.read_stream(member_id))
+
+    result = reverse(db, original.id)
+
+    assert result.warning == "0 von 2 gezeichneten Anteilen eingezahlt."
+    assert len(db.store.read_stream(member_id)) == member_events
+
+
+def test_reverse_refund_records_payment_again(db):
+    """Überzahlt (3 von 2), 1 Anteil zurück → Geldeingang; Storno der Rückzahlung → wieder überzahlt."""
+    member_id = apply(db, shares_subscribed=2)
+    subscribe(db, member_id, shares=3)
+    refunded = refund(db, member_id, shares=1, value_date=date(2026, 11, 20)).booking
+    assert services.get_member(db, member_id).payment_date == date(2026, 11, 20)
+
+    result = reverse(db, refunded.id)
+
+    assert result.warning is not None and "zurückgenommen, 3 von 2" in result.warning
+    assert services.get_member(db, member_id).payment_date is None
+
+
+def test_reversal_completing_payment_records_it_with_warning(db):
+    """Ein Storno, nach dem die gezeichneten Anteile voll eingezahlt sind (z. B. Storno einer Rückzahlung).
+
+    Mit den heutigen Vorgängen lässt sich das nicht herstellen: Wer die gezeichneten Anteile
+    erreicht, hat sofort den Geldeingang, und danach ist keine Rückzahlung mehr erlaubt. Deshalb
+    wird der Abgleich hier direkt mit einer passenden Stornobuchung aufgerufen.
+    """
+    member_id = apply(db, shares_subscribed=2)
+    member = services.get_member(db, member_id)
+    ledger = get_ledger(db)
+    booking = ledger.post_booking(REVERSAL, COOP, 1, 2 * PRICE, 2, "Storno", date(2026, 11, 20), TODAY)
+
+    warning = bookings._reconcile(member, ledger, 1, booking, TODAY)
+
+    assert warning == "Der Geldeingang ist jetzt mit Wertstellung 20.11.2026 erfasst. Bitte prüfen."
+    assert member.payment_date == date(2026, 11, 20)
+
+
+def test_reverse_needs_reason(db):
+    member_id = apply(db)
+    original = subscribe(db, member_id).booking
+
+    with pytest.raises(DomainError, match="Stornogrund fehlt"):
+        reverse(db, original.id, "  ")
+
+
+def test_reverse_unknown_booking(db):
+    with pytest.raises(NotFoundError, match="Buchung gibt es nicht"):
+        reverse(db, "unbekannt")
+
+
+def test_reverse_only_once(db):
+    member_id = apply(db)
+    original = subscribe(db, member_id).booking
+    reverse(db, original.id)
+
+    with pytest.raises(DomainError, match="bereits storniert"):
+        reverse(db, original.id)

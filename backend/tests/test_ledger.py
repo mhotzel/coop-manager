@@ -9,6 +9,8 @@ from coop_manager.accounts.domain import (
     EXIT,
     MEMBER_ACCOUNT,
     PAYOUT,
+    REFUND,
+    REVERSAL,
     SUBJECT,
     SUBSCRIPTION,
     TRANSFER,
@@ -226,3 +228,65 @@ def test_bookings_survive_event_store(db):
     reloaded = services.get_ledger(db)
     assert reloaded.bookings == [booking]
     assert (reloaded.balance(1), reloaded.shares(1)) == (10000, 2)
+
+
+# --- Storno ---
+
+
+def test_reverse_swaps_accounts_and_keeps_values():
+    ledger = ledger_for_bookings()
+    original = post(ledger)  # Eintritt Konto 1, Wertstellung 20.11.2026
+
+    reversal = ledger.reverse(original.id, "Storno zu „Eintritt“: falsch zugeordnet", date(2026, 12, 3))
+
+    assert (reversal.kind, reversal.debit, reversal.credit) == (REVERSAL, 1, COOP)
+    assert (reversal.amount, reversal.shares) == (original.amount, original.shares)
+    assert reversal.value_date == original.value_date  # Wertstellung wie das Original
+    assert reversal.booking_date == date(2026, 12, 3)  # gebucht wird heute
+    assert reversal.reverses == original.id
+    assert (ledger.balance(1), ledger.shares(1)) == (0, 0)
+    reloaded = Ledger.from_events(SUBJECT, ledger.uncommitted_events)
+    assert reloaded.reversal_of(original.id) == reversal
+    assert reloaded.booking(original.id) == original
+
+
+def test_booking_can_be_reversed_only_once():
+    ledger = ledger_for_bookings()
+    original = post(ledger, shares=4, amount=20000)
+    ledger.reverse(original.id, "Storno", TODAY)
+
+    with pytest.raises(DomainError, match="bereits storniert"):
+        ledger.reverse(original.id, "Storno", TODAY)
+
+
+def test_reversal_cannot_be_reversed():
+    ledger = ledger_for_bookings()
+    reversal = ledger.reverse(post(ledger).id, "Storno", TODAY)
+
+    with pytest.raises(DomainError, match="Storno kann nicht storniert"):
+        ledger.reverse(reversal.id, "Storno", TODAY)
+
+
+def test_reverse_unknown_booking():
+    with pytest.raises(DomainError, match="Buchung gibt es nicht"):
+        ledger_for_bookings().reverse("unbekannt", "Storno", TODAY)
+
+
+def test_reverse_must_not_make_member_account_negative():
+    """Eintritt, dann schon zurückgezahlt: Ein Storno des Eintritts würde das Konto ins Minus bringen."""
+    ledger = ledger_for_bookings()
+    original = post(ledger)
+    post(ledger, kind=REFUND, debit=1, credit=COOP)
+
+    with pytest.raises(DomainError, match="reicht nicht aus"):
+        ledger.reverse(original.id, "Storno", TODAY)
+
+
+def test_old_events_without_reverses_still_load():
+    """Events von vor Schritt 5e haben kein Feld „reverses“."""
+    ledger = ledger_for_bookings()
+    post(ledger)
+    events = ledger.uncommitted_events
+    del events[-1].data["reverses"]
+
+    assert Ledger.from_events(SUBJECT, events).bookings[0].reverses is None

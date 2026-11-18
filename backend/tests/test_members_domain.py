@@ -287,6 +287,26 @@ def test_payment_only_once():
         member.record_payment(date(2026, 11, 6), TODAY)
 
 
+def test_revoke_payment():
+    """Nach dem Storno des Eintritts: kein Geldeingang mehr, also auch kein Mitglied mehr."""
+    member = apply()
+    member.admit(date(2026, 11, 10), TODAY)
+    member.record_payment(date(2026, 11, 20), TODAY)
+
+    member.revoke_payment()
+
+    member = reloaded(member)
+    assert member.payment_date is None
+    assert member.entry_date() is None
+    assert member.admission_date == date(2026, 11, 10)  # die Zulassung bleibt
+    assert member.status(TODAY) == APPLICANT
+
+
+def test_revoke_payment_needs_payment():
+    with pytest.raises(DomainError, match="kein Geldeingang erfasst"):
+        apply().revoke_payment()
+
+
 @pytest.mark.parametrize("decide", [lambda m, d: m.reject(d, TODAY), lambda m, d: m.withdraw(d, TODAY)])
 def test_no_payment_after_rejection(decide):
     member = apply()
