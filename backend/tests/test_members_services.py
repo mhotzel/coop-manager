@@ -172,3 +172,20 @@ def test_failed_save_stores_nothing(db):
         db.save_all([numbers, stale], "test")
 
     assert services._load_numbers(db).assigned == {1: member_id}
+
+
+def test_partial_notice_in_search_ends_after_exit_date(db):
+    """Nach dem 31.12. des Ausscheidens ist die Teilkündigung erledigt, der Hinweis entfällt."""
+    member_id = apply(db, shares_subscribed=2)
+    member = services.get_member(db, member_id)
+    member.admit(date(2026, 11, 5), TODAY)
+    member.record_payment(date(2026, 11, 10), TODAY)
+    member.give_partial_notice(1, date(2026, 11, 12), date(2026, 12, 31), TODAY, held=2)
+    db.save(member, "test")
+
+    def flag(day: date) -> bool:
+        [row] = search_members(db.projections.conn, "", day)
+        return row.partial_notice
+
+    assert flag(date(2026, 12, 31)) is True
+    assert flag(date(2027, 1, 1)) is False

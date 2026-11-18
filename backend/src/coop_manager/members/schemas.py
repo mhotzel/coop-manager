@@ -47,6 +47,7 @@ class MemberDetail(BaseModel):
     notices: list[Notice]  # laufende Kündigungen und Teilkündigungen
     notice_date: date | None  # Eingang der Kündigung der Mitgliedschaft
     exit_date: date | None  # Ausscheiden aus der Kündigung der Mitgliedschaft
+    partial_notice: bool  # heute läuft eine Teilkündigung (Hinweis neben dem Status)
     salutation: str  # die Briefanrede, wie sie in den Seriendruck kommt
     generated_address_lines: list[str]
     warnings: list[str]
@@ -79,6 +80,7 @@ class MemberDetail(BaseModel):
             notices=member.notices,
             notice_date=full.notice_date if full else None,
             exit_date=full.exit_date if full else None,
+            partial_notice=member.has_partial_notice(today),
             salutation=salutation(member.person_type, member.name, member.salutation),
             generated_address_lines=list(generated),
             warnings=address_warnings(member.address_lines, generated),

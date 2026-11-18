@@ -2010,3 +2010,55 @@ Angemeldete Sitzungen und Login-Versuche liegen auch in dieser Datei, man muss s
   So bleibt der Status auch dann richtig, wenn ein Storno den Geldeingang zurücknimmt.
 - **Für 5g gemerkt:** Ist das Ausscheiden einer Teilkündigung gebucht, sinken die Anteile auf dem
   Konto; diese Teilkündigung darf dann nicht noch einmal abgezogen werden.
+
+## 2026-11-18 – Schritt 5f, Teil 2: Kündigung im Frontend
+
+**Was:**
+
+- `frontend/src/members.ts`: Interface `Notice`, `MemberDetail` mit `notices`, `notice_date`,
+  `exit_date`; Statustexte „gekündigt“ (orange) und „ausgeschieden“ (blau); `defaultExitYear()`
+  für den Vorschlag; `giveNotice`, `givePartialNotice`, `withdrawNotice`.
+- Neue Komponente `frontend/src/views/members/NoticeCard.vue`, Karte „Kündigungen“:
+  - Tabelle der laufenden Kündigungen mit Knopf „Zurücknehmen“ (Sicherheitsabfrage `confirm`).
+  - Knöpfe „Mitgliedschaft kündigen“ und „Teilkündigung“, nur für die Buchhaltung und nur, wenn
+    der Status heute „Mitglied“ ist.
+  - Formular: Eingang (heute vorbelegt), Ausscheiden als Jahr zum 31.12. (Vorschlag rechnet per
+    `watch` mit, wenn man den Eingang ändert), bei der Teilkündigung die Anteile.
+  - Meldet die neue Detailansicht mit `@changed` an die Seite zurück.
+- `MemberDetailView.vue`: Karte eingebunden (ab dem Eintritt oder wenn es Kündigungen gibt);
+  Kopfkarte zeigt „Kündigung eingegangen“ und „Ausscheiden zum“. Der Knopf „Rücknahme“ (des
+  Antrags) erscheint nicht mehr bei Mitgliedern, das Backend lehnt das ohnehin ab.
+- Geprüft mit `npm run type-check`.
+
+**Warum so:**
+
+- **Eigene Komponente:** Die Detailseite hat schon fast 500 Zeilen; die Kündigung bringt eigene
+  Felder und eigene Meldungen mit. Muster wie `BookingForm.vue`: Prop hinein, Event heraus.
+- **Jahresfeld statt Datumsfeld:** Ausgeschieden wird immer zum 31.12. Mit nur dem Jahr lässt
+  sich gar kein falsches Datum eingeben; das Backend prüft trotzdem.
+- **`watch` statt `computed` für das Jahr:** Das Jahr ist ein Vorschlag, den man überschreiben
+  darf. Ein `computed` wäre nur lesbar; `watch` setzt den Wert neu, wenn sich der Eingang ändert,
+  und lässt ihn sonst in Ruhe.
+
+### Nachtrag zu 5f-2: Hinweis „teilgekündigt“
+
+**Was:** Matthias wünschte sich, teilgekündigte Mitglieder in der Suche zu erkennen.
+
+- Backend: Die Projektion hat eine zweite Tabelle `partial_notices` (`notice_id`, `member_id`,
+  `exit_date`). `member.partial-notice-given` fügt ein, `member.notice-withdrawn` löscht. Die Suche
+  ermittelt `partial_notice` per `EXISTS`-Unterabfrage: Gibt es eine Teilkündigung mit
+  `exit_date >= heute`? `MemberDetail` hat dasselbe Feld aus `Member.has_partial_notice(today)`.
+- Frontend: `showPartialNotice()` in `members.ts`; Suche und Kopfkarte der Mitgliedsseite zeigen
+  ein oranges Tag „teilgekündigt“ neben dem Status.
+- Tests: Suche und Detail nach Teilkündigung und Zurücknehmen, keine Anzeige bei Kündigung der
+  Mitgliedschaft, Ende nach dem 31.12.; 365 grün, ruff, pyright und type-check sauber.
+- Wieder `backend/data/projections.sqlite` löschen (neue Tabelle).
+
+**Warum so:**
+
+- **Eigene Tabelle statt Zählspalte:** Beim Zurücknehmen kommt nur die `notice_id`. Mit der
+  Tabelle reicht ein `DELETE … WHERE notice_id = ?`; eine Zählspalte wüsste nicht, ob die
+  zurückgenommene Kündigung überhaupt eine Teilkündigung war.
+- **Datum als Text vergleichen:** ISO-Daten („2026-11-02“) sortieren als Text genauso wie als
+  Datum, deshalb funktioniert `p.exit_date >= ?` in SQLite ohne Umwandlung.
+- **Nur bei Status „Mitglied“ anzeigen:** Bei „gekündigt“ wäre der Hinweis doppelt.

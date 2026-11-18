@@ -9,6 +9,7 @@ import {
   genderLabel,
   NATURAL_PERSON,
   personTypeLabel,
+  showPartialNotice,
   statusLabel,
   statusTagClass,
   type Address,
@@ -19,6 +20,7 @@ import {
 import AddressFields from './AddressFields.vue'
 import ContactFields from './ContactFields.vue'
 import NameFields from './NameFields.vue'
+import NoticeCard from './NoticeCard.vue'
 
 // Der Router übergibt :id aus dem Pfad als Prop (siehe props: true in router.ts).
 const props = defineProps<{ id: string }>()
@@ -61,7 +63,8 @@ const LINE_WARN_LENGTH = 35
 const canWrite = computed(() => currentUser.value?.role === ACCOUNTING)
 const isOpen = computed(() => member.value !== null && member.value.rejection_date === null)
 const canDecide = computed(() => canWrite.value && isOpen.value && member.value?.admission_date === null)
-const canWithdraw = computed(() => canWrite.value && isOpen.value)
+// Den Antrag zurücknehmen kann nur, wer noch nicht Mitglied ist; danach gilt die Kündigung.
+const canWithdraw = computed(() => canWrite.value && isOpen.value && member.value?.entry_date === null)
 // Bearbeiten nur, solange kein anderes Formular offen ist; so geht kein Entwurf verloren.
 const canEdit = computed(() => canWrite.value && editing.value === null && action.value === null)
 
@@ -194,6 +197,9 @@ function generateLines(): void {
           <span v-if="member.status !== null" class="status-tag" :class="statusTagClass(member.status)">
             {{ statusLabel(member.status) }}
           </span>
+          <span v-if="showPartialNotice(member.status, member.partial_notice)" class="status-tag warning">
+            teilgekündigt
+          </span>
         </div>
         <div class="card-content">
           <dl>
@@ -213,6 +219,12 @@ function generateLines(): void {
             <dd>{{ formatDate(member.payment_date) }}</dd>
             <dt>Eintritt am</dt>
             <dd>{{ formatDate(member.entry_date) }}</dd>
+            <template v-if="member.notice_date !== null">
+              <dt>Kündigung eingegangen</dt>
+              <dd>{{ formatDate(member.notice_date) }}</dd>
+              <dt>Ausscheiden zum</dt>
+              <dd>{{ formatDate(member.exit_date) }}</dd>
+            </template>
           </dl>
 
           <div class="button-row">
@@ -250,6 +262,13 @@ function generateLines(): void {
           </form>
         </div>
       </div>
+
+      <!-- Erst ab dem Eintritt sinnvoll; laufende Kündigungen bleiben sichtbar. -->
+      <NoticeCard
+        v-if="member.entry_date !== null || member.notices.length > 0"
+        :member="member"
+        @changed="(updated) => (member = updated)"
+      />
 
       <div class="card">
         <div class="card-header">{{ isNaturalPerson ? 'Name' : 'Firma und Ansprechpartner' }}</div>

@@ -93,6 +93,7 @@ def test_search(client, member_id):
             "postal_code": "12345",
             "city": "Musterstadt",
             "status": APPLICANT,
+            "partial_notice": False,
         }
     ]
 

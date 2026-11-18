@@ -355,6 +355,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   ausgezahlt ist. Das Mindestkapital (Satzung 6.6) betrifft nur die Auszahlung.
 - **Teilkündigung** einzelner Anteile ist möglich (Satzung 6.1). Die Person bleibt Mitglied, die
   gekündigten Anteile werden zum Ende des Geschäftsjahres zum Auseinandersetzungsanspruch.
+- **Hinweis „teilgekündigt“** (Stand 2026-11-18): Der Status bleibt „Mitglied“, aber Suche und
+  Mitgliedsseite zeigen daneben „teilgekündigt“, solange eine Teilkündigung läuft (bis zu ihrem
+  31.12.). Ist die Mitgliedschaft gekündigt, entfällt der Hinweis, der Status sagt genug.
 - **Ausschluss** (Satzung 6.2–6.4): Beschluss des Vorstands mit Datum, Widerspruch beim
   Aufsichtsrat binnen sechs Wochen.
 - **Ausschluss aufheben** (Stand 2026-11-18): Gibt der Aufsichtsrat einem Widerspruch statt, wird

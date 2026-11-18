@@ -14,6 +14,7 @@ export interface MemberRow {
   postal_code: string
   city: string
   status: string | null // null: Das Antragsdatum liegt in der Zukunft.
+  partial_notice: boolean // heute läuft eine Teilkündigung
 }
 
 // Muss zu PersonName, Address und Contact im Backend passen (members/values.py).
@@ -38,6 +39,18 @@ export interface Contact {
   email: string
 }
 
+// Muss zu Notice im Backend passen (members/domain.py).
+export interface Notice {
+  id: string
+  kind: string // NOTICE oder PARTIAL_NOTICE
+  notice_date: string // Eingang der Kündigung
+  exit_date: string // Ausscheiden zum 31.12.
+  shares: number | null // nur bei der Teilkündigung
+}
+
+export const NOTICE = 'notice' // Kündigung der Mitgliedschaft: alle Anteile
+export const PARTIAL_NOTICE = 'partial_notice' // Teilkündigung einzelner Anteile
+
 // Muss zu MemberDetail im Backend passen (members/schemas.py). Datumsangaben kommen als Text
 // im Format "2026-11-02" (ISO 8601) und gehen auch so zurück.
 export interface MemberDetail {
@@ -60,6 +73,10 @@ export interface MemberDetail {
   // Berechnet, nicht gespeichert:
   status: string | null
   entry_date: string | null // das spätere von Zulassung und Geldeingang
+  notices: Notice[] // laufende Kündigungen und Teilkündigungen
+  notice_date: string | null // Eingang der Kündigung der Mitgliedschaft
+  exit_date: string | null // Ausscheiden aus der Kündigung der Mitgliedschaft
+  partial_notice: boolean // heute läuft eine Teilkündigung
   salutation: string
   generated_address_lines: string[]
   warnings: string[]
@@ -95,6 +112,8 @@ const STATUS_LABELS: Record<string, string> = {
   applicant: 'Antragsteller',
   member: 'Mitglied',
   rejected: 'abgelehnt',
+  notice_given: 'gekündigt',
+  exited: 'ausgeschieden',
 }
 
 export function statusLabel(status: string | null): string {
@@ -104,12 +123,18 @@ export function statusLabel(status: string | null): string {
   return STATUS_LABELS[status] ?? status // unbekannter Status: lieber roh anzeigen als nichts
 }
 
-// Farbe des Status-Tags: grün für Mitglieder, orange für abgelehnt, sonst blau.
+// Farbe des Status-Tags: grün für Mitglieder, orange für abgelehnt und gekündigt, sonst blau.
 export function statusTagClass(status: string): string {
   if (status === 'member') {
     return 'success'
   }
-  return status === 'rejected' ? 'warning' : 'info'
+  return status === 'rejected' || status === 'notice_given' ? 'warning' : 'info'
+}
+
+// Hinweis „teilgekündigt“ neben dem Status. Nur bei Mitgliedern: Ist die Mitgliedschaft schon
+// gekündigt, sagt der Status genug.
+export function showPartialNotice(status: string | null, partialNotice: boolean): boolean {
+  return partialNotice && status === 'member'
 }
 
 // "2026-11-02" → "02.11.2026". Bewusst ohne new Date(): Das liest den Text als Mitternacht in
@@ -169,6 +194,40 @@ export function withdraw(memberId: string, withdrawalDate: string): Promise<Memb
   return api<MemberDetail>('/api/members/withdraw', {
     method: 'POST',
     body: { member_id: memberId, withdrawal_date: withdrawalDate },
+  })
+}
+
+// --- Kündigung ---
+
+// Ausscheiden nach der Frist: 31.12. des übernächsten Jahres (wie default_exit_date im Backend).
+// Nur der Vorschlag im Formular; ohne Angabe rechnet das Backend genauso.
+export function defaultExitYear(noticeDate: string): number {
+  return Number(noticeDate.slice(0, 4)) + 2
+}
+
+export function giveNotice(memberId: string, noticeDate: string, exitDate: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/give-notice', {
+    method: 'POST',
+    body: { member_id: memberId, notice_date: noticeDate, exit_date: exitDate },
+  })
+}
+
+export function givePartialNotice(
+  memberId: string,
+  shares: number,
+  noticeDate: string,
+  exitDate: string,
+): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/give-partial-notice', {
+    method: 'POST',
+    body: { member_id: memberId, shares, notice_date: noticeDate, exit_date: exitDate },
+  })
+}
+
+export function withdrawNotice(memberId: string, noticeId: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/withdraw-notice', {
+    method: 'POST',
+    body: { member_id: memberId, notice_id: noticeId },
   })
 }
 

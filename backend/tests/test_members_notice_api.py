@@ -32,9 +32,13 @@ def member_id(client, db, register, login) -> str:
     return member_id
 
 
-def search_status(client) -> str:
+def search_row(client) -> dict:
     [row] = client.post("/api/members/search", json={"query": "muster"}).json()
-    return row["status"]
+    return row
+
+
+def search_status(client) -> str:
+    return search_row(client)["status"]
 
 
 def test_give_notice_with_default_exit_date(client, member_id):
@@ -121,3 +125,25 @@ def test_readonly_may_not_give_notice(client, register, login, member_id):
     assert (
         client.post("/api/members/withdraw-notice", json={"member_id": member_id, "notice_id": "x"}).status_code == 403
     )
+
+
+def test_partial_notice_is_shown_in_search_and_detail(client, member_id):
+    assert search_row(client)["partial_notice"] is False
+
+    body = client.post(
+        "/api/members/give-partial-notice", json={"member_id": member_id, "notice_date": "2026-11-12", "shares": 1}
+    ).json()
+
+    assert body["partial_notice"] is True
+    assert (search_row(client)["status"], search_row(client)["partial_notice"]) == (MEMBER, True)
+
+    client.post("/api/members/withdraw-notice", json={"member_id": member_id, "notice_id": body["notices"][0]["id"]})
+
+    assert search_row(client)["partial_notice"] is False
+    assert client.get(f"/api/members/{member_id}").json()["partial_notice"] is False
+
+
+def test_full_notice_is_not_a_partial_notice(client, member_id):
+    client.post("/api/members/give-notice", json={"member_id": member_id, "notice_date": "2026-11-12"})
+
+    assert search_row(client)["partial_notice"] is False

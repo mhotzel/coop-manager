@@ -436,6 +436,8 @@ def test_partial_notice_keeps_membership():
     assert (notice.kind, notice.shares) == (PARTIAL_NOTICE, 1)
     assert member.partially_noticed_shares() == 1
     assert member.status(date(2029, 1, 1)) == MEMBER
+    assert member.has_partial_notice(EXIT) is True
+    assert member.has_partial_notice(date(2029, 1, 1)) is False
 
 
 def test_partial_notices_leave_at_least_one_share():

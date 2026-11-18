@@ -20,6 +20,7 @@ class MemberRow:
     postal_code: str
     city: str
     status: str | None  # zum Tag der Abfrage
+    partial_notice: bool  # am Tag der Abfrage läuft eine Teilkündigung
 
 
 class MemberList(Projector):
@@ -54,8 +55,17 @@ class MemberList(Projector):
         search_text      TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_members_number ON members (member_number);
+
+    -- Laufende Teilkündigungen, für den Hinweis „teilgekündigt“ in der Suche. Eine eigene Tabelle,
+    -- damit beim Zurücknehmen klar ist, ob die zurückgenommene Kündigung eine Teilkündigung war.
+    CREATE TABLE IF NOT EXISTS partial_notices (
+        notice_id  TEXT PRIMARY KEY,
+        member_id  TEXT NOT NULL,
+        exit_date  TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_partial_notices_member ON partial_notices (member_id);
     """
-    tables = ("members",)
+    tables = ("members", "partial_notices")
 
     @on("member.applied")
     def _applied(self, conn: sqlite3.Connection, event: Event) -> None:
@@ -143,10 +153,18 @@ class MemberList(Projector):
             (event.data["notice_id"], event.data["notice_date"], event.data["exit_date"], event.subject),
         )
 
+    @on("member.partial-notice-given")
+    def _partial_notice_given(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute(
+            "INSERT INTO partial_notices (notice_id, member_id, exit_date) VALUES (?, ?, ?)",
+            (event.data["notice_id"], event.subject, event.data["exit_date"]),
+        )
+
     @on("member.notice-withdrawn")
     def _notice_withdrawn(self, conn: sqlite3.Connection, event: Event) -> None:
-        # Trifft nur, wenn die Kündigung der Mitgliedschaft zurückgenommen wird; Teilkündigungen
-        # stehen nicht in dieser Tabelle.
+        # Es ist entweder eine Teilkündigung (dann trifft das DELETE) oder die Kündigung der
+        # Mitgliedschaft (dann trifft das UPDATE); die jeweils andere Anweisung ändert nichts.
+        conn.execute("DELETE FROM partial_notices WHERE notice_id = ?", (event.data["notice_id"],))
         conn.execute(
             "UPDATE members SET notice_id = NULL, notice_date = NULL, exit_date = NULL"
             " WHERE member_id = ? AND notice_id = ?",
@@ -189,7 +207,13 @@ def search_members(conn: sqlite3.Connection, query: str, today: date, limit: int
             conditions.append("search_text LIKE ? ESCAPE '\\'")
             params.append(f"%{_escape_like(word)}%")
     where = " AND ".join(conditions) or "1 = 1"
-    rows = conn.execute(f"SELECT * FROM members WHERE {where} ORDER BY member_number LIMIT ?", (*params, limit))
+    # partial_notice: gibt es eine Teilkündigung, deren Ausscheiden heute noch nicht vorbei ist?
+    # Datumsangaben stehen als "2026-11-02" in der Tabelle, so lassen sie sich als Text vergleichen.
+    rows = conn.execute(
+        "SELECT *, EXISTS (SELECT 1 FROM partial_notices p WHERE p.member_id = members.member_id"
+        f" AND p.exit_date >= ?) AS partial_notice FROM members WHERE {where} ORDER BY member_number LIMIT ?",
+        (today.isoformat(), *params, limit),
+    )
     return [_to_row(row, today) for row in rows]
 
 
@@ -224,4 +248,5 @@ def _to_row(row: sqlite3.Row, today: date) -> MemberRow:
         postal_code=row["postal_code"],
         city=row["city"],
         status=status_on(dates, today),
+        partial_notice=bool(row["partial_notice"]),
     )

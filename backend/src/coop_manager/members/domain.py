@@ -110,6 +110,10 @@ class Member(Aggregate):
         """Die Kündigung der Mitgliedschaft; None, solange es keine gibt."""
         return next((n for n in self.notices if n.kind == NOTICE), None)
 
+    def has_partial_notice(self, day: date) -> bool:
+        """Läuft am Tag `day` eine Teilkündigung, deren Ausscheiden (31.12.) noch nicht vorbei ist?"""
+        return any(n.kind == PARTIAL_NOTICE and day <= n.exit_date for n in self.notices)
+
     def partially_noticed_shares(self) -> int:
         """Anteile in laufenden Teilkündigungen."""
         return sum(n.shares or 0 for n in self.notices if n.kind == PARTIAL_NOTICE)
