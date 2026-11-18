@@ -1902,3 +1902,11 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
   ist das aufgefallen.
 - **`revoke_payment` ohne Datum:** Das Event hält nur die Tatsache fest; wann storniert wurde,
   steht in der Eventzeit und in der Stornobuchung.
+
+## 2026-11-18 – Rollenkonstante im Menü englisch benannt
+
+**Was:** In `frontend/src/App.vue` heißt die Konstante `FACHLICH` jetzt `ACCOUNTING_ROLES`, mit
+einem deutschen Kommentar, wofür sie steht. Geprüft mit `npm run type-check`.
+
+**Warum:** Bezeichner sind im Projekt englisch (AGENTS.md); `FACHLICH` war ein Ausreißer. Der
+neue Name sagt, was drinsteht (die beiden Buchhaltungsrollen), und passt zu `ROLES` im Backend.

@@ -22,19 +22,20 @@ interface MenuEntry {
   hint?: string // Tooltip beim Überfahren, z. B. der ausgeschriebene Titel
 }
 
-const FACHLICH = [ACCOUNTING, ACCOUNTING_READONLY]
+// Die Fachseiten (Mitglieder, Konten, Reports) sehen beide Buchhaltungsrollen.
+const ACCOUNTING_ROLES = [ACCOUNTING, ACCOUNTING_READONLY]
 
 const menuEntries: MenuEntry[] = [
-  { title: 'Mitglieder', to: { name: 'members' }, roles: FACHLICH },
+  { title: 'Mitglieder', to: { name: 'members' }, roles: ACCOUNTING_ROLES },
   // Kurzer Titel, weil das ausgeschriebene Wort nicht in die Seitenleiste passt.
   {
     title: 'Gen.-Kto',
     hint: 'Genossenschaftskonto',
     to: { name: 'account', params: { number: COOPERATIVE_ACCOUNT_NUMBER } },
-    roles: FACHLICH,
+    roles: ACCOUNTING_ROLES,
   },
-  { title: 'Konten', roles: FACHLICH },
-  { title: 'Reports', roles: FACHLICH },
+  { title: 'Konten', roles: ACCOUNTING_ROLES },
+  { title: 'Reports', roles: ACCOUNTING_ROLES },
   { title: 'Benutzer', to: { name: 'users' }, roles: [ADMIN] },
 ]
 
