@@ -158,6 +158,11 @@ watch(() => props.number, load, { immediate: true })
           <dd>{{ formatEuro(account.balance) }}</dd>
           <dt>Anteile</dt>
           <dd>{{ account.shares }}</dd>
+          <!-- Erst nach dem Ausscheiden: was die Genossenschaft noch auszahlen muss. -->
+          <template v-if="account.claim > 0">
+            <dt>Offener Anspruch</dt>
+            <dd>{{ formatEuro(account.claim) }}</dd>
+          </template>
           <template v-if="member">
             <dt>Gezeichnete Anteile</dt>
             <dd>{{ member.shares_subscribed }}</dd>
@@ -177,6 +182,7 @@ watch(() => props.number, load, { immediate: true })
       v-if="canBook"
       :account-number="account.number"
       :share-price="account.share_price!"
+      :claim="account.claim"
       @booked="onBooked"
     />
 

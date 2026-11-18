@@ -2200,3 +2200,37 @@ umsetzen, außer du hast Fragen“); der Plan legte das Wesentliche schon fest.
   „202“ im Feld; dafür soll keine Anfrage an den Server gehen.
 - **Anspruch verlinkt auf das Konto:** Dort steht der Storno-Knopf; eine eigene Storno-Funktion auf
   dieser Seite wäre doppelt.
+
+## 2026-11-18 – Schritt 5h, Teil 1: Auszahlung, Verlustvortrag, Verjährung
+
+**Was:**
+
+- `Plan.md`: 5h in drei Teile; Regeln für Auszahlung, Kürzung und Ausbuchung (Wertstellung nach dem
+  gebuchten Ausscheiden, Ausbuchung immer über den Rest).
+- `accounts/domain.py`: `Ledger.claim(number, share_price)` (Saldo minus Anteile × Preis, nie
+  unter 0) und `last_exit_date(number)`.
+- `accounts/bookings.py`: `payout`, `deduct_loss`, `write_off` über den gemeinsamen Ablauf
+  `_reduce_claim` (Anspruch vorhanden, Ausscheiden gebucht, Wertstellung danach, Betrag 1 Cent bis
+  Anspruch; `write_off` nimmt den Rest), alle über `_book(..., reconcile=False)`.
+- `accounts/schemas.py` und `api.py`: `ClaimBooking`, `WriteOff`; `POST /api/accounts/payout`,
+  `/deduct-loss`, `/write-off`; `AccountView` mit `claim`.
+- Frontend:
+  - `accounts.ts`: `claim` in `AccountView`, `ClaimBooking`, `payout`, `deductLoss`, `writeOff`.
+  - `AccountView.vue`: Zeile „Offener Anspruch“, sobald er größer als 0 ist.
+  - `BookingForm.vue` neu geschrieben: zwei Gruppen von Buchungsarten. Mit Anspruch stehen
+    Auszahlung, Kürzung Verlustvortrag und Ausbuchung Verjährung zur Wahl (Auszahlung vorgewählt);
+    sie zeigen nur das Betragsfeld, die Ausbuchung gar keines (ganzer Rest, mit Sicherheitsabfrage).
+    Fällt der Anspruch weg, springt die Auswahl per `watch` auf eine passende Art.
+- Tests: neu `test_claims.py`, dazu API-Tests in `test_members_exit_api.py`; 427 grün, ruff,
+  pyright und `npm run type-check` sauber.
+
+**Warum so:**
+
+- **Ein gemeinsamer Ablauf für drei Arten:** Sie unterscheiden sich nur in Buchungsart, Text und
+  ob der Betrag frei oder der Rest ist. Die Regeln stehen so nur an einer Stelle.
+- **Anspruch berechnen statt speichern:** wie in 5g entschieden; Auszahlungen mindern den Saldo,
+  damit sinkt der Anspruch von selbst. Ein Storno stellt ihn ebenso von selbst wieder her.
+- **`switch` über alle Arten in `send()`:** TypeScript prüft, dass jede Art des Typs `Kind` einen
+  Zweig hat. Kommt später eine Art dazu und fehlt der Zweig, meldet `type-check` einen Fehler.
+- **`Omit<ClaimBooking, 'amount'>`:** ein TypeScript-Hilfstyp, „ClaimBooking ohne das Feld amount“.
+  So muss für die Ausbuchung kein eigenes Interface geschrieben werden.

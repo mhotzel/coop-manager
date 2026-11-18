@@ -70,6 +70,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 1: Domäne, Service und API (Liste der Fälligen, Buchen, Storno öffnet wieder)
      - Teil 2: Seite „Jahresende“ im Frontend
    - 5h: Umbuchung, Auszahlung, Verlustvortrag, Verjährung, Liste offener Ansprüche
+     - Teil 1: Auszahlung, Kürzung Verlustvortrag, Ausbuchung Verjährung (Backend und Maske)
+     - Teil 2: Seite „Offene Ansprüche“
+     - Teil 3: Umbuchung zwischen Mitgliedskonten (fachliche Fragen vorher klären)
    - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
 6. Reports: die drei Excel-Listen zum Stichtag
 7. Migration der Altdaten (falls gewünscht, offen)
@@ -394,6 +397,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   ausgezahlt werden darf, stellt der Mitarbeiter im Einzelfall fest.
 - **Teilauszahlungen** (Bruchteile des Anspruchs) müssen möglich sein, ebenso Kürzungen um
   Verlustvorträge (Satzung 6.5). Für diese Buchungen gilt „Betrag = Anteile × Anteilspreis“ nicht.
+- **Auszahlung, Kürzung und Ausbuchung** (Stand 2026-11-18): Soll Mitgliedskonto an Haben
+  Genossenschaftskonto, Betrag ohne Anteile, höchstens der offene Anspruch. Die Wertstellung muss
+  **nach dem letzten gebuchten Ausscheiden** liegen, damit kein Stichtag einen negativen Anspruch
+  zeigt; vor der Ausscheidensbuchung (5g) ist also keine Auszahlung möglich. Die **Ausbuchung
+  wegen Verjährung nimmt immer den ganzen Rest**. Kein Abgleich mit dem Geldeingang.
 - **Verjährung** (Satzung 2.7) überwacht die App nicht. Sie bietet eine **Liste der offenen
   Ansprüche** mit Ausscheidensdatum; die Ausbuchung erfolgt von Hand.
 

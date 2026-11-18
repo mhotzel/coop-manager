@@ -18,7 +18,17 @@ from ..users.projections import UserView
 from . import bookings, exits
 from .bookings import BookingResult
 from .exits import ExitEntry
-from .schemas import YEAR_MAX, YEAR_MIN, AccountView, BookingResponse, PostExits, ReverseBooking, ShareBooking
+from .schemas import (
+    YEAR_MAX,
+    YEAR_MIN,
+    AccountView,
+    BookingResponse,
+    ClaimBooking,
+    PostExits,
+    ReverseBooking,
+    ShareBooking,
+    WriteOff,
+)
 from .services import get_ledger
 
 router = APIRouter(prefix="/api/accounts")
@@ -73,6 +83,31 @@ def reverse(body: ReverseBooking, db: Db, user: Writer) -> BookingResponse:
     """
     result = bookings.reverse(db, body.booking_id, body.reason, date.today(), actor=user.id)
     return _response(db, bookings.member_account_of(result.booking), result)
+
+
+@router.post("/payout")
+def payout(body: ClaimBooking, db: Db, user: Writer) -> BookingResponse:
+    """Auszahlung des Auseinandersetzungsanspruchs, auch teilweise."""
+    result = bookings.payout(
+        db, body.account_number, body.amount, body.value_date, date.today(), actor=user.id, text=body.text
+    )
+    return _response(db, body.account_number, result)
+
+
+@router.post("/deduct-loss")
+def deduct_loss(body: ClaimBooking, db: Db, user: Writer) -> BookingResponse:
+    """Kürzung des Anspruchs um einen Verlustvortrag."""
+    result = bookings.deduct_loss(
+        db, body.account_number, body.amount, body.value_date, date.today(), actor=user.id, text=body.text
+    )
+    return _response(db, body.account_number, result)
+
+
+@router.post("/write-off")
+def write_off(body: WriteOff, db: Db, user: Writer) -> BookingResponse:
+    """Ausbuchung des Restanspruchs wegen Verjährung."""
+    result = bookings.write_off(db, body.account_number, body.value_date, date.today(), actor=user.id, text=body.text)
+    return _response(db, body.account_number, result)
 
 
 @router.post("/post-exits")

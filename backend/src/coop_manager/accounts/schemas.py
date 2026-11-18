@@ -19,6 +19,7 @@ class AccountView(BaseModel):
     balance: int  # Saldo in Cent, Haben positiv
     shares: int
     share_price: int | None  # aktueller Anteilspreis in Cent, für die Buchungsmaske
+    claim: int  # offener Auseinandersetzungsanspruch in Cent: Saldo minus Anteile × Preis
     bookings: list[Booking]  # in der Reihenfolge, in der gebucht wurde
 
     @classmethod
@@ -32,6 +33,7 @@ class AccountView(BaseModel):
             balance=ledger.balance(number),
             shares=ledger.shares(number),
             share_price=share_price,
+            claim=ledger.claim(number, share_price),
             bookings=ledger.bookings_of(number),
         )
 
@@ -57,6 +59,23 @@ class ShareBooking(BaseModel):
 
 # Plausible Jahre; ohne Grenze ergäbe z. B. Jahr 0 kein gültiges Datum und einen Serverfehler.
 YEAR_MIN, YEAR_MAX = 1900, 2200
+
+
+class ClaimBooking(BaseModel):
+    """Befehl: Auszahlung oder Kürzung um Verlustvortrag; Betrag frei, höchstens der Anspruch."""
+
+    account_number: int
+    amount: int  # in Cent
+    value_date: date
+    text: str | None = Field(default=None, max_length=200)  # leer = „Auszahlung“ bzw. „Kürzung …“
+
+
+class WriteOff(BaseModel):
+    """Befehl: Ausbuchung wegen Verjährung; der Betrag ist immer der ganze Rest."""
+
+    account_number: int
+    value_date: date
+    text: str | None = Field(default=None, max_length=200)
 
 
 class PostExits(BaseModel):

@@ -1,30 +1,54 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import {
+  deductLoss,
   formatEuro,
   parseEuro,
+  payout,
   refund,
   sharesForAmount,
   subscribe,
+  writeOff,
   type AccountView,
-  type ShareBooking,
+  type BookingResponse,
 } from '../../accounts'
 import { errorText } from '../../api'
 import { todayIso } from '../../members'
 
 // Props: kommen von der Elternseite (AccountView.vue) herein und werden hier nur gelesen.
-const props = defineProps<{ accountNumber: number; sharePrice: number }>()
+// claim: offener Auseinandersetzungsanspruch; erst damit gibt es Auszahlung usw.
+const props = defineProps<{ accountNumber: number; sharePrice: number; claim: number }>()
 
 // Emits: Ereignisse, die diese Komponente nach außen meldet. Die Elternseite hört mit
 // @booked="..." zu und bekommt das Konto nach der Buchung, um die Anzeige zu aktualisieren.
 const emit = defineEmits<{ booked: [account: AccountView] }>()
 
-// Welche Buchungsart; vorerst nur diese beiden (Plan.md, Schritt 5d).
-type Kind = 'subscribe' | 'refund'
-const KIND_LABELS: Record<Kind, string> = { subscribe: 'Eintritt', refund: 'Rückzahlung' }
+// Die Buchungsarten der Maske. Zwei Gruppen: mit Anteilen (Betrag = Anteile × Preis) und mit
+// freiem Betrag ohne Anteile, die den Anspruch mindern (siehe Plan: Buchungsarten).
+type Kind = 'subscribe' | 'refund' | 'payout' | 'deductLoss' | 'writeOff'
+const KIND_LABELS: Record<Kind, string> = {
+  subscribe: 'Eintritt',
+  refund: 'Rückzahlung',
+  payout: 'Auszahlung',
+  deductLoss: 'Kürzung Verlustvortrag',
+  writeOff: 'Ausbuchung Verjährung',
+}
+const SHARE_KINDS: Kind[] = ['subscribe', 'refund']
+const CLAIM_KINDS: Kind[] = ['payout', 'deductLoss', 'writeOff']
 
-const kind = ref<Kind>('subscribe')
+// Die Arten, die gerade passen: die mindernden nur, solange es einen Anspruch gibt.
+const kinds = computed<Kind[]>(() => (props.claim > 0 ? [...CLAIM_KINDS, ...SHARE_KINDS] : SHARE_KINDS))
+const kind = ref<Kind>(props.claim > 0 ? 'payout' : 'subscribe')
+const isShareKind = computed(() => SHARE_KINDS.includes(kind.value))
+
+// Fällt der Anspruch weg (z. B. nach der Auszahlung des Rests), passt die gewählte Art nicht mehr.
+watch(kinds, (available) => {
+  if (!available.includes(kind.value)) {
+    kind.value = available[0] ?? 'subscribe'
+  }
+})
+
 // Beide Felder als Text, so wie sie im Eingabefeld stehen. Wer gerade tippt, bestimmt das andere.
 const sharesText = ref('')
 const amountText = ref('')
@@ -43,6 +67,20 @@ const shares = computed<number | null>(() => {
   return Number.isInteger(value) && value > 0 ? value : null
 })
 
+// Der freie Betrag in Cent (Auszahlung, Verlustvortrag) oder null, solange die Eingabe nicht passt.
+const amount = computed<number | null>(() => {
+  const cents = parseEuro(amountText.value)
+  return cents !== null && cents > 0 ? cents : null
+})
+
+// Kann gebucht werden? Die Ausbuchung braucht keine Eingabe, sie nimmt den ganzen Rest.
+const ready = computed(() => {
+  if (isShareKind.value) {
+    return shares.value !== null
+  }
+  return kind.value === 'writeOff' || amount.value !== null
+})
+
 // Hinweis unter dem Betragsfeld, wenn der Betrag nicht zu ganzen Anteilen passt.
 const amountHint = ref('')
 
@@ -52,7 +90,7 @@ function onSharesInput(): void {
   amountText.value = shares.value === null ? '' : formatEuro(shares.value * props.sharePrice)
 }
 
-// Betrag eingetippt → Anteile ausrechnen, falls er glatt im Anteilspreis aufgeht.
+// Betrag eingetippt → bei Arten mit Anteilen die Anteile ausrechnen, falls er glatt aufgeht.
 function onAmountInput(): void {
   amountHint.value = ''
   if (amountText.value.trim() === '') {
@@ -60,13 +98,18 @@ function onAmountInput(): void {
     return
   }
   const cents = parseEuro(amountText.value)
-  const result = cents === null ? null : sharesForAmount(cents, props.sharePrice)
+  if (cents === null) {
+    sharesText.value = ''
+    amountHint.value = 'Kein gültiger Betrag (z. B. 1.500,00).'
+    return
+  }
+  if (!isShareKind.value) {
+    return // freier Betrag: keine Anteile
+  }
+  const result = sharesForAmount(cents, props.sharePrice)
   if (result === null || result === 0) {
     sharesText.value = ''
-    amountHint.value =
-      cents === null
-        ? 'Kein gültiger Betrag (z. B. 1.500,00).'
-        : `Der Betrag muss ein Vielfaches von ${formatEuro(props.sharePrice)} sein.`
+    amountHint.value = `Der Betrag muss ein Vielfaches von ${formatEuro(props.sharePrice)} sein.`
     return
   }
   sharesText.value = String(result)
@@ -80,23 +123,53 @@ function reset(): void {
   text.value = ''
 }
 
+// Beim Wechsel der Art passen die bisherigen Eingaben oft nicht mehr; lieber leeren.
+watch(kind, () => {
+  sharesText.value = ''
+  amountText.value = ''
+  amountHint.value = ''
+})
+
+// Schickt den passenden Befehl und liefert die Antwort samt einer Erfolgsmeldung.
+async function send(): Promise<[BookingResponse, string]> {
+  const base = {
+    account_number: props.accountNumber,
+    value_date: valueDate.value,
+    text: text.value.trim() === '' ? null : text.value.trim(),
+  }
+  const label = KIND_LABELS[kind.value]
+  switch (kind.value) {
+    case 'subscribe':
+    case 'refund': {
+      const command = { ...base, shares: shares.value! } // ready hat geprüft, dass es nicht null ist
+      const response = kind.value === 'subscribe' ? await subscribe(command) : await refund(command)
+      return [response, `${label} über ${command.shares} Anteile gebucht.`]
+    }
+    case 'payout':
+    case 'deductLoss': {
+      const command = { ...base, amount: amount.value! }
+      const response = kind.value === 'payout' ? await payout(command) : await deductLoss(command)
+      return [response, `${label} über ${formatEuro(command.amount)} gebucht.`]
+    }
+    case 'writeOff':
+      return [await writeOff(base), `${label} über ${formatEuro(props.claim)} gebucht.`]
+  }
+}
+
 async function book(): Promise<void> {
-  if (shares.value === null) {
+  if (!ready.value) {
+    return
+  }
+  if (kind.value === 'writeOff' && !confirm(`Den ganzen Restanspruch von ${formatEuro(props.claim)} ausbuchen?`)) {
     return
   }
   error.value = ''
   warning.value = ''
   message.value = ''
   busy.value = true
-  const command: ShareBooking = {
-    account_number: props.accountNumber,
-    shares: shares.value,
-    value_date: valueDate.value,
-    text: text.value.trim() === '' ? null : text.value.trim(),
-  }
   try {
-    const response = kind.value === 'subscribe' ? await subscribe(command) : await refund(command)
-    message.value = `${KIND_LABELS[kind.value]} über ${command.shares} Anteile gebucht.`
+    const [response, success] = await send()
+    message.value = success
     warning.value = response.warning ?? ''
     reset()
     emit('booked', response.account)
@@ -123,7 +196,7 @@ async function book(): Promise<void> {
           <div class="form-group">
             <label for="booking-kind">Buchungsart</label>
             <select id="booking-kind" v-model="kind">
-              <option v-for="(label, key) in KIND_LABELS" :key="key" :value="key">{{ label }}</option>
+              <option v-for="key in kinds" :key="key" :value="key">{{ KIND_LABELS[key] }}</option>
             </select>
           </div>
           <div class="form-group">
@@ -133,7 +206,8 @@ async function book(): Promise<void> {
           </div>
         </div>
 
-        <div class="form-row">
+        <!-- Arten mit Anteilen: Anteile und Betrag rechnen sich gegenseitig aus. -->
+        <div v-if="isShareKind" class="form-row">
           <div class="form-group">
             <label for="booking-shares">Anteile</label>
             <input id="booking-shares" v-model="sharesText" type="number" min="1" step="1" @input="onSharesInput" />
@@ -145,13 +219,28 @@ async function book(): Promise<void> {
           </div>
         </div>
 
+        <!-- Auszahlung und Verlustvortrag: freier Betrag, höchstens der offene Anspruch. -->
+        <div v-else-if="kind !== 'writeOff'" class="form-group">
+          <label for="booking-claim-amount">Betrag (offener Anspruch {{ formatEuro(claim) }})</label>
+          <input
+            id="booking-claim-amount"
+            v-model="amountText"
+            type="text"
+            inputmode="decimal"
+            @input="onAmountInput"
+          />
+          <small v-if="amountHint" class="hint">{{ amountHint }}</small>
+        </div>
+
+        <p v-else class="info-text">Ausgebucht wird der ganze Restanspruch von {{ formatEuro(claim) }}.</p>
+
         <div class="form-group">
           <label for="booking-text">Buchungstext (leer = „{{ KIND_LABELS[kind] }}“)</label>
           <input id="booking-text" v-model="text" type="text" maxlength="200" />
         </div>
 
         <div class="button-row">
-          <button type="submit" class="btn btn-primary" :disabled="busy || shares === null">Buchen</button>
+          <button type="submit" class="btn btn-primary" :disabled="busy || !ready">Buchen</button>
         </div>
       </form>
     </div>
@@ -161,5 +250,9 @@ async function book(): Promise<void> {
 <style scoped>
 .hint {
   color: var(--warning-color);
+}
+
+.info-text {
+  margin: 0 0 0.8rem;
 }
 </style>

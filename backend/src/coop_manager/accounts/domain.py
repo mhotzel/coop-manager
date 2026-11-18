@@ -213,6 +213,19 @@ class Ledger(Aggregate):
             if b.kind == EXIT and b.debit == number and self.reversal_of(b.id) is None
         }
 
+    def last_exit_date(self, number: int) -> date | None:
+        """Der Termin des letzten gebuchten Ausscheidens; None, wenn keines gebucht ist."""
+        return max(self.booked_exit_dates(number), default=None)
+
+    def claim(self, number: int, share_price: int | None) -> int:
+        """Offener Auseinandersetzungsanspruch in Cent: Saldo minus Anteile × Anteilspreis (siehe Plan).
+
+        Ohne Anteilspreis oder wenn der Saldo nicht über dem Wert der Anteile liegt, ist er 0.
+        """
+        if share_price is None:
+            return 0
+        return max(self.balance(number) - self.shares(number) * share_price, 0)
+
     def bookings_of(self, number: int) -> list[Booking]:
         """Alle Buchungen, an denen das Konto im Soll oder Haben beteiligt ist."""
         return [b for b in self.bookings if number in (b.debit, b.credit)]

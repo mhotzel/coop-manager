@@ -28,6 +28,7 @@ export interface AccountView {
   balance: number // Saldo in Cent, Haben positiv
   shares: number
   share_price: number | null // aktueller Anteilspreis in Cent; null, solange keiner gesetzt ist
+  claim: number // offener Auseinandersetzungsanspruch in Cent: Saldo minus Anteile × Preis
   bookings: Booking[] // die älteste zuerst
 }
 
@@ -109,6 +110,29 @@ export interface ReverseBooking {
 
 export function reverse(command: ReverseBooking): Promise<BookingResponse> {
   return api<BookingResponse>('/api/accounts/reverse', { method: 'POST', body: command })
+}
+
+// --- Buchungen, die den Anspruch mindern (Auszahlung, Verlustvortrag, Verjährung) ---
+
+// Muss zu ClaimBooking im Backend passen: Betrag frei, höchstens der offene Anspruch, ohne Anteile.
+export interface ClaimBooking {
+  account_number: number
+  amount: number // in Cent
+  value_date: string
+  text: string | null // null = Standardtext
+}
+
+export function payout(command: ClaimBooking): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/payout', { method: 'POST', body: command })
+}
+
+export function deductLoss(command: ClaimBooking): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/deduct-loss', { method: 'POST', body: command })
+}
+
+// Immer der ganze Rest; deshalb ohne Betrag.
+export function writeOff(command: Omit<ClaimBooking, 'amount'>): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/write-off', { method: 'POST', body: command })
 }
 
 // Eingabe im Betragsfeld → ganze Cent, oder null, wenn die Eingabe kein Betrag ist.

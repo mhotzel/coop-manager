@@ -1,4 +1,4 @@
-"""Fachliche Buchungsvorgänge: Eintritt und Rückzahlung, später Storno, Umbuchung usw.
+"""Fachliche Buchungsvorgänge: Eintritt, Rückzahlung, Storno, Auszahlung usw.
 
 Die API bucht nur über diese Vorgänge, nie direkt mit `Ledger.post_booking` (siehe Plan). Jeder
 Vorgang prüft seine eigenen Regeln; `post_booking` prüft darunter, was für jede Buchung gilt.
@@ -13,12 +13,24 @@ from dataclasses import dataclass
 from datetime import date
 
 from ..core import DomainError, NotFoundError
+from ..core.money import format_euro
 from ..db import Database
 from ..eventsource import ConcurrencyError
 from ..members.domain import Member
 from ..members.services import MAX_ATTEMPTS, get_member
 from ..system_settings.services import get_system_settings
-from .domain import COOPERATIVE_ACCOUNT_NUMBER, MEMBER_ACCOUNT, REFUND, REVERSAL, SUBSCRIPTION, Booking, Ledger
+from .domain import (
+    COOPERATIVE_ACCOUNT_NUMBER,
+    LIMITATION_WRITEOFF,
+    LOSS_DEDUCTION,
+    MEMBER_ACCOUNT,
+    PAYOUT,
+    REFUND,
+    REVERSAL,
+    SUBSCRIPTION,
+    Booking,
+    Ledger,
+)
 from .services import get_ledger
 
 log = logging.getLogger(__name__)
@@ -114,6 +126,85 @@ def reverse(db: Database, booking_id: str, reason: str, today: date, actor: str)
     # Ausscheiden passen gezeichnete und gehaltene Anteile nicht mehr zusammen; ein Abgleich würde
     # dann fälschlich den Geldeingang zurücknehmen.
     return _book(db, account_number, today, actor, book, reconcile=original.kind in (SUBSCRIPTION, REFUND))
+
+
+def payout(
+    db: Database,
+    account_number: int,
+    amount: int,
+    value_date: date,
+    today: date,
+    actor: str,
+    text: str | None = None,
+) -> BookingResult:
+    """Auszahlung des Auseinandersetzungsanspruchs, auch in Teilbeträgen.
+
+    Ob ausgezahlt werden darf (Mindestkapital, Satzung 6.6), prüft die App nicht (siehe Plan).
+    """
+    return _reduce_claim(db, account_number, PAYOUT, amount, value_date, today, actor, text or "Auszahlung")
+
+
+def deduct_loss(
+    db: Database,
+    account_number: int,
+    amount: int,
+    value_date: date,
+    today: date,
+    actor: str,
+    text: str | None = None,
+) -> BookingResult:
+    """Kürzung des Anspruchs um einen anteiligen Verlustvortrag (Satzung 6.5)."""
+    return _reduce_claim(
+        db, account_number, LOSS_DEDUCTION, amount, value_date, today, actor, text or "Kürzung Verlustvortrag"
+    )
+
+
+def write_off(
+    db: Database, account_number: int, value_date: date, today: date, actor: str, text: str | None = None
+) -> BookingResult:
+    """Ausbuchung des ganzen Restanspruchs wegen Verjährung (Satzung 2.7), Zuführung zur Rücklage.
+
+    Die Verjährungsfrist überwacht die App nicht; das entscheidet die Buchhaltung.
+    """
+    return _reduce_claim(
+        db, account_number, LIMITATION_WRITEOFF, None, value_date, today, actor, text or "Ausbuchung Verjährung"
+    )
+
+
+def _reduce_claim(
+    db: Database,
+    account_number: int,
+    kind: str,
+    amount: int | None,
+    value_date: date,
+    today: date,
+    actor: str,
+    text: str,
+) -> BookingResult:
+    """Gemeinsamer Ablauf für Buchungen, die den Anspruch mindern: Soll Mitgliedskonto an Haben
+    Genossenschaftskonto, Betrag ohne Anteile. `amount` None heißt: der ganze Rest.
+
+    Die Wertstellung muss nach dem gebuchten Ausscheiden liegen; so zeigt ein Report zu keinem
+    Stichtag einen negativen Anspruch. Mit dem Geldeingang hat das nichts zu tun, daher kein Abgleich.
+    """
+
+    def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
+        claim = ledger.claim(account, share_price)
+        if claim == 0:
+            raise DomainError("Es gibt keinen offenen Auseinandersetzungsanspruch.")
+        last_exit = ledger.last_exit_date(account)
+        if last_exit is None:
+            raise DomainError("Es ist noch kein Ausscheiden gebucht.")
+        if value_date <= last_exit:
+            raise DomainError(f"Die Wertstellung muss nach dem Ausscheiden zum {last_exit:%d.%m.%Y} liegen.")
+        value = claim if amount is None else amount
+        if value < 1:
+            raise DomainError("Der Betrag muss größer als 0 sein.")
+        if value > claim:
+            raise DomainError(f"Der Betrag ist höher als der offene Anspruch von {format_euro(claim)}.")
+        return ledger.post_booking(kind, account, COOPERATIVE_ACCOUNT_NUMBER, value, 0, text, value_date, today)
+
+    return _book(db, account_number, today, actor, book, reconcile=False)
 
 
 def member_account_of(booking: Booking) -> int:

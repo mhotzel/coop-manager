@@ -288,3 +288,47 @@ def test_readonly_may_list_but_not_post_exits(client, register, login, leaving_2
 def test_implausible_year_is_422(client, leaving_2025):
     assert client.get("/api/accounts/exits/0").status_code == 422
     assert client.post("/api/accounts/post-exits", json={"year": 0}).status_code == 422
+
+
+# --- Auszahlung, Verlustvortrag, Verjährung (5h-1) ---
+
+
+def test_payout_deduct_and_write_off(client, leaving_2025):
+    client.post("/api/accounts/post-exits", json={"year": 2025})
+    assert client.get("/api/accounts/1").json()["claim"] == 15000
+
+    response = client.post(
+        "/api/accounts/payout", json={"account_number": 1, "amount": 10000, "value_date": "2026-01-15"}
+    )
+    assert response.status_code == 200
+    assert response.json()["account"]["claim"] == 5000
+
+    response = client.post(
+        "/api/accounts/deduct-loss", json={"account_number": 1, "amount": 1000, "value_date": "2026-01-15"}
+    )
+    assert response.json()["account"]["claim"] == 4000
+
+    response = client.post("/api/accounts/write-off", json={"account_number": 1, "value_date": "2026-01-15"})
+    account = response.json()["account"]
+    assert (account["claim"], account["balance"], account["shares"]) == (0, 0, 0)
+    assert [b["kind"] for b in account["bookings"]][-3:] == ["payout", "loss_deduction", "limitation_writeoff"]
+
+
+def test_payout_above_claim_is_400(client, leaving_2025):
+    client.post("/api/accounts/post-exits", json={"year": 2025})
+
+    response = client.post(
+        "/api/accounts/payout", json={"account_number": 1, "amount": 99999, "value_date": "2026-01-15"}
+    )
+
+    assert response.status_code == 400
+
+
+def test_readonly_may_not_pay_out(client, register, login, leaving_2025):
+    register("rita", ACCOUNTING_READONLY, full_name="Rita Lesend")
+    login("rita")
+    command = {"account_number": 1, "amount": 100, "value_date": "2026-01-15"}
+
+    assert client.post("/api/accounts/payout", json=command).status_code == 403
+    assert client.post("/api/accounts/deduct-loss", json=command).status_code == 403
+    assert client.post("/api/accounts/write-off", json=command).status_code == 403
