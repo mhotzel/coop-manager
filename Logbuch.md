@@ -1835,3 +1835,24 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
 - **Tabelle breit:** Die Buchungstabelle braucht Platz für ihre Spalten, sonst wird sie gequetscht.
 - **Kein Prettier:** Es ist im Projekt nicht eingerichtet; ein Lauf hätte die ganze Datei
   umformatiert. Fremde Formatierungsänderungen gehören nicht in einen fachlichen Commit.
+
+## 2026-11-18 – Entscheidungen zum Storno (Schritt 5e) im Plan
+
+**Was:** In `Plan.md` eingetragen:
+
+- „Buchungen und Storno“: Wertstellung des Stornos = Wertstellung der Originalbuchung; die
+  Statusauswirkung ist jetzt geregelt. Ein Storno nimmt den Geldeingang am Mitglied zurück
+  (Gegen-Event, Arbeitsname `member.paid-in-revoked`) bzw. hält ihn neu fest (Storno einer
+  Rückzahlung), immer mit Warnung.
+- „Hauptbuch“: Verweis auf diese Regel.
+- „Vorgehen“: 5e in drei Teile gegliedert (Domäne/Service, API `POST /api/accounts/reverse`,
+  Frontend).
+
+**Warum so:**
+
+- **Widerspruch aufgelöst:** Der Plan sagte einmal „Status nicht still zurücksetzen, nur warnen“,
+  an anderer Stelle „Gegen-Event am Mitglied“. Jetzt gilt beides zusammen: Der Status folgt den
+  Buchungen, aber nie still. So zeigt die App keinen Status „Mitglied“ an, dessen Grundlage fehlt.
+- **Wertstellung wie das Original:** Das Storno soll die Buchung so aufheben, als hätte es sie nie
+  gegeben, auch in Reports zu einem früheren Stichtag.
+- **`reverse` im Endpunkt:** Storno heißt laut Glossar `reversal`.

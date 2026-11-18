@@ -55,6 +55,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 1: Kontoansicht (auch Genossenschaftskonto im Menü), Konto-Link am Mitglied
      - Teil 2: Buchungsmaske für Eintritt und Rückzahlung
    - 5e: Storno
+     - Teil 1: Domäne und Service (Vorgang Storno mit Prüfungen und Pflichtgrund, Geldeingang am
+       Mitglied zurücknehmen bzw. neu festhalten), Projektion mit Referenz, Tests
+     - Teil 2: API `POST /api/accounts/reverse` mit `{booking_id, reason}`, Kontoansicht mit
+       „storniert durch“ bzw. „Storno zu“ je Buchung
+     - Teil 3: Frontend: Knopf „Stornieren“ je Buchung (nur Buchhaltung), Abfrage des Grundes,
+       Kennzeichnung der Paare, Filter „Stornierte ausblenden“
    - 5f: Kündigung, Teilkündigung, Tod und Ausschluss
    - 5g: „Ausscheiden zum Jahresende buchen“
    - 5h: Umbuchung, Auszahlung, Verlustvortrag, Verjährung, Liste offener Ansprüche
@@ -208,8 +214,18 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Pflichtangabe Stornogrund.**
 - Jede Buchung kann nur einmal storniert werden, ein Storno nicht. In der Kontoansicht sind
   Original und Storno als Paar gekennzeichnet und per Filter ausblendbar.
-- **Statusauswirkung:** Fehlt durch ein Storno die Grundlage eines Status (z. B. der Geldeingang),
-  setzt die App den Status nicht still zurück, sondern warnt; der Mitarbeiter klärt den Vorgang.
+- **Wertstellung des Stornos = Wertstellung der Originalbuchung** (Stand 2026-11-18). Das Storno
+  hebt die Buchung zum selben Stichtag auf, Reports zu einem Stichtag stimmen damit auch
+  rückwirkend. Buchungstag ist wie immer der Tag der Erfassung.
+- **Statusauswirkung (Stand 2026-11-18):** Ein Storno passt den Geldeingang am Mitglied an, und
+  zwar **nie still**, sondern immer mit einer deutlichen Warnung in der Antwort:
+  - Sind die gezeichneten Anteile vor dem Storno voll eingezahlt und danach nicht mehr (Storno
+    eines Eintritts), wird der Geldeingang mit einem Gegen-Event zu `member.paid-in`
+    zurückgenommen (Arbeitsname `member.paid-in-revoked`). Der Status fällt von „Mitglied“ auf
+    „Antragsteller“ zurück, die Zulassung bleibt bestehen, das Eintrittsdatum entfällt.
+  - Sind sie erst nach dem Storno voll eingezahlt (Storno einer Rückzahlung), wird wie bei einem
+    Eintritt `member.paid-in` festgehalten, mit der Wertstellung des Stornos.
+  - Der Mitarbeiter klärt den Vorgang danach, z. B. mit einer neuen, richtigen Buchung.
 
 ### Benutzer und Rollen
 
@@ -370,7 +386,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Eintritts- oder Rückzahlungsbuchung die Anteile auf dem Konto genau auf die gezeichneten, zeichnet
   der Service am Mitglied zusätzlich `member.paid-in` mit der Wertstellung auf; beides wird mit
   `save_all` gemeinsam gespeichert. Der Status bleibt so aus den Events des Mitglieds berechenbar.
-  Ein Storno der Eintrittsbuchung (5e) braucht dann ein Gegen-Event am Mitglied. Verworfen vorerst:
+  Ein Storno der Eintrittsbuchung (5e) braucht dann ein Gegen-Event am Mitglied (siehe „Buchungen
+  und Storno“, Statusauswirkung). Verworfen vorerst:
   Variante B, den Status direkt aus den Buchungen abzuleiten (Projektion verarbeitet
   `booking.posted`). Ein späterer Wechsel zu B ist möglich, weil die Buchungen alle Informationen
   enthalten; die `member.paid-in`-Events würden dann ignoriert.
