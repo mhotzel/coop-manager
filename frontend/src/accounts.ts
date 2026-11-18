@@ -16,6 +16,7 @@ export interface Booking {
   text: string
   booking_date: string // Tag, an dem gebucht wurde
   value_date: string // Tag, an dem die Buchung fachlich gilt
+  reverses: string | null // nur beim Storno: die ID der stornierten Buchung
 }
 
 // Muss zu AccountView im Backend passen (accounts/schemas.py).
@@ -95,6 +96,19 @@ export function subscribe(command: ShareBooking): Promise<BookingResponse> {
 
 export function refund(command: ShareBooking): Promise<BookingResponse> {
   return api<BookingResponse>('/api/accounts/refund', { method: 'POST', body: command })
+}
+
+// --- Storno ---
+
+// Muss zu ReverseBooking im Backend passen. Das Konto ergibt sich aus der Buchung, der Grund ist
+// Pflicht und landet im Buchungstext. Die Antwort enthält immer das Mitgliedskonto.
+export interface ReverseBooking {
+  booking_id: string
+  reason: string
+}
+
+export function reverse(command: ReverseBooking): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/reverse', { method: 'POST', body: command })
 }
 
 // Eingabe im Betragsfeld → ganze Cent, oder null, wenn die Eingabe kein Betrag ist.

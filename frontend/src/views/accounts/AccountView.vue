@@ -7,8 +7,10 @@ import {
   counterAccount,
   formatEuro,
   getAccount,
+  reverse,
   signedFor,
   type AccountView,
+  type Booking,
 } from '../../accounts'
 import { errorText } from '../../api'
 import { ACCOUNTING, currentUser } from '../../auth'
@@ -21,6 +23,8 @@ const props = defineProps<{ number: string }>()
 const account = ref<AccountView | null>(null)
 const member = ref<MemberDetail | null>(null) // Inhaber; beim Genossenschaftskonto null
 const error = ref('')
+const warning = ref('') // Warnung nach einem Storno, z. B. „Geldeingang zurückgenommen“
+const hideReversed = ref(false) // Filter „Stornierte ausblenden“
 
 const isCooperative = computed(() => account.value?.number === COOPERATIVE_ACCOUNT_NUMBER)
 
@@ -33,6 +37,55 @@ const canBook = computed(
     !isCooperative.value &&
     account.value.share_price !== null,
 )
+
+// Stornieren darf die Buchhaltung auf jedem Konto, auch auf dem Genossenschaftskonto.
+const canReverse = computed(() => currentUser.value?.role === ACCOUNTING)
+
+// Zu jeder stornierten Buchung ihr Storno: Schlüssel ist die ID des Originals. Original und
+// Storno stehen immer auf demselben Konto, deshalb reicht die Liste dieses Kontos.
+const reversalOf = computed(() => {
+  const map = new Map<string, Booking>()
+  for (const booking of account.value?.bookings ?? []) {
+    if (booking.reverses !== null) {
+      map.set(booking.reverses, booking)
+    }
+  }
+  return map
+})
+
+// Gehört die Buchung zu einem Paar aus Original und Storno?
+function isReversedPair(booking: Booking): boolean {
+  return booking.reverses !== null || reversalOf.value.has(booking.id)
+}
+
+// Die Buchungen in der Tabelle; mit Filter ohne die Paare aus Original und Storno.
+const visibleBookings = computed(() => {
+  const all = account.value?.bookings ?? []
+  return hideReversed.value ? all.filter((b) => !isReversedPair(b)) : all
+})
+
+// Storno: Grund abfragen, buchen, Ansicht aktualisieren. Abbrechen oder leerer Grund: nichts tun.
+async function onReverse(booking: Booking): Promise<void> {
+  const reason = window.prompt(`Grund für das Storno von „${booking.text}“:`)
+  if (reason === null || reason.trim() === '') {
+    return
+  }
+  error.value = ''
+  warning.value = ''
+  try {
+    const response = await reverse({ booking_id: booking.id, reason })
+    warning.value = response.warning ?? ''
+    if (response.account.number === account.value?.number) {
+      await onBooked(response.account)
+    } else {
+      // Auf dem Genossenschaftskonto: Der Server antwortet mit dem Mitgliedskonto, also laden
+      // wir das angezeigte Konto selbst neu.
+      account.value = await getAccount(account.value!.number)
+    }
+  } catch (e) {
+    error.value = errorText(e)
+  }
+}
 
 // Die Maske meldet das Konto nach der Buchung. Den Inhaber laden wir neu, denn eine Buchung kann
 // seinen Status ändern (Geldeingang, Eintritt).
@@ -58,6 +111,7 @@ const ownerName = computed(() => {
 // Lädt Konto und Inhaber. Erst das Konto, denn erst darin steht, wem es gehört.
 async function load(): Promise<void> {
   error.value = ''
+  warning.value = ''
   account.value = null
   member.value = null
   try {
@@ -127,8 +181,12 @@ watch(() => props.number, load, { immediate: true })
     />
 
     <div class="card">
-      <div class="card-header">Buchungen</div>
+      <div class="card-header bookings-header">
+        Buchungen
+        <label class="filter"><input v-model="hideReversed" type="checkbox" /> Stornierte ausblenden</label>
+      </div>
       <div class="card-content">
+        <div v-if="warning" class="status-box warning"><p>{{ warning }}</p></div>
         <p v-if="account.bookings.length === 0">Noch keine Buchungen.</p>
         <div v-else class="table-wrapper">
           <table>
@@ -141,14 +199,21 @@ watch(() => props.number, load, { immediate: true })
                 <th>Gegenkonto</th>
                 <th class="col-number">Anteile</th>
                 <th class="col-number">Betrag</th>
+                <th v-if="canReverse"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="booking in account.bookings" :key="booking.id">
+              <!-- Original und Storno grau, damit das Paar als erledigt erkennbar ist. -->
+              <tr v-for="booking in visibleBookings" :key="booking.id" :class="{ reversed: isReversedPair(booking) }">
                 <td>{{ formatDate(booking.value_date) }}</td>
                 <td>{{ formatDate(booking.booking_date) }}</td>
                 <td>{{ bookingKindLabel(booking.kind) }}</td>
-                <td>{{ booking.text }}</td>
+                <td>
+                  {{ booking.text }}
+                  <small v-if="reversalOf.has(booking.id)" class="reversal-note">
+                    storniert am {{ formatDate(reversalOf.get(booking.id)!.booking_date) }}
+                  </small>
+                </td>
                 <td>
                   <RouterLink
                     :to="{ name: 'account', params: { number: counterAccount(account.number, booking) } }"
@@ -163,6 +228,17 @@ watch(() => props.number, load, { immediate: true })
                 <td class="col-number">
                   <span>{{ formatEuro(signedFor(account.number, booking).amount) }}</span>
                 </td>
+                <!-- Nur Buchungen, die weder Storno sind noch schon storniert; verbindlich prüft das Backend. -->
+                <td v-if="canReverse">
+                  <button
+                    v-if="!isReversedPair(booking)"
+                    type="button"
+                    class="btn btn-outline"
+                    @click="onReverse(booking)"
+                  >
+                    Stornieren
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -173,6 +249,24 @@ watch(() => props.number, load, { immediate: true })
 </template>
 
 <style scoped>
+.bookings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.filter {
+  font-weight: normal;
+}
+
+tr.reversed td {
+  color: var(--text-muted);
+}
+
+.reversal-note {
+  display: block;
+}
+
 /* Wie auf der Detailseite: Bezeichnung links, Wert rechts; auf schmalen Bildschirmen untereinander. */
 dl {
   display: grid;

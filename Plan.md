@@ -214,7 +214,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Pflichtangabe Stornogrund.** Er steht im Buchungstext (Stand 2026-11-18), z. B.
   „Storno zu „Eintritt“: Zahlung falsch zugeordnet“; ein eigenes Feld gibt es nicht.
 - Jede Buchung kann nur einmal storniert werden, ein Storno nicht. In der Kontoansicht sind
-  Original und Storno als Paar gekennzeichnet und per Filter ausblendbar.
+  Original und Storno als Paar gekennzeichnet und per Filter ausblendbar. „Storniert durch“
+  leitet das Frontend aus der Referenz `reverses` ab (Stand 2026-11-18). Stornieren geht auf
+  jedem Konto, auch auf dem Genossenschaftskonto; der Grund wird vorerst per Browser-Dialog
+  abgefragt.
 - **Wertstellung des Stornos = Wertstellung der Originalbuchung** (Stand 2026-11-18). Das Storno
   hebt die Buchung zum selben Stichtag auf, Reports zu einem Stichtag stimmen damit auch
   rückwirkend. Buchungstag ist wie immer der Tag der Erfassung.

@@ -1935,3 +1935,34 @@ neue Name sagt, was drinsteht (die beiden Buchhaltungsrollen), und passt zu `ROL
 - **Kein Feld „storniert durch“ im Backend:** Original und Storno stehen immer auf demselben Konto,
   also in derselben Liste der Kontoansicht. Das Frontend findet das Storno zu einer Buchung, indem
   es nach `reverses == id` sucht. Ein eigenes Ansichtsmodell für Buchungen bräuchte es dafür nicht.
+
+## 2026-11-18 – Schritt 5e, Teil 3: Storno im Frontend
+
+**Was:**
+
+- `frontend/src/accounts.ts`: `Booking` hat das Feld `reverses`; neu sind `ReverseBooking` und
+  `reverse()` für `POST /api/accounts/reverse`.
+- `frontend/src/views/accounts/AccountView.vue`:
+  - `reversalOf` (`computed`): eine `Map` von der ID des Originals zu seinem Storno. Damit sieht
+    jede Zeile, ob sie storniert ist; ein Storno erkennt man an `reverses`.
+  - Original und Storno sind grau (CSS-Klasse `reversed`), beim Original steht „storniert am …“.
+  - Knopf „Stornieren“ in einer eigenen Spalte, nur für die Buchhaltung und nur bei Buchungen,
+    die weder Storno noch schon storniert sind; auf jedem Konto.
+  - Der Grund wird mit `window.prompt` abgefragt; Abbrechen oder leerer Grund tut nichts.
+  - Nach dem Storno: Warnung als gelbe Box über der Tabelle. Auf dem Mitgliedskonto wird die
+    Antwort übernommen und der Inhaber neu geladen (`onBooked`), auf dem Genossenschaftskonto
+    wird das angezeigte Konto neu geladen, weil der Server das Mitgliedskonto zurückgibt.
+  - Checkbox „Stornierte ausblenden“; `visibleBookings` (`computed`) filtert die Paare heraus.
+- `Plan.md`: Storno auf jedem Konto, Grund per Browser-Dialog, „storniert durch“ im Frontend.
+- Geprüft mit `npm run type-check`.
+
+**Warum so:**
+
+- **`computed` statt Daten zu ändern:** Paare und Filter sind aus der Buchungsliste abgeleitet.
+  Vue rechnet sie neu, sobald sich die Liste ändert; die Liste selbst bleibt wie vom Server.
+- **`Map` statt Suche je Zeile:** Einmal durch die Liste laufen und danach nur nachschlagen ist
+  einfacher zu lesen als in jeder Zeile alle Buchungen zu durchsuchen.
+- **`window.prompt`:** wenig Code, wie `confirm` beim Löschen von Benutzern. Ein eigenes
+  Eingabefeld kann später kommen.
+- **Auch auf dem Genossenschaftskonto:** Matthias' Entscheidung; es gibt keinen fachlichen Grund,
+  es dort zu verbieten. Das Backend findet das Mitgliedskonto selbst aus der Buchung.
