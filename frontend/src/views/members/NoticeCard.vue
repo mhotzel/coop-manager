@@ -43,11 +43,17 @@ watch(noticeDate, (day) => {
   }
 })
 
-// Nach einem Tod endet die Mitgliedschaft zum 31.12. des Todesjahres; Kündigungen mit späterem
-// Termin bleiben als Geschichte stehen, sind aber gegenstandslos (siehe Plan).
-function isMootByDeath(notice: Notice): boolean {
-  const exit = props.member.exit_date
-  return props.member.date_of_death !== null && exit !== null && notice.exit_date > exit
+// Tod oder Ausschluss beenden die Mitgliedschaft zum 31.12. ihres Jahres. Kündigungen mit späterem
+// Termin bleiben als Geschichte stehen, sind aber gegenstandslos (siehe Plan). Leer = gilt noch.
+function mootReason(notice: Notice): string {
+  const { date_of_death, expulsion_date, exit_date } = props.member
+  if (date_of_death === null && expulsion_date === null) {
+    return '' // ohne Tod oder Ausschluss ist keine Kündigung gegenstandslos
+  }
+  if (exit_date === null || notice.exit_date <= exit_date) {
+    return ''
+  }
+  return date_of_death !== null ? 'Tod' : 'Ausschluss'
 }
 
 function kindLabel(notice: Notice): string {
@@ -123,7 +129,7 @@ function withdraw(notice: Notice): void {
               <td>{{ formatDate(notice.notice_date) }}</td>
               <td>
                 {{ formatDate(notice.exit_date) }}
-                <small v-if="isMootByDeath(notice)" class="moot">gegenstandslos (Tod)</small>
+                <small v-if="mootReason(notice)" class="moot">gegenstandslos ({{ mootReason(notice) }})</small>
               </td>
               <!-- Die Kündigung der Mitgliedschaft umfasst alle Anteile. -->
               <td class="col-number">{{ notice.shares ?? 'alle' }}</td>

@@ -130,6 +130,18 @@ def revoke_death(body: MemberCommand, db: Db, user: Writer) -> MemberDetail:
     return _detail(services.revoke_death(db, body.member_id, actor=user.id))
 
 
+@router.post("/expel")
+def expel(body: Decision, db: Db, user: Writer) -> MemberDetail:
+    """Ausschluss durch den Vorstand."""
+    return _detail(services.expel(db, body.member_id, body.decision_date, date.today(), actor=user.id))
+
+
+@router.post("/lift-expulsion")
+def lift_expulsion(body: Decision, db: Db, user: Writer) -> MemberDetail:
+    """Ausschluss aufheben (Widerspruch erfolgreich oder Fehlerfassung)."""
+    return _detail(services.lift_expulsion(db, body.member_id, body.decision_date, date.today(), actor=user.id))
+
+
 @router.post("/change-name")
 def change_name(body: ChangeName, db: Db, user: Writer) -> MemberDetail:
     """Name ändern; die Adresszeilen bleiben, die Detailansicht warnt dann."""

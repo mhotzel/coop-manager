@@ -1,10 +1,10 @@
-"""Kündigung, Teilkündigung und Tod über die API, mit Hauptbuch und Suche (Projektion)."""
+"""Kündigung, Teilkündigung, Tod und Ausschluss über die API, mit Hauptbuch und Suche (Projektion)."""
 
 import pytest
 
 from coop_manager.accounts.services import open_cooperative_account
 from coop_manager.members.domain import NOTICE, PARTIAL_NOTICE
-from coop_manager.members.status import DECEASED, MEMBER, NOTICE_GIVEN
+from coop_manager.members.status import DECEASED, EXPELLED, MEMBER, NOTICE_GIVEN
 from coop_manager.members.values import NATURAL_PERSON
 from coop_manager.system_settings.services import change_share_price
 from coop_manager.users.domain import ACCOUNTING, ACCOUNTING_READONLY
@@ -194,3 +194,37 @@ def test_readonly_may_not_record_death(client, register, login, member_id):
     command = {"member_id": member_id, "date_of_death": "2026-11-12"}
     assert client.post("/api/members/record-death", json=command).status_code == 403
     assert client.post("/api/members/revoke-death", json={"member_id": member_id}).status_code == 403
+
+
+# --- Ausschluss ---
+
+
+def test_expel_and_lift(client, member_id):
+    response = client.post("/api/members/expel", json={"member_id": member_id, "decision_date": "2026-11-12"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["status"], body["expulsion_date"], body["exit_date"]) == (EXPELLED, "2026-11-12", "2026-12-31")
+    assert search_status(client) == EXPELLED
+
+    response = client.post("/api/members/lift-expulsion", json={"member_id": member_id, "decision_date": "2026-11-13"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["status"], body["expulsion_date"], body["exit_date"]) == (MEMBER, None, None)
+    assert search_status(client) == MEMBER
+
+
+def test_lift_without_expulsion_is_400(client, member_id):
+    response = client.post("/api/members/lift-expulsion", json={"member_id": member_id, "decision_date": "2026-11-13"})
+
+    assert response.status_code == 400
+
+
+def test_readonly_may_not_expel(client, register, login, member_id):
+    register("rita", ACCOUNTING_READONLY, full_name="Rita Lesend")
+    login("rita")
+
+    command = {"member_id": member_id, "decision_date": "2026-11-12"}
+    assert client.post("/api/members/expel", json=command).status_code == 403
+    assert client.post("/api/members/lift-expulsion", json=command).status_code == 403

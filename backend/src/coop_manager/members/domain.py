@@ -7,7 +7,7 @@ from typing import Self
 from ..core import DomainError
 from ..eventsource import Aggregate, Event, on
 from .addressing import address_lines
-from .status import MEMBER, NOTICE_GIVEN, MembershipDates, effective_exit_date, entry_date, status_on
+from .status import EXPELLED, MEMBER, NOTICE_GIVEN, MembershipDates, effective_exit_date, entry_date, status_on
 from .values import (
     ADDRESS_LINE_COUNT,
     Address,
@@ -62,6 +62,7 @@ class Member(Aggregate):
         self.payment_date: date | None = None  # Geldeingang, erfasst vom Buchungsservice
         self.notices: list[Notice] = []  # laufende Kündigungen, zurückgenommene fallen heraus
         self.date_of_death: date | None = None
+        self.expulsion_date: date | None = None  # Beschluss des Vorstands
 
     @classmethod
     def apply(
@@ -134,6 +135,7 @@ class Member(Aggregate):
             notice_date=full.notice_date if full else None,
             exit_date=full.exit_date if full else None,
             date_of_death=self.date_of_death,
+            expulsion_date=self.expulsion_date,
         )
 
     def admit(self, decision_date: date, today: date) -> None:
@@ -231,7 +233,7 @@ class Member(Aggregate):
             raise DomainError("Das Sterbedatum darf nicht in der Zukunft liegen.")
         if self.date_of_death is not None:
             raise DomainError("Der Tod ist bereits erfasst.")
-        if self.status(date_of_death) not in (MEMBER, NOTICE_GIVEN):
+        if self.status(date_of_death) not in (MEMBER, NOTICE_GIVEN, EXPELLED):
             raise DomainError("Den Tod erfasst man nur bei Mitgliedern; bei Antragstellern den Antrag zurücknehmen.")
         self._record("member.died", date_of_death=date_of_death.isoformat())
 
@@ -240,6 +242,34 @@ class Member(Aggregate):
         if self.date_of_death is None:
             raise DomainError("Es ist kein Tod erfasst.")
         self._record("member.death-revoked")
+
+    def expel(self, decision_date: date, today: date) -> None:
+        """Ausschluss durch Beschluss des Vorstands (Satzung 6.2–6.4); Ausscheiden zum 31.12.
+
+        Nur bei Mitgliedern, auch gekündigten. Den Widerspruch beim Aufsichtsrat (binnen sechs
+        Wochen) überwacht die App nicht; gibt er ihm statt, wird der Ausschluss aufgehoben.
+        """
+        if decision_date > today:
+            raise DomainError("Das Datum darf nicht in der Zukunft liegen.")
+        if self.expulsion_date is not None:
+            raise DomainError("Der Ausschluss ist bereits erfasst.")
+        if self.status(decision_date) not in (MEMBER, NOTICE_GIVEN):
+            raise DomainError("Ausschließen kann man nur, wer am Tag des Beschlusses Mitglied ist.")
+        self._record("member.expelled", decision_date=decision_date.isoformat())
+
+    def lift_expulsion(self, decision_date: date, today: date) -> None:
+        """Hebt den Ausschluss auf: Widerspruch erfolgreich oder Fehlerfassung.
+
+        Das Datum (z. B. der Beschluss des Aufsichtsrats) hält das Event fest; der Ausschluss gilt
+        danach als nie geschehen, auch wenn das Jahresende schon vorbei ist.
+        """
+        if self.expulsion_date is None:
+            raise DomainError("Es ist kein Ausschluss erfasst.")
+        if decision_date > today:
+            raise DomainError("Das Datum darf nicht in der Zukunft liegen.")
+        if decision_date < self.expulsion_date:
+            raise DomainError("Das Datum darf nicht vor dem Ausschluss liegen.")
+        self._record("member.expulsion-lifted", decision_date=decision_date.isoformat())
 
     def _ensure_notice_possible(self, notice_date: date, exit_date: date, today: date) -> None:
         """Gemeinsame Prüfungen für Kündigung und Teilkündigung.
@@ -370,6 +400,14 @@ class Member(Aggregate):
     @on("member.death-revoked")
     def _death_revoked(self, event: Event) -> None:
         self.date_of_death = None
+
+    @on("member.expelled")
+    def _expelled(self, event: Event) -> None:
+        self.expulsion_date = date.fromisoformat(event.data["decision_date"])
+
+    @on("member.expulsion-lifted")
+    def _expulsion_lifted(self, event: Event) -> None:
+        self.expulsion_date = None
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

@@ -8,6 +8,7 @@ from coop_manager.members.status import (
     APPLICANT,
     DECEASED,
     EXITED,
+    EXPELLED,
     MEMBER,
     NOTICE_GIVEN,
     REJECTED,
@@ -609,3 +610,107 @@ def test_revoke_death():
 def test_revoke_death_needs_death():
     with pytest.raises(DomainError, match="kein Tod erfasst"):
         member_since_nov_10().revoke_death()
+
+
+# --- Ausschluss ---
+
+
+def test_expel_and_status():
+    member = member_since_nov_10()
+
+    member.expel(date(2026, 11, 20), TODAY)
+
+    member = reloaded(member)
+    assert member.expulsion_date == date(2026, 11, 20)
+    assert member.exit_date() == date(2026, 12, 31)
+    assert member.status(date(2026, 11, 19)) == MEMBER
+    assert member.status(date(2026, 11, 20)) == EXPELLED
+    assert member.status(date(2026, 12, 31)) == EXPELLED
+    assert member.status(date(2027, 1, 1)) == EXITED
+
+
+def test_expulsion_brings_exit_of_a_notice_forward():
+    member = member_since_nov_10()
+    member.give_notice(date(2026, 11, 15), EXIT, TODAY)
+
+    member.expel(date(2026, 11, 20), TODAY)
+
+    assert reloaded(member).exit_date() == date(2026, 12, 31)
+    assert reloaded(member).status(TODAY) == EXPELLED
+
+
+@pytest.mark.parametrize(
+    "decision_date, message",
+    [
+        (date(2026, 12, 1), "nicht in der Zukunft"),
+        (date(2026, 11, 9), "am Tag des Beschlusses Mitglied"),  # vor dem Eintritt
+    ],
+)
+def test_expel_checks(decision_date, message):
+    with pytest.raises(DomainError, match=message):
+        member_since_nov_10().expel(decision_date, TODAY)
+
+
+def test_expel_only_once_and_not_after_death():
+    member = member_since_nov_10()
+    member.expel(date(2026, 11, 20), TODAY)
+    with pytest.raises(DomainError, match="bereits erfasst"):
+        member.expel(date(2026, 11, 21), TODAY)
+
+    dead = member_since_nov_10()
+    dead.record_death(date(2026, 11, 20), TODAY)
+    with pytest.raises(DomainError, match="Mitglied"):
+        dead.expel(date(2026, 11, 21), TODAY)
+
+
+def test_death_after_expulsion_in_the_same_year():
+    """Bis zum 31.12. ist der Ausgeschlossene noch Mitglied; stirbt er vorher, wird das erfasst."""
+    member = member_since_nov_10()
+    member.expel(date(2026, 11, 20), TODAY)
+
+    member.record_death(date(2026, 11, 25), TODAY)
+
+    assert reloaded(member).status(TODAY) == DECEASED
+    assert reloaded(member).exit_date() == date(2026, 12, 31)
+
+
+def test_no_notice_after_expulsion():
+    member = member_since_nov_10()
+    member.expel(date(2026, 11, 20), TODAY)
+
+    with pytest.raises(DomainError, match="Mitglied"):
+        member.give_notice(date(2026, 11, 25), EXIT, TODAY)
+
+
+def test_lift_expulsion_even_after_year_end():
+    """Der Aufsichtsrat gibt dem Widerspruch im Januar statt: Die Person war nie ausgeschieden."""
+    member = member_since_nov_10()
+    member.give_notice(date(2026, 11, 15), EXIT, TODAY)
+    member.expel(date(2026, 11, 20), TODAY)
+
+    member.lift_expulsion(date(2027, 1, 10), date(2027, 1, 12))
+
+    member = reloaded(member)
+    assert member.expulsion_date is None
+    assert member.status(date(2027, 1, 12)) == NOTICE_GIVEN  # die Kündigung gilt wieder
+    assert member.exit_date() == EXIT
+
+
+@pytest.mark.parametrize(
+    "decision_date, message",
+    [
+        (date(2026, 12, 1), "nicht in der Zukunft"),
+        (date(2026, 11, 19), "nicht vor dem Ausschluss"),
+    ],
+)
+def test_lift_expulsion_checks(decision_date, message):
+    member = member_since_nov_10()
+    member.expel(date(2026, 11, 20), TODAY)
+
+    with pytest.raises(DomainError, match=message):
+        member.lift_expulsion(decision_date, TODAY)
+
+
+def test_lift_expulsion_needs_expulsion():
+    with pytest.raises(DomainError, match="kein Ausschluss erfasst"):
+        member_since_nov_10().lift_expulsion(TODAY, TODAY)

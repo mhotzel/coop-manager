@@ -116,6 +116,16 @@ def revoke_death(db: Database, member_id: str, actor: str) -> Member:
     return _change(db, member_id, actor, lambda member: member.revoke_death())
 
 
+def expel(db: Database, member_id: str, decision_date: date, today: date, actor: str) -> Member:
+    """Ausschluss durch den Vorstand."""
+    return _change(db, member_id, actor, lambda member: member.expel(decision_date, today))
+
+
+def lift_expulsion(db: Database, member_id: str, decision_date: date, today: date, actor: str) -> Member:
+    """Ausschluss aufheben, z. B. nach erfolgreichem Widerspruch beim Aufsichtsrat."""
+    return _change(db, member_id, actor, lambda member: member.lift_expulsion(decision_date, today))
+
+
 def change_name(db: Database, member_id: str, name: PersonName, actor: str) -> Member:
     """Name ändern, z. B. nach Heirat."""
     return _change(db, member_id, actor, lambda member: member.change_name(name))

@@ -367,8 +367,14 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   31.12.). Ist die Mitgliedschaft gekündigt, entfällt der Hinweis, der Status sagt genug.
 - **Ausschluss** (Satzung 6.2–6.4): Beschluss des Vorstands mit Datum, Widerspruch beim
   Aufsichtsrat binnen sechs Wochen.
+- **Ausschluss erfassen** (Stand 2026-11-18): nur bei Mitgliedern, auch gekündigten; Status
+  „ausgeschlossen“ ab dem Beschluss, Ausscheiden zum 31.12. des Beschlussjahres (§ 68 GenG).
+  Kündigungen mit späterem Termin werden gegenstandslos (wie beim Tod). Die Widerspruchsfrist
+  überwacht die App nicht. Stirbt die Person vor dem 31.12., lässt sich der Tod noch erfassen.
 - **Ausschluss aufheben** (Stand 2026-11-18): Gibt der Aufsichtsrat einem Widerspruch statt, wird
-  der Ausschluss mit einem eigenen Vorgang aufgehoben (selten, Teil von 5f-4).
+  der Ausschluss mit einem eigenen Vorgang aufgehoben, mit dem Datum des Beschlusses (Event
+  `member.expulsion-lifted`); auch für Fehlerfassungen. Der Ausschluss gilt danach als nie
+  geschehen, auch wenn das Jahresende schon vorbei ist; eine frühere Kündigung gilt wieder.
 - **Daten werden abgeleitet, nicht gepflegt:** Eintrittsdatum aus der Wertstellung der ersten
   Eintrittsbuchung, Kündigungsdatum und Ausscheidensdatum aus dem Vorgang „Kündigung erfassen“.
   Sterbedatum wird manuell erfasst. In der Maske sind diese Felder nur lesbar, Änderungen laufen

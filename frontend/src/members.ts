@@ -75,8 +75,9 @@ export interface MemberDetail {
   entry_date: string | null // das spätere von Zulassung und Geldeingang
   notices: Notice[] // laufende Kündigungen und Teilkündigungen
   notice_date: string | null // Eingang der Kündigung der Mitgliedschaft
-  exit_date: string | null // wirksames Ausscheiden: aus Tod oder Kündigung der Mitgliedschaft
+  exit_date: string | null // wirksames Ausscheiden: aus Kündigung, Tod oder Ausschluss
   date_of_death: string | null
+  expulsion_date: string | null // Beschluss des Vorstands
   partial_notice: boolean // heute läuft eine Teilkündigung
   salutation: string
   generated_address_lines: string[]
@@ -115,6 +116,7 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'abgelehnt',
   notice_given: 'gekündigt',
   deceased: 'verstorben',
+  expelled: 'ausgeschlossen',
   exited: 'ausgeschieden',
 }
 
@@ -125,12 +127,13 @@ export function statusLabel(status: string | null): string {
   return STATUS_LABELS[status] ?? status // unbekannter Status: lieber roh anzeigen als nichts
 }
 
-// Farbe des Status-Tags: grün für Mitglieder, orange für abgelehnt und gekündigt, sonst blau.
+// Farbe des Status-Tags: grün für Mitglieder, orange für abgelehnt, gekündigt und
+// ausgeschlossen, sonst blau.
 export function statusTagClass(status: string): string {
   if (status === 'member') {
     return 'success'
   }
-  return status === 'rejected' || status === 'notice_given' ? 'warning' : 'info'
+  return ['rejected', 'notice_given', 'expelled'].includes(status) ? 'warning' : 'info'
 }
 
 // Hinweis „teilgekündigt“ neben dem Status. Nur bei Mitgliedern: Ist die Mitgliedschaft schon
@@ -244,6 +247,23 @@ export function recordDeath(memberId: string, dateOfDeath: string): Promise<Memb
 
 export function revokeDeath(memberId: string): Promise<MemberDetail> {
   return api<MemberDetail>('/api/members/revoke-death', { method: 'POST', body: { member_id: memberId } })
+}
+
+// --- Ausschluss ---
+
+export function expel(memberId: string, decisionDate: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/expel', {
+    method: 'POST',
+    body: { member_id: memberId, decision_date: decisionDate },
+  })
+}
+
+// Aufheben nach erfolgreichem Widerspruch beim Aufsichtsrat oder bei einer Fehlerfassung.
+export function liftExpulsion(memberId: string, decisionDate: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/lift-expulsion', {
+    method: 'POST',
+    body: { member_id: memberId, decision_date: decisionDate },
+  })
 }
 
 export function applyForMembership(application: {

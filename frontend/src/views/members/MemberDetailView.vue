@@ -32,7 +32,7 @@ const busy = ref(false)
 
 // Welche Entscheidung gerade erfasst wird. Ein Union-Typ aus festen Texten: Vertippt man sich
 // (z. B. 'admitt'), meldet TypeScript einen Fehler. null heißt: kein Formular offen.
-type Action = 'admit' | 'reject' | 'withdraw' | 'death'
+type Action = 'admit' | 'reject' | 'withdraw' | 'death' | 'expel' | 'liftExpulsion'
 const action = ref<Action | null>(null)
 const actionDate = ref('')
 
@@ -41,6 +41,8 @@ const ACTION_TITLES: Record<Action, string> = {
   reject: 'Ablehnung durch den Vorstand',
   withdraw: 'Rücknahme durch die Person',
   death: 'Tod des Mitglieds',
+  expel: 'Ausschluss durch den Vorstand',
+  liftExpulsion: 'Aufhebung des Ausschlusses',
 }
 
 // Nach „Tod erfassen“: Hinweis, die Adresszeilen auf die Erben umzustellen (siehe Plan).
@@ -75,6 +77,16 @@ const canRecordDeath = computed(
     canWrite.value &&
     member.value?.date_of_death === null &&
     (member.value.status === 'member' || member.value.status === 'notice_given'),
+)
+// Ausschließen wie Tod: bei Mitgliedern, auch gekündigten. Aufheben, solange einer erfasst ist.
+const canExpel = computed(
+  () =>
+    canWrite.value &&
+    member.value?.expulsion_date === null &&
+    (member.value.status === 'member' || member.value.status === 'notice_given'),
+)
+const canLiftExpulsion = computed(
+  () => canWrite.value && member.value !== null && member.value.expulsion_date !== null,
 )
 const canRevokeDeath = computed(() => canWrite.value && member.value !== null && member.value.date_of_death !== null)
 // Bearbeiten nur, solange kein anderes Formular offen ist; so geht kein Entwurf verloren.
@@ -135,6 +147,8 @@ async function confirmAction(): Promise<void> {
     reject: members.reject,
     withdraw: members.withdraw,
     death: members.recordDeath,
+    expel: members.expel,
+    liftExpulsion: members.liftExpulsion,
   }
   const chosen = action.value
   const day = actionDate.value
@@ -254,6 +268,10 @@ function generateLines(): void {
               <dt>Kündigung eingegangen</dt>
               <dd>{{ formatDate(member.notice_date) }}</dd>
             </template>
+            <template v-if="member.expulsion_date !== null">
+              <dt>Ausgeschlossen am</dt>
+              <dd>{{ formatDate(member.expulsion_date) }}</dd>
+            </template>
             <template v-if="member.date_of_death !== null">
               <dt>Verstorben am</dt>
               <dd>{{ formatDate(member.date_of_death) }}</dd>
@@ -283,7 +301,11 @@ function generateLines(): void {
           </div>
 
           <div
-            v-if="editing === null && action === null && (canDecide || canWithdraw || canRecordDeath || canRevokeDeath)"
+            v-if="
+              editing === null &&
+              action === null &&
+              (canDecide || canWithdraw || canRecordDeath || canRevokeDeath || canExpel || canLiftExpulsion)
+            "
             class="button-row"
           >
             <button v-if="canDecide" type="button" class="btn btn-primary" @click="startAction('admit')">Zulassen</button>
@@ -293,6 +315,12 @@ function generateLines(): void {
             </button>
             <button v-if="canRecordDeath" type="button" class="btn btn-secondary" @click="startAction('death')">
               Tod erfassen
+            </button>
+            <button v-if="canExpel" type="button" class="btn btn-secondary" @click="startAction('expel')">
+              Ausschließen
+            </button>
+            <button v-if="canLiftExpulsion" type="button" class="btn btn-outline" @click="startAction('liftExpulsion')">
+              Ausschluss aufheben
             </button>
             <button v-if="canRevokeDeath" type="button" class="btn btn-outline" :disabled="busy" @click="revokeDeath">
               Erfassung des Todes zurücknehmen
@@ -311,6 +339,14 @@ function generateLines(): void {
                 :max="members.todayIso()"
                 required
               />
+              <small v-if="action === 'expel'" class="hint">
+                Ausscheiden zum 31.12. des Beschlussjahres. Widerspruch beim Aufsichtsrat binnen sechs
+                Wochen; gibt er ihm statt, den Ausschluss hier wieder aufheben.
+              </small>
+              <small v-if="action === 'liftExpulsion'" class="hint">
+                Datum des Aufsichtsratsbeschlusses; auch für eine Fehlerfassung. Der Ausschluss gilt
+                danach als nie geschehen.
+              </small>
               <div class="button-row">
                 <button type="submit" class="btn btn-primary" :disabled="busy">Bestätigen</button>
                 <button type="button" class="btn btn-secondary" @click="action = null">Abbrechen</button>

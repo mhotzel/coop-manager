@@ -2098,3 +2098,38 @@ Angemeldete Sitzungen und Login-Versuche liegen auch in dieser Datei, man muss s
   bleibt nachvollziehbar, dass zuerst falsch erfasst wurde.
 - **`confirmAction` jetzt `async`:** Erst nach dem Speichern steht fest, ob es geklappt hat; nur dann
   erscheint der Hinweis zu den Erben. Dafür wartet die Funktion mit `await` auf `run()`.
+
+## 2026-11-18 – Schritt 5f, Teil 4: Ausschluss erfassen und aufheben
+
+**Was:** Matthias hat 5f-4 ohne vorherige Einzelerklärung freigegeben („gleich komplett
+umsetzen, außer du hast Fragen“); der Plan legte das Wesentliche schon fest.
+
+- `members/status.py`: Status `expelled` („ausgeschlossen“), `MembershipDates.expulsion_date`.
+  `effective_exit_date()` nimmt jetzt den frühesten Termin aus Kündigung, Tod und Ausschluss.
+  Reihenfolge in `status_on`: ausgeschieden, verstorben, ausgeschlossen, gekündigt, Mitglied.
+- `members/domain.py`: `expel` (Event `member.expelled`) prüft „nicht in der Zukunft“, „noch nicht
+  erfasst“ und „am Beschlusstag Mitglied oder gekündigt“; `lift_expulsion`
+  (`member.expulsion-lifted`) mit Datum, nicht vor dem Ausschluss. `record_death` erlaubt jetzt
+  auch Ausgeschlossene (bis zum 31.12. sind sie noch Mitglied).
+- Service und API: `POST /api/members/expel` und `/lift-expulsion` (Body wie Zulassung:
+  `member_id`, `decision_date`); `MemberDetail` mit `expulsion_date`.
+- Projektion: Spalte `expulsion_date`.
+- Frontend: Aktionen „Ausschließen“ und „Ausschluss aufheben“ im vorhandenen Datumsformular, je mit
+  kurzem Hinweis; Kopfkarte zeigt „Ausgeschlossen am“; Status orange. `NoticeCard.vue` zeigt
+  „gegenstandslos (Tod)“ bzw. „gegenstandslos (Ausschluss)“.
+- Tests: 14 neue; die Datei `test_members_notice_api.py` heißt jetzt `test_members_exit_api.py`
+  (`git mv`), weil sie Kündigung, Tod und Ausschluss abdeckt. 396 grün, ruff, pyright und
+  `npm run type-check` sauber.
+- Wieder `backend/data/projections.sqlite` löschen (neue Spalte).
+
+**Warum so:**
+
+- **Frühester Termin statt fester Reihenfolge:** Kündigung, Tod und Ausschluss können zusammen
+  vorkommen. Die Mitgliedschaft endet mit dem ersten, das greift; `min()` drückt das direkt aus.
+- **Aufheben „als nie geschehen“:** Ein erfolgreicher Widerspruch macht den Beschluss unwirksam.
+  Weil der Status aus den Daten berechnet wird, gilt nach dem Aufheben automatisch wieder, was
+  vorher galt, z. B. die Kündigung, auch rückwirkend über das Jahresende hinweg.
+- **Gegenstandslos nur bei Tod oder Ausschluss:** Sonst würde eine Teilkündigung mit späterem Termin
+  als die Kündigung der Mitgliedschaft fälschlich markiert; das fiel beim Schreiben auf.
+- **`git mv` statt neu anlegen:** So sieht Git die Umbenennung, und die Geschichte der Datei bleibt
+  mit `git log --follow` erhalten.

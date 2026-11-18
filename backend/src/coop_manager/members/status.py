@@ -8,6 +8,7 @@ MEMBER = "member"
 REJECTED = "rejected"
 NOTICE_GIVEN = "notice_given"
 DECEASED = "deceased"
+EXPELLED = "expelled"
 EXITED = "exited"
 STATUSES = {
     APPLICANT: "Antragsteller",
@@ -15,6 +16,7 @@ STATUSES = {
     REJECTED: "abgelehnt",
     NOTICE_GIVEN: "gekündigt",
     DECEASED: "verstorben",
+    EXPELLED: "ausgeschlossen",
     EXITED: "ausgeschieden",
 }
 
@@ -31,6 +33,7 @@ class MembershipDates:
     notice_date: date | None = None  # Eingang der Kündigung
     exit_date: date | None = None  # Ausscheiden zum 31.12.; ab dem Folgetag „ausgeschieden“
     date_of_death: date | None = None  # Ausscheiden dann zum 31.12. des Todesjahres (§ 77 GenG)
+    expulsion_date: date | None = None  # Beschluss des Vorstands; Ausscheiden zum 31.12. (§ 68 GenG)
 
 
 def status_on(dates: MembershipDates, day: date) -> str | None:
@@ -48,6 +51,8 @@ def status_on(dates: MembershipDates, day: date) -> str | None:
         return EXITED
     if dates.date_of_death is not None and day >= dates.date_of_death:
         return DECEASED
+    if dates.expulsion_date is not None and day >= dates.expulsion_date:
+        return EXPELLED
     if dates.notice_date is not None and day >= dates.notice_date:
         return NOTICE_GIVEN
     return MEMBER
@@ -61,15 +66,18 @@ def entry_date(dates: MembershipDates) -> date | None:
 
 
 def effective_exit_date(dates: MembershipDates) -> date | None:
-    """Das wirksame Ausscheiden: nach einem Tod der 31.12. des Todesjahres, sonst aus der Kündigung.
+    """Das wirksame Ausscheiden: der früheste Termin aus Kündigung, Tod und Ausschluss.
 
-    Der Tod kann das Ausscheiden nur vorziehen: Erfasst wird er nur, solange die Person am Sterbetag
-    noch Mitglied oder gekündigt ist, ihr Ausscheiden also nicht vor dem 31.12. des Todesjahres liegt.
-    Eine Kündigung mit späterem Termin wird damit gegenstandslos.
+    Tod und Ausschluss führen zum 31.12. ihres Jahres. Sie können das Ausscheiden nur vorziehen:
+    Erfasst werden sie nur, solange die Person noch Mitglied ist, ihr Ausscheiden also nicht vor
+    diesem 31.12. liegt. Eine Kündigung mit späterem Termin wird damit gegenstandslos.
     """
-    if dates.date_of_death is not None:
-        return date(dates.date_of_death.year, 12, 31)
-    return dates.exit_date
+    candidates = [dates.exit_date]
+    for event_date in (dates.date_of_death, dates.expulsion_date):
+        if event_date is not None:
+            candidates.append(date(event_date.year, 12, 31))
+    present = [d for d in candidates if d is not None]
+    return min(present) if present else None
 
 
 def default_exit_date(notice_date: date) -> date:
