@@ -1910,3 +1910,28 @@ einem deutschen Kommentar, wofür sie steht. Geprüft mit `npm run type-check`.
 
 **Warum:** Bezeichner sind im Projekt englisch (AGENTS.md); `FACHLICH` war ein Ausreißer. Der
 neue Name sagt, was drinsteht (die beiden Buchhaltungsrollen), und passt zu `ROLES` im Backend.
+
+## 2026-11-18 – Schritt 5e, Teil 2: Storno in der API
+
+**Was:**
+
+- `accounts/schemas.py`: Befehl `ReverseBooking` mit `booking_id` und `reason` (höchstens 200
+  Zeichen, wie der Text bei Eintritt und Rückzahlung).
+- `accounts/api.py`: `POST /api/accounts/reverse`, nur für die Rolle Buchhaltung. Antwortet wie
+  die anderen Befehle mit der Kontoansicht und ggf. der Warnung.
+- `accounts/bookings.py`: Die Regel „welches Konto ist das Mitgliedskonto einer Buchung“ steht
+  jetzt in `member_account_of(booking)`; der Service und die API nutzen sie beide.
+- Tests in `test_accounts_api.py`: Storno mit Warnung und zurückgenommenem Geldeingang, doppeltes
+  Storno und Storno eines Stornos (400), fehlender Grund (400), unbekannte Buchung (404), Rolle
+  „Buchhaltung lesend“ (403). Geprüft mit `uv run pytest` (336 grün), `uv run ruff check` und
+  `uv run pyright`.
+
+**Warum so:**
+
+- **Nur die Buchungs-ID im Body:** Das Konto ergibt sich aus der Buchung. Müsste das Frontend die
+  Kontonummer mitschicken, könnte sie falsch sein, und der Service müsste das extra prüfen.
+- **Konto für die Antwort aus der Gegenbuchung:** Der Service gibt die Stornobuchung zurück; deren
+  Mitgliedskonto ist dasselbe wie beim Original. Eine Hilfsfunktion statt der Regel an zwei Stellen.
+- **Kein Feld „storniert durch“ im Backend:** Original und Storno stehen immer auf demselben Konto,
+  also in derselben Liste der Kontoansicht. Das Frontend findet das Storno zu einer Buchung, indem
+  es nach `reverses == id` sucht. Ein eigenes Ansichtsmodell für Buchungen bräuchte es dafür nicht.

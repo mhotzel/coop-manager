@@ -152,3 +152,72 @@ def test_readonly_may_read_but_not_book(client, register, login, member):
 def test_not_logged_in(client, setup):
     assert client.get("/api/accounts/1").status_code == 401
     assert client.post("/api/accounts/subscribe", json=booking()).status_code == 401
+
+
+# --- Storno ---
+
+
+def reverse(booking_id: str, reason: str = "Zahlung falsch zugeordnet") -> dict:
+    return {"booking_id": booking_id, "reason": reason}
+
+
+def test_reverse(client, member):
+    posted = client.post("/api/accounts/subscribe", json=booking()).json()["account"]["bookings"][0]
+
+    response = client.post("/api/accounts/reverse", json=reverse(posted["id"]))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "Geldeingang ist zurückgenommen" in body["warning"]
+    account = body["account"]
+    assert (account["number"], account["balance"], account["shares"]) == (1, 0, 0)
+    original, reversal = account["bookings"]
+    assert reversal["kind"] == "reversal"
+    assert reversal["reverses"] == original["id"]
+    assert original["reverses"] is None
+    assert reversal["text"] == "Storno zu „Eintritt“: Zahlung falsch zugeordnet"
+    assert reversal["value_date"] == original["value_date"]
+
+    detail = client.get(f"/api/members/{member['id']}").json()
+    assert detail["payment_date"] is None
+
+
+def test_reverse_twice_is_400(client, member):
+    posted = client.post("/api/accounts/subscribe", json=booking()).json()["account"]["bookings"][0]
+    client.post("/api/accounts/reverse", json=reverse(posted["id"]))
+
+    response = client.post("/api/accounts/reverse", json=reverse(posted["id"]))
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Die Buchung ist bereits storniert."
+
+
+def test_reverse_a_reversal_is_400(client, member):
+    posted = client.post("/api/accounts/subscribe", json=booking()).json()["account"]["bookings"][0]
+    reversal = client.post("/api/accounts/reverse", json=reverse(posted["id"])).json()["account"]["bookings"][1]
+
+    response = client.post("/api/accounts/reverse", json=reverse(reversal["id"]))
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Ein Storno kann nicht storniert werden."
+
+
+def test_reverse_without_reason_is_400(client, member):
+    posted = client.post("/api/accounts/subscribe", json=booking()).json()["account"]["bookings"][0]
+
+    response = client.post("/api/accounts/reverse", json=reverse(posted["id"], reason="  "))
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Der Stornogrund fehlt."
+
+
+def test_reverse_unknown_booking_is_404(client, member):
+    assert client.post("/api/accounts/reverse", json=reverse("gibt-es-nicht")).status_code == 404
+
+
+def test_readonly_may_not_reverse(client, register, login, member):
+    posted = client.post("/api/accounts/subscribe", json=booking()).json()["account"]["bookings"][0]
+    register("rita", ACCOUNTING_READONLY, full_name="Rita Lesend")
+    login("rita")
+
+    assert client.post("/api/accounts/reverse", json=reverse(posted["id"])).status_code == 403

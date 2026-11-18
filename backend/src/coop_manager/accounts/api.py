@@ -17,7 +17,7 @@ from ..users.domain import ACCOUNTING, ACCOUNTING_READONLY
 from ..users.projections import UserView
 from . import bookings
 from .bookings import BookingResult
-from .schemas import AccountView, BookingResponse, ShareBooking
+from .schemas import AccountView, BookingResponse, ReverseBooking, ShareBooking
 from .services import get_ledger
 
 router = APIRouter(prefix="/api/accounts")
@@ -56,6 +56,16 @@ def refund(body: ShareBooking, db: Db, user: Writer) -> BookingResponse:
         db, body.account_number, body.shares, body.value_date, date.today(), actor=user.id, text=body.text
     )
     return _response(db, body.account_number, result)
+
+
+@router.post("/reverse")
+def reverse(body: ReverseBooking, db: Db, user: Writer) -> BookingResponse:
+    """Storno: Gegenbuchung zu einer Buchung, mit Grund.
+
+    Im Body steht nur die Buchung; das Konto für die Antwort ergibt sich aus der Gegenbuchung.
+    """
+    result = bookings.reverse(db, body.booking_id, body.reason, date.today(), actor=user.id)
+    return _response(db, bookings.member_account_of(result.booking), result)
 
 
 def _view(db: Database, number: int) -> AccountView:

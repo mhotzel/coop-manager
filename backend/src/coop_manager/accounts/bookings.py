@@ -105,14 +105,21 @@ def reverse(db: Database, booking_id: str, reason: str, today: date, actor: str)
     original = get_ledger(db).booking(booking_id)
     if original is None:
         raise NotFoundError("Die Buchung gibt es nicht.")
-    # Eintritt und Rückzahlung berühren genau ein Mitgliedskonto, die Gegenseite ist das
-    # Genossenschaftskonto. Die Umbuchung zwischen zwei Mitgliedskonten kommt erst in 5h.
-    account_number = original.credit if original.debit == COOPERATIVE_ACCOUNT_NUMBER else original.debit
+    account_number = member_account_of(original)
 
     def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
         return ledger.reverse(booking_id, f"Storno zu „{original.text}“: {reason.strip()}", today)
 
     return _book(db, account_number, today, actor, book)
+
+
+def member_account_of(booking: Booking) -> int:
+    """Das Mitgliedskonto einer Buchung: die Seite, die nicht das Genossenschaftskonto ist.
+
+    Eintritt, Rückzahlung und ihr Storno berühren genau ein Mitgliedskonto, die Gegenseite ist das
+    Genossenschaftskonto. Die Umbuchung zwischen zwei Mitgliedskonten kommt erst in 5h.
+    """
+    return booking.credit if booking.debit == COOPERATIVE_ACCOUNT_NUMBER else booking.debit
 
 
 def _ensure_shares(shares: int) -> None:

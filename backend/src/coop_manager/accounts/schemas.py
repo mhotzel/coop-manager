@@ -53,3 +53,10 @@ class ShareBooking(BaseModel):
     shares: int
     value_date: date
     text: str | None = Field(default=None, max_length=200)  # leer = „Eintritt“ bzw. „Rückzahlung“
+
+
+class ReverseBooking(BaseModel):
+    """Befehl: Storno einer Buchung. Der Grund ist Pflicht und kommt in den Buchungstext."""
+
+    booking_id: str
+    reason: str = Field(max_length=200)
