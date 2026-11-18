@@ -2172,3 +2172,31 @@ umsetzen, außer du hast Fragen“); der Plan legte das Wesentliche schon fest.
   bei der Größe des Dorfladens schnell genug.
 - **Test gegen den Code ohne Korrektur (Mutationstest von Hand):** Ein Test, der auch ohne die
   Korrektur grün wäre, würde nichts absichern.
+
+## 2026-11-18 – Schritt 5g, Teil 2: Seite „Jahresende“
+
+**Was:**
+
+- `frontend/src/accounts.ts`: Interface `ExitEntry`, `exitReasonsLabel()` („Kündigung“,
+  „Teilkündigung“, „Tod“, „Ausschluss“), `getExits(year)` und `postExits(year)`.
+- Neue Seite `frontend/src/views/accounts/YearEndView.vue`:
+  - Jahresfeld, vorbelegt mit dem Vorjahr; `watch` mit `immediate` lädt beim Öffnen und bei jeder
+    Änderung neu.
+  - Tabelle mit Nummer (Link zum Mitglied), Name, Grund, Anteilen („alle (3)“ bei vollem
+    Ausscheiden), Anspruch (Link zum Konto, z. B. für ein Storno) und Status „offen“/„gebucht“.
+  - Knopf „Ausscheiden buchen (n)“ nur für die Buchhaltung, nur mit offenen Fällen und nur für
+    abgeschlossene Jahre, mit `confirm()`. Für das laufende Jahr ein Hinweis „Vorschau“.
+- `router.ts`: Route `/year-end`; `App.vue`: Menüpunkt „Jahresende“.
+- Backend: Das Jahr ist in `GET /api/accounts/exits/{year}` (`Path(ge=…, le=…)`) und in
+  `PostExits` (`Field(ge=…, le=…)`) auf 1900–2200 begrenzt, mit Test.
+- Geprüft mit `npm run type-check`, `uv run pytest` (411 grün), ruff und pyright.
+
+**Warum so:**
+
+- **Jahresgrenze im Backend:** Beim Schreiben der Seite fiel auf, dass Jahr 0 in Python kein
+  gültiges Datum ergibt (`date(0, 12, 31)`) und der Server mit 500 antworten würde. Mit der
+  Grenze antwortet FastAPI selbst mit 422, bevor unser Code läuft.
+- **Nichts laden bei ungültigem Jahr:** Während man „2025“ eintippt, stehen kurz „2“, „20“ und
+  „202“ im Feld; dafür soll keine Anfrage an den Server gehen.
+- **Anspruch verlinkt auf das Konto:** Dort steht der Storno-Knopf; eine eigene Storno-Funktion auf
+  dieser Seite wäre doppelt.

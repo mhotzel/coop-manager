@@ -22,7 +22,7 @@ interface MenuEntry {
   hint?: string // Tooltip beim Überfahren, z. B. der ausgeschriebene Titel
 }
 
-// Die Fachseiten (Mitglieder, Konten, Reports) sehen beide Buchhaltungsrollen.
+// Die Fachseiten (Mitglieder, Konten, Jahresende, Reports) sehen beide Buchhaltungsrollen.
 const ACCOUNTING_ROLES = [ACCOUNTING, ACCOUNTING_READONLY]
 
 const menuEntries: MenuEntry[] = [
@@ -35,6 +35,7 @@ const menuEntries: MenuEntry[] = [
     roles: ACCOUNTING_ROLES,
   },
   { title: 'Konten', roles: ACCOUNTING_ROLES },
+  { title: 'Jahresende', to: { name: 'year-end' }, roles: ACCOUNTING_ROLES },
   { title: 'Reports', roles: ACCOUNTING_ROLES },
   { title: 'Benutzer', to: { name: 'users' }, roles: [ADMIN] },
 ]

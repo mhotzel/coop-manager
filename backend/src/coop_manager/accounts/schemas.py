@@ -55,10 +55,14 @@ class ShareBooking(BaseModel):
     text: str | None = Field(default=None, max_length=200)  # leer = „Eintritt“ bzw. „Rückzahlung“
 
 
+# Plausible Jahre; ohne Grenze ergäbe z. B. Jahr 0 kein gültiges Datum und einen Serverfehler.
+YEAR_MIN, YEAR_MAX = 1900, 2200
+
+
 class PostExits(BaseModel):
     """Befehl: alle offenen Ausscheiden zum 31.12. dieses Jahres buchen."""
 
-    year: int
+    year: int = Field(ge=YEAR_MIN, le=YEAR_MAX)
 
 
 class ReverseBooking(BaseModel):

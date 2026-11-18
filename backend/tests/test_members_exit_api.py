@@ -283,3 +283,8 @@ def test_readonly_may_list_but_not_post_exits(client, register, login, leaving_2
 
     assert client.get("/api/accounts/exits/2025").status_code == 200
     assert client.post("/api/accounts/post-exits", json={"year": 2025}).status_code == 403
+
+
+def test_implausible_year_is_422(client, leaving_2025):
+    assert client.get("/api/accounts/exits/0").status_code == 422
+    assert client.post("/api/accounts/post-exits", json={"year": 0}).status_code == 422

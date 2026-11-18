@@ -7,7 +7,7 @@ Service seine eigenen Regeln. Jeder Befehl antwortet mit der Kontoansicht und gg
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path
 
 from ..core import NotFoundError
 from ..db import Database, get_db
@@ -18,7 +18,7 @@ from ..users.projections import UserView
 from . import bookings, exits
 from .bookings import BookingResult
 from .exits import ExitEntry
-from .schemas import AccountView, BookingResponse, PostExits, ReverseBooking, ShareBooking
+from .schemas import YEAR_MAX, YEAR_MIN, AccountView, BookingResponse, PostExits, ReverseBooking, ShareBooking
 from .services import get_ledger
 
 router = APIRouter(prefix="/api/accounts")
@@ -39,7 +39,7 @@ def get_account(number: int, db: Db, user: Reader) -> AccountView:
 
 
 @router.get("/exits/{year}")
-def get_exits(year: int, db: Db, user: Reader) -> list[ExitEntry]:
+def get_exits(year: Annotated[int, Path(ge=YEAR_MIN, le=YEAR_MAX)], db: Db, user: Reader) -> list[ExitEntry]:
     """Alle, die zum 31.12. `year` ausscheiden, gebucht oder offen."""
     return exits.exits_due(db, year)
 

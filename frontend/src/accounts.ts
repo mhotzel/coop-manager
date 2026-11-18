@@ -137,3 +137,42 @@ export function sharesForAmount(cents: number, sharePrice: number): number | nul
   }
   return cents / sharePrice
 }
+
+// --- Ausscheiden zum Jahresende ---
+
+// Muss zu ExitEntry im Backend passen (accounts/exits.py): ein Konto, das zum 31.12. Anteile abgibt.
+export interface ExitEntry {
+  member_id: string
+  member_number: number
+  account_number: number
+  name: string
+  reasons: string[] // siehe EXIT_REASON_LABELS
+  full: boolean // alle Anteile, die Mitgliedschaft endet
+  shares: number
+  balance: number // Saldo in Cent: der Auseinandersetzungsanspruch
+  booked: boolean
+}
+
+// Die Gründe aus members/domain.py (NOTICE, PARTIAL_NOTICE, EXIT_REASON_…).
+const EXIT_REASON_LABELS: Record<string, string> = {
+  notice: 'Kündigung',
+  partial_notice: 'Teilkündigung',
+  deceased: 'Tod',
+  expelled: 'Ausschluss',
+}
+
+export function exitReasonsLabel(reasons: string[]): string {
+  return reasons.map((reason) => EXIT_REASON_LABELS[reason] ?? reason).join(', ')
+}
+
+// Wie im Backend (YEAR_MIN, YEAR_MAX in accounts/schemas.py).
+export const YEAR_MIN = 1900
+export const YEAR_MAX = 2200
+
+export function getExits(year: number): Promise<ExitEntry[]> {
+  return api<ExitEntry[]>(`/api/accounts/exits/${year}`)
+}
+
+export function postExits(year: number): Promise<ExitEntry[]> {
+  return api<ExitEntry[]>('/api/accounts/post-exits', { method: 'POST', body: { year } })
+}

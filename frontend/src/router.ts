@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { ACCOUNTING, ACCOUNTING_READONLY, ADMIN, currentUser } from './auth'
 import AccountView from './views/accounts/AccountView.vue'
+import YearEndView from './views/accounts/YearEndView.vue'
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
 import MemberApplyView from './views/members/MemberApplyView.vue'
@@ -50,6 +51,7 @@ export const router = createRouter({
       props: true,
       meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] },
     },
+    { path: '/year-end', name: 'year-end', component: YearEndView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
     { path: '/users', name: 'users', component: UserListView, meta: { roles: [ADMIN] } },
     // Anders als in FastAPI egal, ob vor oder nach /users/:id: Feste Pfade gewinnen immer.
     { path: '/users/new', name: 'user-new', component: UserNewView, meta: { roles: [ADMIN] } },
