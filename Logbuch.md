@@ -1750,3 +1750,32 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
   und nicht stillschweigend als 15.050 € gelesen.
 - **Mit ganzen Cent gerechnet:** Der Text wird in Euro- und Centteil zerlegt, nicht über
   `parseFloat`. So entsteht kein Rundungsfehler wie bei 0,1 + 0,2.
+
+## 2026-11-18 – Startskript `dev.sh` für die Entwicklung
+
+**Was:**
+
+- Neues Skript `dev.sh` im Projektordner (ausführbar mit `chmod +x dev.sh`). `./dev.sh` startet
+  uvicorn (Backend, mit `--reload`) und Vite (Frontend) zusammen, Strg+C beendet beide.
+- `DEV_HINTS.md`, Abschnitt „Starten“: `./dev.sh` ist jetzt der Normalfall, die zwei Terminals
+  bleiben als Alternative beschrieben.
+- Geprüft: Skript gestartet, `/healthz` direkt (Port 8000) und über den Vite-Proxy (Port 5173)
+  abgefragt, mit SIGINT (wie Strg+C) beendet, danach mit `ss -ltn` und `ps` kontrolliert, dass die
+  Ports frei sind und kein Prozess übrig bleibt.
+
+**Warum so:**
+
+- **`&`:** startet einen Befehl im Hintergrund, so laufen beide Server gleichzeitig.
+- **`( cd backend && … )`:** Die Klammern bilden eine Subshell; das `cd` gilt nur darin.
+- **`cd "$(dirname "$0")"`:** `$0` ist der Pfad des Skripts. So funktioniert der Aufruf aus jedem
+  Ordner.
+- **`trap 'kill 0' EXIT`:** Beim Ende des Skripts (auch durch Strg+C) geht ein Signal an die ganze
+  Prozessgruppe. Damit enden auch die Unterprozesse, die `uv`, uvicorn (`--reload`) und `npm`
+  selbst starten, und nichts bleibt im Hintergrund hängen.
+- **`wait -n`:** wartet, bis *einer* der beiden Server endet. Stürzt etwa das Backend ab, läuft das
+  Skript weiter zum Ende, der `trap` greift und beendet auch das Frontend. So läuft nie unbemerkt
+  nur noch eine Hälfte.
+- **Bewusst einfach:** Eine Variante mit `start`/`stop`/`status`, PID- und Logdateien hielte das
+  Terminal frei, wäre aber dreimal so lang und fehleranfälliger (verwaiste PID-Dateien). KISS.
+- **Stolperfalle beim Testen:** `pgrep -f dev.sh` bzw. `pkill -f …` finden auch den eigenen
+  Prüfbefehl, weil das Suchwort in dessen Kommandozeile steht. `pkill` beendet dann sich selbst.

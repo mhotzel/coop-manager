@@ -56,7 +56,16 @@ Die Konten der Mitglieder entstehen von selbst mit dem Antrag, mit derselben Num
 
 ## Starten
 
-Zwei Terminals, Backend und Frontend laufen nebeneinander:
+Aus dem Projektordner startet ein Befehl beide Server, **Strg+C** beendet beide:
+
+```bash
+./dev.sh
+```
+
+Die Ausgaben von Backend und Frontend erscheinen gemischt im selben Terminal. Stürzt einer der
+beiden ab, beendet das Skript auch den anderen.
+
+Alternativ von Hand in zwei Terminals, z. B. um die Ausgaben getrennt zu sehen:
 
 ```bash
 # Terminal 1: Backend (uvicorn), http://localhost:8000
