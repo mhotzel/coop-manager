@@ -46,7 +46,8 @@ class MemberDetail(BaseModel):
     entry_date: date | None  # Eintrittsdatum: das spätere von Zulassung und Geldeingang
     notices: list[Notice]  # laufende Kündigungen und Teilkündigungen
     notice_date: date | None  # Eingang der Kündigung der Mitgliedschaft
-    exit_date: date | None  # Ausscheiden aus der Kündigung der Mitgliedschaft
+    exit_date: date | None  # wirksames Ausscheiden: aus Tod oder Kündigung der Mitgliedschaft
+    date_of_death: date | None
     partial_notice: bool  # heute läuft eine Teilkündigung (Hinweis neben dem Status)
     salutation: str  # die Briefanrede, wie sie in den Seriendruck kommt
     generated_address_lines: list[str]
@@ -79,9 +80,12 @@ class MemberDetail(BaseModel):
             entry_date=member.entry_date(),
             notices=member.notices,
             notice_date=full.notice_date if full else None,
-            exit_date=full.exit_date if full else None,
+            exit_date=member.exit_date(),
+            date_of_death=member.date_of_death,
             partial_notice=member.has_partial_notice(today),
-            salutation=salutation(member.person_type, member.name, member.salutation),
+            salutation=salutation(
+                member.person_type, member.name, member.salutation, deceased=member.date_of_death is not None
+            ),
             generated_address_lines=list(generated),
             warnings=address_warnings(member.address_lines, generated),
         )
@@ -178,3 +182,9 @@ class WithdrawNotice(MemberCommand):
     """Befehl: eine Kündigung oder Teilkündigung zurücknehmen."""
 
     notice_id: str = Field(max_length=100)
+
+
+class RecordDeath(MemberCommand):
+    """Befehl: Tod erfassen."""
+
+    date_of_death: date

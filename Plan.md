@@ -201,6 +201,13 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   nicht vor.
 - **Vorgang „Tod erfassen“** mit Sterbedatum: Status „verstorben“, Ausscheiden automatisch zum
   31.12. des Todesjahres; eine laufende Kündigung mit späterem Termin wird gegenstandslos.
+- **Nur bei Mitgliedern** (auch gekündigten), Stand 2026-11-18. Stirbt ein Antragsteller, wird der
+  Antrag zurückgenommen, der Grund steht in den Hinweisen.
+- **Gegenstandslose Kündigungen bleiben stehen** (Stand 2026-11-18) und sind in der Kündigungskarte
+  als „gegenstandslos (Tod)“ markiert; sie werden nicht automatisch zurückgenommen.
+- **Erfassung des Todes zurücknehmen** (Stand 2026-11-18): nur für Fehlerfassungen (falsches
+  Mitglied, falsches Datum), Event `member.death-revoked`. Ein falsches Datum wird so korrigiert:
+  zurücknehmen und neu erfassen.
 - **Anschrift der Erben** wird von Hand in den Adresszeilen gepflegt, es gibt keinen eigenen
   Erbenvertreter-Datensatz. Der Vorgang „Tod erfassen“ zeigt dem Erfasser einen Hinweis, wie die
   Adresszeilen umzustellen sind, und führt zu ihnen.

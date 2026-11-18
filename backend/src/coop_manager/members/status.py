@@ -7,12 +7,14 @@ APPLICANT = "applicant"
 MEMBER = "member"
 REJECTED = "rejected"
 NOTICE_GIVEN = "notice_given"
+DECEASED = "deceased"
 EXITED = "exited"
 STATUSES = {
     APPLICANT: "Antragsteller",
     MEMBER: "Mitglied",
     REJECTED: "abgelehnt",
     NOTICE_GIVEN: "gekündigt",
+    DECEASED: "verstorben",
     EXITED: "ausgeschieden",
 }
 
@@ -28,6 +30,7 @@ class MembershipDates:
     # Nur aus der Kündigung der Mitgliedschaft; eine Teilkündigung ändert den Status nicht.
     notice_date: date | None = None  # Eingang der Kündigung
     exit_date: date | None = None  # Ausscheiden zum 31.12.; ab dem Folgetag „ausgeschieden“
+    date_of_death: date | None = None  # Ausscheiden dann zum 31.12. des Todesjahres (§ 77 GenG)
 
 
 def status_on(dates: MembershipDates, day: date) -> str | None:
@@ -39,9 +42,12 @@ def status_on(dates: MembershipDates, day: date) -> str | None:
     entry = entry_date(dates)
     if entry is None or day < entry:
         return APPLICANT
-    # Bis einschließlich 31.12. gekündigt, ab dem Folgetag ausgeschieden (siehe Plan).
-    if dates.exit_date is not None and day > dates.exit_date:
+    # Bis einschließlich 31.12. gekündigt bzw. verstorben, ab dem Folgetag ausgeschieden (siehe Plan).
+    exit = effective_exit_date(dates)
+    if exit is not None and day > exit:
         return EXITED
+    if dates.date_of_death is not None and day >= dates.date_of_death:
+        return DECEASED
     if dates.notice_date is not None and day >= dates.notice_date:
         return NOTICE_GIVEN
     return MEMBER
@@ -52,6 +58,18 @@ def entry_date(dates: MembershipDates) -> date | None:
     if dates.admission_date is None or dates.payment_date is None:
         return None
     return max(dates.admission_date, dates.payment_date)
+
+
+def effective_exit_date(dates: MembershipDates) -> date | None:
+    """Das wirksame Ausscheiden: nach einem Tod der 31.12. des Todesjahres, sonst aus der Kündigung.
+
+    Der Tod kann das Ausscheiden nur vorziehen: Erfasst wird er nur, solange die Person am Sterbetag
+    noch Mitglied oder gekündigt ist, ihr Ausscheiden also nicht vor dem 31.12. des Todesjahres liegt.
+    Eine Kündigung mit späterem Termin wird damit gegenstandslos.
+    """
+    if dates.date_of_death is not None:
+        return date(dates.date_of_death.year, 12, 31)
+    return dates.exit_date
 
 
 def default_exit_date(notice_date: date) -> date:

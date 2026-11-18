@@ -1,10 +1,10 @@
-"""Kündigung und Teilkündigung über die API, mit Hauptbuch und Suche (Projektion)."""
+"""Kündigung, Teilkündigung und Tod über die API, mit Hauptbuch und Suche (Projektion)."""
 
 import pytest
 
 from coop_manager.accounts.services import open_cooperative_account
 from coop_manager.members.domain import NOTICE, PARTIAL_NOTICE
-from coop_manager.members.status import MEMBER, NOTICE_GIVEN
+from coop_manager.members.status import DECEASED, MEMBER, NOTICE_GIVEN
 from coop_manager.members.values import NATURAL_PERSON
 from coop_manager.system_settings.services import change_share_price
 from coop_manager.users.domain import ACCOUNTING, ACCOUNTING_READONLY
@@ -147,3 +147,50 @@ def test_full_notice_is_not_a_partial_notice(client, member_id):
     client.post("/api/members/give-notice", json={"member_id": member_id, "notice_date": "2026-11-12"})
 
     assert search_row(client)["partial_notice"] is False
+
+
+# --- Tod ---
+
+
+def test_record_death(client, member_id):
+    response = client.post("/api/members/record-death", json={"member_id": member_id, "date_of_death": "2026-11-12"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["status"], body["date_of_death"], body["exit_date"]) == (DECEASED, "2026-11-12", "2026-12-31")
+    assert body["salutation"] == "Sehr geehrte Damen und Herren"
+    assert search_status(client) == DECEASED
+
+
+def test_death_after_notice_shows_earlier_exit(client, member_id):
+    client.post("/api/members/give-notice", json={"member_id": member_id, "notice_date": "2026-11-12"})
+
+    body = client.post("/api/members/record-death", json={"member_id": member_id, "date_of_death": "2026-11-13"}).json()
+
+    assert (body["notice_date"], body["exit_date"]) == ("2026-11-12", "2026-12-31")
+    assert body["notices"][0]["exit_date"] == "2028-12-31"  # bleibt stehen, ist aber gegenstandslos
+
+
+def test_revoke_death(client, member_id):
+    client.post("/api/members/record-death", json={"member_id": member_id, "date_of_death": "2026-11-12"})
+
+    response = client.post("/api/members/revoke-death", json={"member_id": member_id})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["status"], body["date_of_death"], body["exit_date"]) == (MEMBER, None, None)
+    assert body["salutation"] == "Sehr geehrte Frau Muster"
+    assert search_status(client) == MEMBER
+
+
+def test_revoke_death_without_death_is_400(client, member_id):
+    assert client.post("/api/members/revoke-death", json={"member_id": member_id}).status_code == 400
+
+
+def test_readonly_may_not_record_death(client, register, login, member_id):
+    register("rita", ACCOUNTING_READONLY, full_name="Rita Lesend")
+    login("rita")
+
+    command = {"member_id": member_id, "date_of_death": "2026-11-12"}
+    assert client.post("/api/members/record-death", json=command).status_code == 403
+    assert client.post("/api/members/revoke-death", json={"member_id": member_id}).status_code == 403

@@ -7,7 +7,7 @@ from typing import Self
 from ..core import DomainError
 from ..eventsource import Aggregate, Event, on
 from .addressing import address_lines
-from .status import MEMBER, MembershipDates, entry_date, status_on
+from .status import MEMBER, NOTICE_GIVEN, MembershipDates, effective_exit_date, entry_date, status_on
 from .values import (
     ADDRESS_LINE_COUNT,
     Address,
@@ -61,6 +61,7 @@ class Member(Aggregate):
         self.withdrawn = False  # True: Rücknahme durch die Person, nicht Ablehnung durch den Vorstand
         self.payment_date: date | None = None  # Geldeingang, erfasst vom Buchungsservice
         self.notices: list[Notice] = []  # laufende Kündigungen, zurückgenommene fallen heraus
+        self.date_of_death: date | None = None
 
     @classmethod
     def apply(
@@ -106,6 +107,10 @@ class Member(Aggregate):
         """Eintrittsdatum: das spätere von Zulassung und Geldeingang; None, solange eines fehlt."""
         return entry_date(self._dates())
 
+    def exit_date(self) -> date | None:
+        """Das wirksame Ausscheiden (31.12.): nach einem Tod das des Todesjahres, sonst aus der Kündigung."""
+        return effective_exit_date(self._dates())
+
     def full_notice(self) -> Notice | None:
         """Die Kündigung der Mitgliedschaft; None, solange es keine gibt."""
         return next((n for n in self.notices if n.kind == NOTICE), None)
@@ -128,6 +133,7 @@ class Member(Aggregate):
             self.payment_date,
             notice_date=full.notice_date if full else None,
             exit_date=full.exit_date if full else None,
+            date_of_death=self.date_of_death,
         )
 
     def admit(self, decision_date: date, today: date) -> None:
@@ -213,6 +219,27 @@ class Member(Aggregate):
         if today > notice.exit_date:
             raise DomainError("Das Ausscheiden ist bereits vorbei.")
         self._record("member.notice-withdrawn", notice_id=notice_id)
+
+    def record_death(self, date_of_death: date, today: date) -> None:
+        """Tod erfassen: Status „verstorben“, Ausscheiden zum 31.12. des Todesjahres (§ 77 GenG).
+
+        Nur bei Mitgliedern, auch gekündigten. Stirbt ein Antragsteller, wird der Antrag
+        zurückgenommen (siehe Plan). Erfährt man erst nach dem 31.12. davon, gilt das Ausscheiden
+        trotzdem rückwirkend, denn der Status wird aus den Daten berechnet.
+        """
+        if date_of_death > today:
+            raise DomainError("Das Sterbedatum darf nicht in der Zukunft liegen.")
+        if self.date_of_death is not None:
+            raise DomainError("Der Tod ist bereits erfasst.")
+        if self.status(date_of_death) not in (MEMBER, NOTICE_GIVEN):
+            raise DomainError("Den Tod erfasst man nur bei Mitgliedern; bei Antragstellern den Antrag zurücknehmen.")
+        self._record("member.died", date_of_death=date_of_death.isoformat())
+
+    def revoke_death(self) -> None:
+        """Nimmt eine falsche Erfassung des Todes zurück (falsches Mitglied oder falsches Datum)."""
+        if self.date_of_death is None:
+            raise DomainError("Es ist kein Tod erfasst.")
+        self._record("member.death-revoked")
 
     def _ensure_notice_possible(self, notice_date: date, exit_date: date, today: date) -> None:
         """Gemeinsame Prüfungen für Kündigung und Teilkündigung.
@@ -335,6 +362,14 @@ class Member(Aggregate):
     @on("member.notice-withdrawn")
     def _notice_withdrawn(self, event: Event) -> None:
         self.notices = [n for n in self.notices if n.id != event.data["notice_id"]]
+
+    @on("member.died")
+    def _died(self, event: Event) -> None:
+        self.date_of_death = date.fromisoformat(event.data["date_of_death"])
+
+    @on("member.death-revoked")
+    def _death_revoked(self, event: Event) -> None:
+        self.date_of_death = None
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

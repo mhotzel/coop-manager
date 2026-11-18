@@ -106,6 +106,16 @@ def withdraw_notice(db: Database, member_id: str, notice_id: str, today: date, a
     return _change(db, member_id, actor, lambda member: member.withdraw_notice(notice_id, today))
 
 
+def record_death(db: Database, member_id: str, date_of_death: date, today: date, actor: str) -> Member:
+    """Tod erfassen."""
+    return _change(db, member_id, actor, lambda member: member.record_death(date_of_death, today))
+
+
+def revoke_death(db: Database, member_id: str, actor: str) -> Member:
+    """Falsche Erfassung des Todes zurücknehmen."""
+    return _change(db, member_id, actor, lambda member: member.revoke_death())
+
+
 def change_name(db: Database, member_id: str, name: PersonName, actor: str) -> Member:
     """Name ändern, z. B. nach Heirat."""
     return _change(db, member_id, actor, lambda member: member.change_name(name))

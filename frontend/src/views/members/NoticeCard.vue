@@ -43,6 +43,13 @@ watch(noticeDate, (day) => {
   }
 })
 
+// Nach einem Tod endet die Mitgliedschaft zum 31.12. des Todesjahres; Kündigungen mit späterem
+// Termin bleiben als Geschichte stehen, sind aber gegenstandslos (siehe Plan).
+function isMootByDeath(notice: Notice): boolean {
+  const exit = props.member.exit_date
+  return props.member.date_of_death !== null && exit !== null && notice.exit_date > exit
+}
+
 function kindLabel(notice: Notice): string {
   return notice.kind === NOTICE ? 'Mitgliedschaft' : 'Teilkündigung'
 }
@@ -114,7 +121,10 @@ function withdraw(notice: Notice): void {
             <tr v-for="notice in member.notices" :key="notice.id">
               <td>{{ kindLabel(notice) }}</td>
               <td>{{ formatDate(notice.notice_date) }}</td>
-              <td>{{ formatDate(notice.exit_date) }}</td>
+              <td>
+                {{ formatDate(notice.exit_date) }}
+                <small v-if="isMootByDeath(notice)" class="moot">gegenstandslos (Tod)</small>
+              </td>
               <!-- Die Kündigung der Mitgliedschaft umfasst alle Anteile. -->
               <td class="col-number">{{ notice.shares ?? 'alle' }}</td>
               <td v-if="canWrite">
@@ -160,6 +170,11 @@ function withdraw(notice: Notice): void {
 </template>
 
 <style scoped>
+.moot {
+  display: block;
+  color: var(--text-muted);
+}
+
 h3 {
   margin: 0.8rem 0 0.4rem;
   font-size: 1rem;

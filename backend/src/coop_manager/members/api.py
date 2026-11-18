@@ -28,7 +28,9 @@ from .schemas import (
     Decision,
     GiveNotice,
     GivePartialNotice,
+    MemberCommand,
     MemberDetail,
+    RecordDeath,
     SearchRequest,
     Withdraw,
     WithdrawNotice,
@@ -114,6 +116,18 @@ def give_partial_notice(body: GivePartialNotice, db: Db, user: Writer) -> Member
 def withdraw_notice(body: WithdrawNotice, db: Db, user: Writer) -> MemberDetail:
     """Kündigung oder Teilkündigung zurücknehmen."""
     return _detail(services.withdraw_notice(db, body.member_id, body.notice_id, date.today(), actor=user.id))
+
+
+@router.post("/record-death")
+def record_death(body: RecordDeath, db: Db, user: Writer) -> MemberDetail:
+    """Tod erfassen."""
+    return _detail(services.record_death(db, body.member_id, body.date_of_death, date.today(), actor=user.id))
+
+
+@router.post("/revoke-death")
+def revoke_death(body: MemberCommand, db: Db, user: Writer) -> MemberDetail:
+    """Falsche Erfassung des Todes zurücknehmen."""
+    return _detail(services.revoke_death(db, body.member_id, actor=user.id))
 
 
 @router.post("/change-name")

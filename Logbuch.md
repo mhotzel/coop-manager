@@ -2062,3 +2062,39 @@ Angemeldete Sitzungen und Login-Versuche liegen auch in dieser Datei, man muss s
 - **Datum als Text vergleichen:** ISO-Daten („2026-11-02“) sortieren als Text genauso wie als
   Datum, deshalb funktioniert `p.exit_date >= ?` in SQLite ohne Umwandlung.
 - **Nur bei Status „Mitglied“ anzeigen:** Bei „gekündigt“ wäre der Hinweis doppelt.
+
+## 2026-11-18 – Schritt 5f, Teil 3: Tod erfassen
+
+**Was:**
+
+- `members/status.py`: Status `deceased` („verstorben“), `MembershipDates.date_of_death`,
+  `effective_exit_date()`: nach einem Tod der 31.12. des Todesjahres, sonst aus der Kündigung.
+  Reihenfolge in `status_on`: ausgeschieden, verstorben, gekündigt, Mitglied.
+- `members/domain.py`: `record_death` (Event `member.died`) prüft „nicht in der Zukunft“, „noch
+  nicht erfasst“ und „am Sterbetag Mitglied oder gekündigt“; `revoke_death`
+  (`member.death-revoked`) für Fehlerfassungen; `Member.exit_date()` liefert das wirksame Ausscheiden.
+- Briefanrede: `salutation(..., deceased=True)` gab es schon; die Detailansicht übergibt es jetzt.
+- Service und API: `POST /api/members/record-death` und `/revoke-death`; `MemberDetail` mit
+  `date_of_death`, `exit_date` ist jetzt das wirksame Ausscheiden.
+- Projektion: Spalte `date_of_death`, damit die Suche „verstorben“ zeigt.
+- Frontend:
+  - `members.ts`: `recordDeath`, `revokeDeath`, Status „verstorben“.
+  - `MemberDetailView.vue`: Aktion „Tod erfassen“ im vorhandenen Datumsformular, danach ein
+    Hinweis mit Knopf „Adresszeilen bearbeiten“, der das Formular öffnet und hinscrollt. Knopf
+    „Erfassung des Todes zurücknehmen“ mit Sicherheitsabfrage. Kopfkarte zeigt „Verstorben am“.
+  - `NoticeCard.vue`: Kündigungen mit späterem Termin als „gegenstandslos (Tod)“ markiert.
+- Tests: 15 neue in `test_members_domain.py` und `test_members_notice_api.py`; 380 grün, ruff,
+  pyright und `npm run type-check` sauber.
+- Wieder `backend/data/projections.sqlite` löschen (neue Spalte).
+
+**Warum so:**
+
+- **Wirksames Ausscheiden berechnet, nicht gespeichert:** Der Tod zieht das Ausscheiden vor, die
+  Kündigung bleibt dabei unverändert. Nimmt man die Erfassung des Todes zurück, gilt automatisch
+  wieder die Kündigung. Das ist der Vorteil, Status und Termine aus Fakten zu berechnen.
+- **Tod nur bei Mitgliedern:** Ein Antragsteller hat keine Mitgliedschaft, die auf Erben übergehen
+  könnte; dafür gibt es die Rücknahme.
+- **Zurücknehmen statt Ändern:** Events sind unveränderlich. Eine Korrektur ist ein neues Event, so
+  bleibt nachvollziehbar, dass zuerst falsch erfasst wurde.
+- **`confirmAction` jetzt `async`:** Erst nach dem Speichern steht fest, ob es geklappt hat; nur dann
+  erscheint der Hinweis zu den Erben. Dafür wartet die Funktion mit `await` auf `run()`.

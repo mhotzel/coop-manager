@@ -75,7 +75,8 @@ export interface MemberDetail {
   entry_date: string | null // das spätere von Zulassung und Geldeingang
   notices: Notice[] // laufende Kündigungen und Teilkündigungen
   notice_date: string | null // Eingang der Kündigung der Mitgliedschaft
-  exit_date: string | null // Ausscheiden aus der Kündigung der Mitgliedschaft
+  exit_date: string | null // wirksames Ausscheiden: aus Tod oder Kündigung der Mitgliedschaft
+  date_of_death: string | null
   partial_notice: boolean // heute läuft eine Teilkündigung
   salutation: string
   generated_address_lines: string[]
@@ -113,6 +114,7 @@ const STATUS_LABELS: Record<string, string> = {
   member: 'Mitglied',
   rejected: 'abgelehnt',
   notice_given: 'gekündigt',
+  deceased: 'verstorben',
   exited: 'ausgeschieden',
 }
 
@@ -229,6 +231,19 @@ export function withdrawNotice(memberId: string, noticeId: string): Promise<Memb
     method: 'POST',
     body: { member_id: memberId, notice_id: noticeId },
   })
+}
+
+// --- Tod ---
+
+export function recordDeath(memberId: string, dateOfDeath: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/record-death', {
+    method: 'POST',
+    body: { member_id: memberId, date_of_death: dateOfDeath },
+  })
+}
+
+export function revokeDeath(memberId: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/revoke-death', { method: 'POST', body: { member_id: memberId } })
 }
 
 export function applyForMembership(application: {

@@ -32,7 +32,7 @@ const busy = ref(false)
 
 // Welche Entscheidung gerade erfasst wird. Ein Union-Typ aus festen Texten: Vertippt man sich
 // (z. B. 'admitt'), meldet TypeScript einen Fehler. null heißt: kein Formular offen.
-type Action = 'admit' | 'reject' | 'withdraw'
+type Action = 'admit' | 'reject' | 'withdraw' | 'death'
 const action = ref<Action | null>(null)
 const actionDate = ref('')
 
@@ -40,7 +40,11 @@ const ACTION_TITLES: Record<Action, string> = {
   admit: 'Zulassung durch den Vorstand',
   reject: 'Ablehnung durch den Vorstand',
   withdraw: 'Rücknahme durch die Person',
+  death: 'Tod des Mitglieds',
 }
+
+// Nach „Tod erfassen“: Hinweis, die Adresszeilen auf die Erben umzustellen (siehe Plan).
+const heirsHint = ref(false)
 
 // Welcher Abschnitt gerade bearbeitet wird; immer nur einer, jeder mit seinem eigenen Befehl.
 type Section = 'name' | 'address' | 'contact' | 'addressLines' | 'salutation' | 'notes'
@@ -65,6 +69,14 @@ const isOpen = computed(() => member.value !== null && member.value.rejection_da
 const canDecide = computed(() => canWrite.value && isOpen.value && member.value?.admission_date === null)
 // Den Antrag zurücknehmen kann nur, wer noch nicht Mitglied ist; danach gilt die Kündigung.
 const canWithdraw = computed(() => canWrite.value && isOpen.value && member.value?.entry_date === null)
+// Tod erfassen bei Mitgliedern, auch gekündigten; bei Antragstellern gilt die Rücknahme.
+const canRecordDeath = computed(
+  () =>
+    canWrite.value &&
+    member.value?.date_of_death === null &&
+    (member.value.status === 'member' || member.value.status === 'notice_given'),
+)
+const canRevokeDeath = computed(() => canWrite.value && member.value !== null && member.value.date_of_death !== null)
 // Bearbeiten nur, solange kein anderes Formular offen ist; so geht kein Entwurf verloren.
 const canEdit = computed(() => canWrite.value && editing.value === null && action.value === null)
 
@@ -108,11 +120,12 @@ async function run(command: () => Promise<MemberDetail>, success: string): Promi
 function startAction(chosen: Action): void {
   message.value = ''
   error.value = ''
+  heirsHint.value = false
   action.value = chosen
   actionDate.value = members.todayIso()
 }
 
-function confirmAction(): void {
+async function confirmAction(): Promise<void> {
   if (action.value === null) {
     return
   }
@@ -121,10 +134,27 @@ function confirmAction(): void {
     admit: members.admit,
     reject: members.reject,
     withdraw: members.withdraw,
+    death: members.recordDeath,
   }
-  const command = commands[action.value]
+  const chosen = action.value
   const day = actionDate.value
-  void run(() => command(props.id, day), `${ACTION_TITLES[action.value]} wurde gespeichert.`)
+  await run(() => commands[chosen](props.id, day), `${ACTION_TITLES[chosen]} wurde gespeichert.`)
+  // run() lässt error leer, wenn alles geklappt hat.
+  heirsHint.value = chosen === 'death' && error.value === ''
+}
+
+function revokeDeath(): void {
+  if (!confirm('Die Erfassung des Todes zurücknehmen? Das ist nur für Fehlerfassungen gedacht.')) {
+    return
+  }
+  heirsHint.value = false
+  void run(() => members.revokeDeath(props.id), 'Die Erfassung des Todes wurde zurückgenommen.')
+}
+
+// Vom Hinweis nach dem Tod direkt zu den Adresszeilen: Formular öffnen und hinscrollen.
+function editLinesForHeirs(): void {
+  startEdit('addressLines')
+  document.getElementById('address-lines-card')?.scrollIntoView({ behavior: 'smooth' })
 }
 
 // Öffnet einen Abschnitt zum Bearbeiten und füllt den Entwurf mit den gespeicherten Daten.
@@ -136,6 +166,7 @@ function startEdit(section: Section): void {
   }
   message.value = ''
   error.value = ''
+  heirsHint.value = false
   draftName.value = { ...m.name }
   draftAddress.value = { ...m.address }
   draftContact.value = { ...m.contact }
@@ -222,6 +253,13 @@ function generateLines(): void {
             <template v-if="member.notice_date !== null">
               <dt>Kündigung eingegangen</dt>
               <dd>{{ formatDate(member.notice_date) }}</dd>
+            </template>
+            <template v-if="member.date_of_death !== null">
+              <dt>Verstorben am</dt>
+              <dd>{{ formatDate(member.date_of_death) }}</dd>
+            </template>
+            <!-- Wirksames Ausscheiden: nach einem Tod der 31.12. des Todesjahres. -->
+            <template v-if="member.exit_date !== null">
               <dt>Ausscheiden zum</dt>
               <dd>{{ formatDate(member.exit_date) }}</dd>
             </template>
@@ -234,11 +272,30 @@ function generateLines(): void {
             </RouterLink>
           </div>
 
-          <div v-if="editing === null && action === null && (canDecide || canWithdraw)" class="button-row">
+          <div v-if="heirsHint" class="status-box warning">
+            <p>
+              Bitte die Adresszeilen auf die Erben umstellen, z. B. „An die Erben von …“ mit deren
+              Anschrift. Die Briefanrede lautet jetzt immer „Sehr geehrte Damen und Herren“.
+            </p>
+            <div class="button-row">
+              <button type="button" class="btn btn-primary" @click="editLinesForHeirs">Adresszeilen bearbeiten</button>
+            </div>
+          </div>
+
+          <div
+            v-if="editing === null && action === null && (canDecide || canWithdraw || canRecordDeath || canRevokeDeath)"
+            class="button-row"
+          >
             <button v-if="canDecide" type="button" class="btn btn-primary" @click="startAction('admit')">Zulassen</button>
             <button v-if="canDecide" type="button" class="btn btn-secondary" @click="startAction('reject')">Ablehnen</button>
             <button v-if="canWithdraw" type="button" class="btn btn-secondary" @click="startAction('withdraw')">
               Rücknahme
+            </button>
+            <button v-if="canRecordDeath" type="button" class="btn btn-secondary" @click="startAction('death')">
+              Tod erfassen
+            </button>
+            <button v-if="canRevokeDeath" type="button" class="btn btn-outline" :disabled="busy" @click="revokeDeath">
+              Erfassung des Todes zurücknehmen
             </button>
           </div>
 
@@ -354,7 +411,7 @@ function generateLines(): void {
         </div>
       </div>
 
-      <div class="card">
+      <div id="address-lines-card" class="card">
         <div class="card-header">Adresszeilen</div>
         <div class="card-content">
           <form v-if="editing === 'addressLines'" @submit.prevent="saveLines">

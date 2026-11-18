@@ -52,6 +52,7 @@ class MemberList(Projector):
         notice_id        TEXT,  -- nur die Kündigung der Mitgliedschaft, nicht Teilkündigungen
         notice_date      TEXT,
         exit_date        TEXT,
+        date_of_death    TEXT,
         search_text      TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_members_number ON members (member_number);
@@ -153,6 +154,16 @@ class MemberList(Projector):
             (event.data["notice_id"], event.data["notice_date"], event.data["exit_date"], event.subject),
         )
 
+    @on("member.died")
+    def _died(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute(
+            "UPDATE members SET date_of_death = ? WHERE member_id = ?", (event.data["date_of_death"], event.subject)
+        )
+
+    @on("member.death-revoked")
+    def _death_revoked(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute("UPDATE members SET date_of_death = NULL WHERE member_id = ?", (event.subject,))
+
     @on("member.partial-notice-given")
     def _partial_notice_given(self, conn: sqlite3.Connection, event: Event) -> None:
         conn.execute(
@@ -238,6 +249,7 @@ def _to_row(row: sqlite3.Row, today: date) -> MemberRow:
         payment_date=date.fromisoformat(row["payment_date"]) if row["payment_date"] else None,
         notice_date=date.fromisoformat(row["notice_date"]) if row["notice_date"] else None,
         exit_date=date.fromisoformat(row["exit_date"]) if row["exit_date"] else None,
+        date_of_death=date.fromisoformat(row["date_of_death"]) if row["date_of_death"] else None,
     )
     return MemberRow(
         id=row["member_id"],

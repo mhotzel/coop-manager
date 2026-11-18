@@ -4,7 +4,15 @@ import pytest
 
 from coop_manager.core import DomainError
 from coop_manager.members.domain import NOTICE, PARTIAL_NOTICE, Member
-from coop_manager.members.status import APPLICANT, EXITED, MEMBER, NOTICE_GIVEN, REJECTED, default_exit_date
+from coop_manager.members.status import (
+    APPLICANT,
+    DECEASED,
+    EXITED,
+    MEMBER,
+    NOTICE_GIVEN,
+    REJECTED,
+    default_exit_date,
+)
 from coop_manager.members.values import LEGAL_ENTITY, NATURAL_PERSON, Address, Contact, PersonName
 
 TODAY = date(2026, 11, 30)  # „heute“ für Entscheidungen; die Tests hängen nicht vom echten Datum ab
@@ -490,3 +498,114 @@ def test_withdraw_notice_checks():
     with pytest.raises(DomainError, match="bereits vorbei"):
         member.withdraw_notice(notice_id, date(2027, 1, 1))
     member.withdraw_notice(notice_id, date(2026, 12, 31))  # am 31.12. geht es noch
+
+
+# --- Tod ---
+
+
+def test_record_death_and_status():
+    member = member_since_nov_10()
+
+    member.record_death(date(2026, 11, 20), TODAY)
+
+    member = reloaded(member)
+    assert member.date_of_death == date(2026, 11, 20)
+    assert member.exit_date() == date(2026, 12, 31)
+    assert member.status(date(2026, 11, 19)) == MEMBER
+    assert member.status(date(2026, 11, 20)) == DECEASED
+    assert member.status(date(2026, 12, 31)) == DECEASED
+    assert member.status(date(2027, 1, 1)) == EXITED
+
+
+def test_death_brings_exit_of_a_notice_forward():
+    """Kündigung zum 31.12.2028, Tod im März 2027: ausgeschieden ab 2028, die Kündigung ist gegenstandslos."""
+    member = member_since_nov_10()
+    member.give_notice(date(2026, 11, 20), EXIT, TODAY)
+
+    member.record_death(date(2027, 3, 10), date(2027, 3, 15))
+
+    member = reloaded(member)
+    assert member.status(date(2027, 3, 9)) == NOTICE_GIVEN
+    assert member.status(date(2027, 3, 10)) == DECEASED
+    assert member.status(date(2028, 1, 1)) == EXITED
+    assert member.exit_date() == date(2027, 12, 31)
+
+
+def test_death_can_be_recorded_retroactively():
+    """Erst im Februar 2027 erfährt man vom Tod am 20.11.2026: ausgeschieden rückwirkend zum 31.12.2026."""
+    member = member_since_nov_10()
+
+    member.record_death(date(2026, 11, 20), today=date(2027, 2, 5))
+
+    member = reloaded(member)
+    assert member.status(date(2026, 11, 20)) == DECEASED
+    assert member.status(date(2027, 2, 5)) == EXITED
+    assert member.exit_date() == date(2026, 12, 31)
+
+
+def test_death_on_the_day_of_entry_and_today():
+    member = member_since_nov_10()
+    member.record_death(date(2026, 11, 10), TODAY)  # am Tag des Eintritts
+
+    other = member_since_nov_10()
+    other.record_death(TODAY, TODAY)  # heute
+
+    assert (member.status(TODAY), other.status(TODAY)) == (DECEASED, DECEASED)
+
+
+def test_death_after_exit_is_rejected():
+    member = member_since_nov_10()
+    member.give_notice(date(2026, 11, 20), date(2026, 12, 31), TODAY)
+
+    with pytest.raises(DomainError, match="nur bei Mitgliedern"):
+        member.record_death(date(2027, 2, 1), date(2027, 2, 5))
+
+
+@pytest.mark.parametrize(
+    "date_of_death, message",
+    [
+        (date(2026, 12, 1), "nicht in der Zukunft"),
+        (date(2026, 11, 9), "nur bei Mitgliedern"),  # vor dem Eintritt
+    ],
+)
+def test_record_death_checks(date_of_death, message):
+    with pytest.raises(DomainError, match=message):
+        member_since_nov_10().record_death(date_of_death, TODAY)
+
+
+def test_applicant_death_is_not_recorded():
+    with pytest.raises(DomainError, match="Antrag zurücknehmen"):
+        apply().record_death(date(2026, 11, 20), TODAY)
+
+
+def test_death_only_once():
+    member = member_since_nov_10()
+    member.record_death(date(2026, 11, 20), TODAY)
+
+    with pytest.raises(DomainError, match="bereits erfasst"):
+        member.record_death(date(2026, 11, 21), TODAY)
+
+
+def test_no_notice_after_death():
+    member = member_since_nov_10()
+    member.record_death(date(2026, 11, 20), TODAY)
+
+    with pytest.raises(DomainError, match="Mitglied"):
+        member.give_notice(date(2026, 11, 25), EXIT, TODAY)
+
+
+def test_revoke_death():
+    member = member_since_nov_10()
+    member.record_death(date(2026, 11, 20), TODAY)
+
+    member.revoke_death()
+
+    member = reloaded(member)
+    assert member.date_of_death is None
+    assert member.status(date(2027, 1, 1)) == MEMBER
+    member.record_death(date(2026, 11, 21), TODAY)  # mit richtigem Datum neu erfassen
+
+
+def test_revoke_death_needs_death():
+    with pytest.raises(DomainError, match="kein Tod erfasst"):
+        member_since_nov_10().revoke_death()
