@@ -172,258 +172,261 @@ function generateLines(): void {
 </script>
 
 <template>
-  <div class="button-row">
-    <RouterLink :to="{ name: 'members' }" class="btn btn-secondary">Zur Suche</RouterLink>
-  </div>
-
-  <div v-if="error" class="status-box error"><p>{{ error }}</p></div>
-  <div v-if="message" class="status-box info"><p>{{ message }}</p></div>
-
-  <template v-if="member">
-    <!-- Oben, damit man die Warnungen direkt nach dem Speichern sieht. Speichern geht trotzdem. -->
-    <div v-if="member.warnings.length > 0" class="status-box warning">
-      <p v-for="warning in member.warnings" :key="warning">{{ warning }}</p>
+  <!-- card-center: die ganze Seite schmal (max. 600 px) und mittig, wie die Antragsmaske. -->
+  <div class="card-center">
+    <div class="button-row">
+      <RouterLink :to="{ name: 'members' }" class="btn btn-secondary">Zur Suche</RouterLink>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        Nr. {{ member.member_number }}:
-        {{ isNaturalPerson ? `${member.name.first_names} ${member.name.last_name}` : member.name.company_name }}
-        <span v-if="member.status !== null" class="status-tag" :class="statusTagClass(member.status)">
-          {{ statusLabel(member.status) }}
-        </span>
+    <div v-if="error" class="status-box error"><p>{{ error }}</p></div>
+    <div v-if="message" class="status-box info"><p>{{ message }}</p></div>
+
+    <template v-if="member">
+      <!-- Oben, damit man die Warnungen direkt nach dem Speichern sieht. Speichern geht trotzdem. -->
+      <div v-if="member.warnings.length > 0" class="status-box warning">
+        <p v-for="warning in member.warnings" :key="warning">{{ warning }}</p>
       </div>
-      <div class="card-content">
-        <dl>
-          <dt>Art der Person</dt>
-          <dd>{{ personTypeLabel(member.person_type) }}</dd>
-          <dt>Antrag vom</dt>
-          <dd>{{ formatDate(member.application_date) }}</dd>
-          <dt>Gezeichnete Anteile</dt>
-          <dd>{{ member.shares_subscribed }}</dd>
-          <dt>Zugelassen am</dt>
-          <dd>{{ formatDate(member.admission_date) }}</dd>
-          <template v-if="member.rejection_date !== null">
-            <dt>{{ member.withdrawn ? 'Zurückgenommen am' : 'Abgelehnt am' }}</dt>
-            <dd>{{ formatDate(member.rejection_date) }}</dd>
-          </template>
-          <dt>Geldeingang am</dt>
-          <dd>{{ formatDate(member.payment_date) }}</dd>
-          <dt>Eintritt am</dt>
-          <dd>{{ formatDate(member.entry_date) }}</dd>
-        </dl>
 
-        <div class="button-row">
-          <!-- Mitglieds- und Kontonummer sind gleich (siehe Plan). -->
-          <RouterLink :to="{ name: 'account', params: { number: member.member_number } }" class="btn btn-outline">
-            Konto anzeigen
-          </RouterLink>
+      <div class="card">
+        <div class="card-header">
+          Nr. {{ member.member_number }}:
+          {{ isNaturalPerson ? `${member.name.first_names} ${member.name.last_name}` : member.name.company_name }}
+          <span v-if="member.status !== null" class="status-tag" :class="statusTagClass(member.status)">
+            {{ statusLabel(member.status) }}
+          </span>
         </div>
+        <div class="card-content">
+          <dl>
+            <dt>Art der Person</dt>
+            <dd>{{ personTypeLabel(member.person_type) }}</dd>
+            <dt>Antrag vom</dt>
+            <dd>{{ formatDate(member.application_date) }}</dd>
+            <dt>Gezeichnete Anteile</dt>
+            <dd>{{ member.shares_subscribed }}</dd>
+            <dt>Zugelassen am</dt>
+            <dd>{{ formatDate(member.admission_date) }}</dd>
+            <template v-if="member.rejection_date !== null">
+              <dt>{{ member.withdrawn ? 'Zurückgenommen am' : 'Abgelehnt am' }}</dt>
+              <dd>{{ formatDate(member.rejection_date) }}</dd>
+            </template>
+            <dt>Geldeingang am</dt>
+            <dd>{{ formatDate(member.payment_date) }}</dd>
+            <dt>Eintritt am</dt>
+            <dd>{{ formatDate(member.entry_date) }}</dd>
+          </dl>
 
-        <div v-if="editing === null && action === null && (canDecide || canWithdraw)" class="button-row">
-          <button v-if="canDecide" type="button" class="btn btn-primary" @click="startAction('admit')">Zulassen</button>
-          <button v-if="canDecide" type="button" class="btn btn-secondary" @click="startAction('reject')">Ablehnen</button>
-          <button v-if="canWithdraw" type="button" class="btn btn-secondary" @click="startAction('withdraw')">
-            Rücknahme
-          </button>
-        </div>
+          <div class="button-row">
+            <!-- Mitglieds- und Kontonummer sind gleich (siehe Plan). -->
+            <RouterLink :to="{ name: 'account', params: { number: member.member_number } }" class="btn btn-outline">
+              Konto anzeigen
+            </RouterLink>
+          </div>
 
-        <form v-if="action !== null" @submit.prevent="confirmAction">
-          <div class="form-group">
-            <label for="action-date">{{ ACTION_TITLES[action] }} am</label>
-            <!-- min/max: Der Browser bietet nur Tage zwischen Antrag und heute an (geprüft wird im Backend). -->
-            <input
-              id="action-date"
-              v-model="actionDate"
-              type="date"
-              :min="member.application_date"
-              :max="members.todayIso()"
-              required
-            />
-            <div class="button-row">
-              <button type="submit" class="btn btn-primary" :disabled="busy">Bestätigen</button>
-              <button type="button" class="btn btn-secondary" @click="action = null">Abbrechen</button>
+          <div v-if="editing === null && action === null && (canDecide || canWithdraw)" class="button-row">
+            <button v-if="canDecide" type="button" class="btn btn-primary" @click="startAction('admit')">Zulassen</button>
+            <button v-if="canDecide" type="button" class="btn btn-secondary" @click="startAction('reject')">Ablehnen</button>
+            <button v-if="canWithdraw" type="button" class="btn btn-secondary" @click="startAction('withdraw')">
+              Rücknahme
+            </button>
+          </div>
+
+          <form v-if="action !== null" @submit.prevent="confirmAction">
+            <div class="form-group">
+              <label for="action-date">{{ ACTION_TITLES[action] }} am</label>
+              <!-- min/max: Der Browser bietet nur Tage zwischen Antrag und heute an (geprüft wird im Backend). -->
+              <input
+                id="action-date"
+                v-model="actionDate"
+                type="date"
+                :min="member.application_date"
+                :max="members.todayIso()"
+                required
+              />
+              <div class="button-row">
+                <button type="submit" class="btn btn-primary" :disabled="busy">Bestätigen</button>
+                <button type="button" class="btn btn-secondary" @click="action = null">Abbrechen</button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="card-header">{{ isNaturalPerson ? 'Name' : 'Firma und Ansprechpartner' }}</div>
-      <div class="card-content">
-        <form v-if="editing === 'name'" @submit.prevent="saveName">
-          <NameFields v-model="draftName" :person-type="member.person_type" />
-          <p class="hint">Die Adresszeilen ändern sich nicht von selbst, bitte danach prüfen.</p>
-          <div class="button-row">
-            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
-            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
-          </div>
-        </form>
-        <template v-else>
-          <dl>
-            <template v-if="!isNaturalPerson">
-              <dt>Firma</dt>
-              <dd>{{ member.name.company_name }}</dd>
-            </template>
-            <dt>Titel</dt>
-            <dd>{{ member.name.title || '–' }}</dd>
-            <dt>Vornamen</dt>
-            <dd>{{ member.name.first_names || '–' }}</dd>
-            <dt>Nachname</dt>
-            <dd>{{ member.name.last_name || '–' }}</dd>
-            <dt>Geschlecht</dt>
-            <dd>{{ genderLabel(member.name.gender) }}</dd>
+      <div class="card">
+        <div class="card-header">{{ isNaturalPerson ? 'Name' : 'Firma und Ansprechpartner' }}</div>
+        <div class="card-content">
+          <form v-if="editing === 'name'" @submit.prevent="saveName">
+            <NameFields v-model="draftName" :person-type="member.person_type" />
+            <p class="hint">Die Adresszeilen ändern sich nicht von selbst, bitte danach prüfen.</p>
+            <div class="button-row">
+              <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+              <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+            </div>
+          </form>
+          <template v-else>
+            <dl>
+              <template v-if="!isNaturalPerson">
+                <dt>Firma</dt>
+                <dd>{{ member.name.company_name }}</dd>
+              </template>
+              <dt>Titel</dt>
+              <dd>{{ member.name.title || '–' }}</dd>
+              <dt>Vornamen</dt>
+              <dd>{{ member.name.first_names || '–' }}</dd>
+              <dt>Nachname</dt>
+              <dd>{{ member.name.last_name || '–' }}</dd>
+              <dt>Geschlecht</dt>
+              <dd>{{ genderLabel(member.name.gender) }}</dd>
+            </dl>
+            <div v-if="canEdit" class="button-row">
+              <button type="button" class="btn btn-outline" @click="startEdit('name')">Bearbeiten</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Anschrift</div>
+        <div class="card-content">
+          <form v-if="editing === 'address'" @submit.prevent="saveAddress">
+            <AddressFields v-model="draftAddress" />
+            <p class="hint">Die Adresszeilen ändern sich nicht von selbst, bitte danach prüfen.</p>
+            <div class="button-row">
+              <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+              <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+            </div>
+          </form>
+          <template v-else>
+            <dl>
+              <dt>Straße</dt>
+              <dd>{{ member.address.street }} {{ member.address.house_number }}</dd>
+              <dt>Ort</dt>
+              <dd>{{ member.address.postal_code }} {{ member.address.city }}</dd>
+              <dt>Land</dt>
+              <dd>{{ member.address.country || 'Deutschland' }}</dd>
+            </dl>
+            <div v-if="canEdit" class="button-row">
+              <button type="button" class="btn btn-outline" @click="startEdit('address')">Bearbeiten</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Kontakt</div>
+        <div class="card-content">
+          <form v-if="editing === 'contact'" @submit.prevent="saveContact">
+            <ContactFields v-model="draftContact" />
+            <div class="button-row">
+              <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+              <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+            </div>
+          </form>
+          <template v-else>
+            <dl>
+              <dt>Telefon</dt>
+              <dd>{{ member.contact.phone || '–' }}</dd>
+              <dt>E-Mail</dt>
+              <dd>{{ member.contact.email || '–' }}</dd>
+            </dl>
+            <div v-if="canEdit" class="button-row">
+              <button type="button" class="btn btn-outline" @click="startEdit('contact')">Bearbeiten</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Adresszeilen</div>
+        <div class="card-content">
+          <form v-if="editing === 'addressLines'" @submit.prevent="saveLines">
+            <div class="form-group">
+              <!-- v-model auf ein Element der Liste: draftLines[index] wird direkt geändert. -->
+              <template v-for="(line, index) in draftLines" :key="index">
+                <label :for="`line-${index}`">
+                  Zeile {{ index + 1 }}
+                  <span v-if="line.length > LINE_WARN_LENGTH" class="too-long">
+                    ({{ line.length }} Zeichen, höchstens {{ LINE_WARN_LENGTH }} passen)
+                  </span>
+                </label>
+                <input :id="`line-${index}`" v-model="draftLines[index]" type="text" maxlength="100" />
+              </template>
+            </div>
+            <div class="button-row">
+              <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+              <button type="button" class="btn btn-outline" @click="generateLines">Adresszeilen erzeugen</button>
+              <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+            </div>
+          </form>
+          <template v-else>
+            <!-- Leere Zeilen mittendrin als geschütztes Leerzeichen, sonst fielen sie weg. -->
+            <div class="address-lines">
+              <div v-for="(line, index) in visibleAddressLines" :key="index">{{ line || ' ' }}</div>
+            </div>
+            <div v-if="canEdit" class="button-row">
+              <button type="button" class="btn btn-outline" @click="startEdit('addressLines')">Bearbeiten</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Briefanrede und Post</div>
+        <div class="card-content">
+          <form v-if="editing === 'salutation'" @submit.prevent="saveSalutation">
+            <div class="form-group">
+              <label for="salutation">Abweichende Briefanrede</label>
+              <input id="salutation" v-model="draftSalutation" type="text" maxlength="100" />
+              <p class="hint">Leer lassen, dann wird die Anrede aus Name und Geschlecht erzeugt.</p>
+            </div>
+            <div class="button-row">
+              <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+              <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+            </div>
+          </form>
+          <dl v-else>
+            <dt>Briefanrede</dt>
+            <dd>
+              {{ member.salutation }}
+              <span v-if="member.salutation_override" class="status-tag info">abweichend</span>
+              <button v-if="canEdit" type="button" class="btn btn-outline btn-inline" @click="startEdit('salutation')">
+                Bearbeiten
+              </button>
+            </dd>
+            <dt>Keine Post</dt>
+            <dd>
+              {{ member.no_mail ? 'ja, keine Einladungen per Seriendruck' : 'nein' }}
+              <button v-if="canEdit" type="button" class="btn btn-outline btn-inline" :disabled="busy" @click="toggleNoMail">
+                {{ member.no_mail ? 'Aufheben' : 'Setzen' }}
+              </button>
+            </dd>
           </dl>
-          <div v-if="canEdit" class="button-row">
-            <button type="button" class="btn btn-outline" @click="startEdit('name')">Bearbeiten</button>
-          </div>
-        </template>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="card-header">Anschrift</div>
-      <div class="card-content">
-        <form v-if="editing === 'address'" @submit.prevent="saveAddress">
-          <AddressFields v-model="draftAddress" />
-          <p class="hint">Die Adresszeilen ändern sich nicht von selbst, bitte danach prüfen.</p>
-          <div class="button-row">
-            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
-            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
-          </div>
-        </form>
-        <template v-else>
-          <dl>
-            <dt>Straße</dt>
-            <dd>{{ member.address.street }} {{ member.address.house_number }}</dd>
-            <dt>Ort</dt>
-            <dd>{{ member.address.postal_code }} {{ member.address.city }}</dd>
-            <dt>Land</dt>
-            <dd>{{ member.address.country || 'Deutschland' }}</dd>
-          </dl>
-          <div v-if="canEdit" class="button-row">
-            <button type="button" class="btn btn-outline" @click="startEdit('address')">Bearbeiten</button>
-          </div>
-        </template>
+      <div class="card">
+        <div class="card-header">Hinweise</div>
+        <div class="card-content">
+          <form v-if="editing === 'notes'" @submit.prevent="saveNotes">
+            <div class="form-group">
+              <label for="notes">Hinweise</label>
+              <textarea id="notes" v-model="draftNotes" rows="6" maxlength="5000"></textarea>
+            </div>
+            <div class="button-row">
+              <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
+              <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+            </div>
+          </form>
+          <template v-else>
+            <!-- pre-line: Zeilenumbrüche aus dem Text bleiben erhalten. -->
+            <p class="notes">{{ member.notes || 'keine' }}</p>
+            <div v-if="canEdit" class="button-row">
+              <button type="button" class="btn btn-outline" @click="startEdit('notes')">Bearbeiten</button>
+            </div>
+          </template>
+        </div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Kontakt</div>
-      <div class="card-content">
-        <form v-if="editing === 'contact'" @submit.prevent="saveContact">
-          <ContactFields v-model="draftContact" />
-          <div class="button-row">
-            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
-            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
-          </div>
-        </form>
-        <template v-else>
-          <dl>
-            <dt>Telefon</dt>
-            <dd>{{ member.contact.phone || '–' }}</dd>
-            <dt>E-Mail</dt>
-            <dd>{{ member.contact.email || '–' }}</dd>
-          </dl>
-          <div v-if="canEdit" class="button-row">
-            <button type="button" class="btn btn-outline" @click="startEdit('contact')">Bearbeiten</button>
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Adresszeilen</div>
-      <div class="card-content">
-        <form v-if="editing === 'addressLines'" @submit.prevent="saveLines">
-          <div class="form-group">
-            <!-- v-model auf ein Element der Liste: draftLines[index] wird direkt geändert. -->
-            <template v-for="(line, index) in draftLines" :key="index">
-              <label :for="`line-${index}`">
-                Zeile {{ index + 1 }}
-                <span v-if="line.length > LINE_WARN_LENGTH" class="too-long">
-                  ({{ line.length }} Zeichen, höchstens {{ LINE_WARN_LENGTH }} passen)
-                </span>
-              </label>
-              <input :id="`line-${index}`" v-model="draftLines[index]" type="text" maxlength="100" />
-            </template>
-          </div>
-          <div class="button-row">
-            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
-            <button type="button" class="btn btn-outline" @click="generateLines">Adresszeilen erzeugen</button>
-            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
-          </div>
-        </form>
-        <template v-else>
-          <!-- Leere Zeilen mittendrin als geschütztes Leerzeichen, sonst fielen sie weg. -->
-          <div class="address-lines">
-            <div v-for="(line, index) in visibleAddressLines" :key="index">{{ line || ' ' }}</div>
-          </div>
-          <div v-if="canEdit" class="button-row">
-            <button type="button" class="btn btn-outline" @click="startEdit('addressLines')">Bearbeiten</button>
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Briefanrede und Post</div>
-      <div class="card-content">
-        <form v-if="editing === 'salutation'" @submit.prevent="saveSalutation">
-          <div class="form-group">
-            <label for="salutation">Abweichende Briefanrede</label>
-            <input id="salutation" v-model="draftSalutation" type="text" maxlength="100" />
-            <p class="hint">Leer lassen, dann wird die Anrede aus Name und Geschlecht erzeugt.</p>
-          </div>
-          <div class="button-row">
-            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
-            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
-          </div>
-        </form>
-        <dl v-else>
-          <dt>Briefanrede</dt>
-          <dd>
-            {{ member.salutation }}
-            <span v-if="member.salutation_override" class="status-tag info">abweichend</span>
-            <button v-if="canEdit" type="button" class="btn btn-outline btn-inline" @click="startEdit('salutation')">
-              Bearbeiten
-            </button>
-          </dd>
-          <dt>Keine Post</dt>
-          <dd>
-            {{ member.no_mail ? 'ja, keine Einladungen per Seriendruck' : 'nein' }}
-            <button v-if="canEdit" type="button" class="btn btn-outline btn-inline" :disabled="busy" @click="toggleNoMail">
-              {{ member.no_mail ? 'Aufheben' : 'Setzen' }}
-            </button>
-          </dd>
-        </dl>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Hinweise</div>
-      <div class="card-content">
-        <form v-if="editing === 'notes'" @submit.prevent="saveNotes">
-          <div class="form-group">
-            <label for="notes">Hinweise</label>
-            <textarea id="notes" v-model="draftNotes" rows="6" maxlength="5000"></textarea>
-          </div>
-          <div class="button-row">
-            <button type="submit" class="btn btn-primary" :disabled="busy">Speichern</button>
-            <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
-          </div>
-        </form>
-        <template v-else>
-          <!-- pre-line: Zeilenumbrüche aus dem Text bleiben erhalten. -->
-          <p class="notes">{{ member.notes || 'keine' }}</p>
-          <div v-if="canEdit" class="button-row">
-            <button type="button" class="btn btn-outline" @click="startEdit('notes')">Bearbeiten</button>
-          </div>
-        </template>
-      </div>
-    </div>
-  </template>
+    </template>
+  </div>
 </template>
 
 <style scoped>

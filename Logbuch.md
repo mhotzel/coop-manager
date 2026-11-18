@@ -1814,3 +1814,24 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
   Terminal frei, wäre aber dreimal so lang und fehleranfälliger (verwaiste PID-Dateien). KISS.
 - **Stolperfalle beim Testen:** `pgrep -f dev.sh` bzw. `pkill -f …` finden auch den eigenen
   Prüfbefehl, weil das Suchwort in dessen Kommandozeile steht. `pkill` beendet dann sich selbst.
+
+## 2026-11-18 – Mitgliedsseite und Buchungsmaske schmal und mittig
+
+**Was:**
+
+- `MemberDetailView.vue`: Der ganze Seiteninhalt steckt in einem Rahmen `<div class="card-center">`
+  (max. 600 px breit, mittig), wie die Antragsmaske. Der Diff ist groß, aber nur wegen der neuen
+  Einrückung; `git diff -w` (Leerraum ignorieren) zeigt die eigentlichen drei Zeilen.
+- `BookingForm.vue`: Die Karte „Neue Buchung“ hat `class="card card-center"`.
+- Die Kontoübersicht und die Buchungstabelle auf der Kontoseite bleiben breit.
+
+**Warum so:**
+
+- **Vorhandene Klasse statt neuem CSS:** `card-center` aus `style.css` setzt `max-width: 600px`,
+  `width: 100%` (schrumpft auf dem Handy mit) und `margin-left/right: auto`. Mit `auto` auf beiden
+  Seiten verteilt der Browser den freien Platz gleichmäßig, das zentriert den Block.
+- **Ein Rahmen statt Klasse an jeder Karte:** So werden auch der Knopf „Zur Suche“ und die
+  Meldungen über den Karten schmal und stehen bündig mit ihnen.
+- **Tabelle breit:** Die Buchungstabelle braucht Platz für ihre Spalten, sonst wird sie gequetscht.
+- **Kein Prettier:** Es ist im Projekt nicht eingerichtet; ein Lauf hätte die ganze Datei
+  umformatiert. Fremde Formatierungsänderungen gehören nicht in einen fachlichen Commit.
