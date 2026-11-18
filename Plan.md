@@ -61,7 +61,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
        „storniert durch“ bzw. „Storno zu“ je Buchung
      - Teil 3: Frontend: Knopf „Stornieren“ je Buchung (nur Buchhaltung), Abfrage des Grundes,
        Kennzeichnung der Paare, Filter „Stornierte ausblenden“
-   - 5f: Kündigung, Teilkündigung, Tod und Ausschluss
+   - 5f: Kündigung, Teilkündigung, Tod und Ausschluss (aufgeteilt nach Vorgang, Stand 2026-11-18)
+     - Teil 1: Kündigung und Teilkündigung in Domäne, Status, Service und API
+     - Teil 2: Kündigung im Frontend, einschließlich „Kündigung zurücknehmen“
+     - Teil 3: Tod erfassen, mit Hinweis auf die Adresszeilen der Erben
+     - Teil 4: Ausschluss erfassen und aufheben (Widerspruch beim Aufsichtsrat erfolgreich)
    - 5g: „Ausscheiden zum Jahresende buchen“
    - 5h: Umbuchung, Auszahlung, Verlustvortrag, Verjährung, Liste offener Ansprüche
    - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
@@ -153,6 +157,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   erfolgt zum frühesten 31.12., der mindestens zwei Jahre nach Eingang der Kündigung liegt
   (Eingang 15.03.2026 → Ausscheiden 31.12.2028). Die App berechnet das Datum, es kann
   überschrieben werden.
+- **Überschreiben des Ausscheidensdatums** (Stand 2026-11-18): Es muss ein 31.12. sein und nach
+  dem Eingang der Kündigung liegen; früher als die Frist ist erlaubt (z. B. nach Vereinbarung mit
+  dem Vorstand), solche Fälle prüft der Vorstand ohnehin.
+- **Ausgeschieden ab dem 01.01.** (Stand 2026-11-18): Bis einschließlich 31.12. ist die Person
+  noch gekündigt bzw. verstorben oder ausgeschlossen und zählt mit ihren Anteilen; ab dem
+  Folgetag ist sie ausgeschieden. Reports zum Stichtag 31.12. zeigen sie also noch.
 
 ### Mitgliedschaft und Status
 
@@ -347,6 +357,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   gekündigten Anteile werden zum Ende des Geschäftsjahres zum Auseinandersetzungsanspruch.
 - **Ausschluss** (Satzung 6.2–6.4): Beschluss des Vorstands mit Datum, Widerspruch beim
   Aufsichtsrat binnen sechs Wochen.
+- **Ausschluss aufheben** (Stand 2026-11-18): Gibt der Aufsichtsrat einem Widerspruch statt, wird
+  der Ausschluss mit einem eigenen Vorgang aufgehoben (selten, Teil von 5f-4).
 - **Daten werden abgeleitet, nicht gepflegt:** Eintrittsdatum aus der Wertstellung der ersten
   Eintrittsbuchung, Kündigungsdatum und Ausscheidensdatum aus dem Vorgang „Kündigung erfassen“.
   Sterbedatum wird manuell erfasst. In der Maske sind diese Felder nur lesbar, Änderungen laufen

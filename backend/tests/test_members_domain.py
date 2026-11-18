@@ -3,8 +3,8 @@ from datetime import date, timedelta
 import pytest
 
 from coop_manager.core import DomainError
-from coop_manager.members.domain import Member
-from coop_manager.members.status import APPLICANT, MEMBER, REJECTED
+from coop_manager.members.domain import NOTICE, PARTIAL_NOTICE, Member
+from coop_manager.members.status import APPLICANT, EXITED, MEMBER, NOTICE_GIVEN, REJECTED, default_exit_date
 from coop_manager.members.values import LEGAL_ENTITY, NATURAL_PERSON, Address, Contact, PersonName
 
 TODAY = date(2026, 11, 30)  # „heute“ für Entscheidungen; die Tests hängen nicht vom echten Datum ab
@@ -342,3 +342,149 @@ def test_member_cannot_withdraw():
 
     with pytest.raises(DomainError, match="bereits Mitglied"):
         member.withdraw(date(2026, 11, 25), TODAY)
+
+
+# --- Kündigung und Teilkündigung ---
+
+EXIT = date(2028, 12, 31)  # Ausscheiden nach der Frist bei Eingang im November 2026
+
+
+def member_since_nov_10() -> Member:
+    """Antrag 02.11., Zulassung 05.11., Geldeingang 10.11.2026: Mitglied ab dem 10.11. mit 2 Anteilen."""
+    member = apply()
+    member.admit(date(2026, 11, 5), TODAY)
+    member.record_payment(date(2026, 11, 10), TODAY)
+    return member
+
+
+@pytest.mark.parametrize(
+    "notice_date, exit_date",
+    [
+        (date(2026, 3, 15), date(2028, 12, 31)),  # Beispiel aus dem Plan
+        (date(2026, 1, 1), date(2028, 12, 31)),
+        (date(2026, 12, 31), date(2028, 12, 31)),  # genau zwei Jahre reichen
+        (date(2027, 1, 1), date(2029, 12, 31)),
+    ],
+)
+def test_default_exit_date(notice_date, exit_date):
+    assert default_exit_date(notice_date) == exit_date
+
+
+def test_give_notice_and_status():
+    member = member_since_nov_10()
+
+    member.give_notice(date(2026, 11, 20), EXIT, TODAY)
+
+    member = reloaded(member)
+    [notice] = member.notices
+    assert (notice.kind, notice.notice_date, notice.exit_date, notice.shares) == (
+        NOTICE,
+        date(2026, 11, 20),
+        EXIT,
+        None,
+    )
+    assert member.status(date(2026, 11, 19)) == MEMBER
+    assert member.status(date(2026, 11, 20)) == NOTICE_GIVEN
+    assert member.status(date(2028, 12, 31)) == NOTICE_GIVEN  # am 31.12. noch dabei
+    assert member.status(date(2029, 1, 1)) == EXITED
+
+
+def test_exit_date_may_be_earlier_than_the_notice_period():
+    member = member_since_nov_10()
+
+    member.give_notice(date(2026, 11, 20), date(2026, 12, 31), TODAY)
+
+    assert reloaded(member).status(date(2027, 1, 1)) == EXITED
+
+
+@pytest.mark.parametrize(
+    "notice_date, exit_date, message",
+    [
+        (date(2026, 12, 1), EXIT, "nicht in der Zukunft"),
+        (date(2026, 11, 9), EXIT, "nur, wer am Tag des Eingangs Mitglied ist"),
+        (date(2026, 11, 20), date(2028, 12, 30), "immer zum 31.12."),
+        (date(2026, 11, 20), date(2025, 12, 31), "nach dem Eingang"),
+    ],
+)
+def test_give_notice_checks(notice_date, exit_date, message):
+    with pytest.raises(DomainError, match=message):
+        member_since_nov_10().give_notice(notice_date, exit_date, TODAY)
+
+
+def test_applicant_cannot_give_notice():
+    with pytest.raises(DomainError, match="Mitglied"):
+        apply().give_notice(date(2026, 11, 20), EXIT, TODAY)
+
+
+def test_notice_only_once():
+    member = member_since_nov_10()
+    member.give_notice(date(2026, 11, 20), EXIT, TODAY)
+
+    with pytest.raises(DomainError, match="bereits gekündigt"):
+        member.give_notice(date(2026, 11, 21), EXIT, TODAY)
+    with pytest.raises(DomainError, match="bereits gekündigt"):
+        member.give_partial_notice(1, date(2026, 11, 21), EXIT, TODAY, held=2)
+
+
+def test_partial_notice_keeps_membership():
+    member = member_since_nov_10()
+
+    member.give_partial_notice(1, date(2026, 11, 20), EXIT, TODAY, held=2)
+
+    member = reloaded(member)
+    [notice] = member.notices
+    assert (notice.kind, notice.shares) == (PARTIAL_NOTICE, 1)
+    assert member.partially_noticed_shares() == 1
+    assert member.status(date(2029, 1, 1)) == MEMBER
+
+
+def test_partial_notices_leave_at_least_one_share():
+    member = member_since_nov_10()
+    member.give_partial_notice(2, date(2026, 11, 20), EXIT, TODAY, held=4)
+
+    with pytest.raises(DomainError, match="höchstens 1 von 2"):
+        member.give_partial_notice(2, date(2026, 11, 21), EXIT, TODAY, held=4)
+
+    member.give_partial_notice(1, date(2026, 11, 21), EXIT, TODAY, held=4)
+    assert member.partially_noticed_shares() == 3
+
+
+@pytest.mark.parametrize("shares", [0, 2])
+def test_partial_notice_shares_checks(shares):
+    with pytest.raises(DomainError):
+        member_since_nov_10().give_partial_notice(shares, date(2026, 11, 20), EXIT, TODAY, held=2)
+
+
+def test_full_notice_after_partial_notice():
+    member = member_since_nov_10()
+    member.give_partial_notice(1, date(2026, 11, 20), EXIT, TODAY, held=2)
+
+    member.give_notice(date(2026, 11, 25), EXIT, TODAY)
+
+    assert len(reloaded(member).notices) == 2
+    assert reloaded(member).status(TODAY) == NOTICE_GIVEN
+
+
+def test_withdraw_notice():
+    member = member_since_nov_10()
+    member.give_notice(date(2026, 11, 20), EXIT, TODAY)
+    notice_id = member.notices[0].id
+
+    member.withdraw_notice(notice_id, TODAY)
+
+    member = reloaded(member)
+    assert member.notices == []
+    assert member.status(date(2029, 1, 1)) == MEMBER
+    member.give_notice(date(2026, 11, 25), EXIT, TODAY)  # danach geht es wieder
+
+
+def test_withdraw_notice_checks():
+    member = member_since_nov_10()
+    member.give_notice(date(2026, 11, 20), date(2026, 12, 31), TODAY)
+    notice_id = member.notices[0].id
+
+    with pytest.raises(DomainError, match="gibt es nicht"):
+        member.withdraw_notice("unbekannt", TODAY)
+    with pytest.raises(DomainError, match="bereits vorbei"):
+        member.withdraw_notice(notice_id, date(2027, 1, 1))
+    member.withdraw_notice(notice_id, date(2026, 12, 31))  # am 31.12. geht es noch

@@ -3,11 +3,12 @@ from collections.abc import Callable
 from datetime import date
 
 from ..accounts.services import get_ledger
-from ..core import NotFoundError
+from ..core import DomainError, NotFoundError
 from ..db import Database
 from ..eventsource import ConcurrencyError
 from .domain import Member
 from .numbers import SUBJECT, MemberNumbers
+from .status import default_exit_date
 from .values import Address, Contact, PersonName
 
 log = logging.getLogger(__name__)
@@ -64,6 +65,45 @@ def reject(db: Database, member_id: str, decision_date: date, today: date, actor
 def withdraw(db: Database, member_id: str, withdrawal_date: date, today: date, actor: str) -> Member:
     """Rücknahme des Antrags durch die Person."""
     return _change(db, member_id, actor, lambda member: member.withdraw(withdrawal_date, today))
+
+
+def give_notice(
+    db: Database, member_id: str, notice_date: date, exit_date: date | None, today: date, actor: str
+) -> Member:
+    """Kündigung der Mitgliedschaft; ohne `exit_date` zum Ende der Frist (Satzung 6.1)."""
+    exit_date = exit_date or default_exit_date(notice_date)
+    return _change(db, member_id, actor, lambda member: member.give_notice(notice_date, exit_date, today))
+
+
+def give_partial_notice(
+    db: Database,
+    member_id: str,
+    shares: int,
+    notice_date: date,
+    exit_date: date | None,
+    today: date,
+    actor: str,
+) -> Member:
+    """Teilkündigung einzelner Anteile; die gehaltenen Anteile kommen aus dem Hauptbuch.
+
+    Gespeichert wird nur das Mitglied, das Hauptbuch wird nur gelesen. Dass genau in diesem Moment
+    ein Storno die Anteile verringert, nehmen wir als sehr seltenen Randfall hin.
+    """
+    exit_date = exit_date or default_exit_date(notice_date)
+
+    def action(member: Member) -> None:
+        ledger = get_ledger(db)
+        account = ledger.account_of(member_id)
+        if account is None:
+            raise DomainError("Zum Mitglied gibt es kein Konto.")
+        member.give_partial_notice(shares, notice_date, exit_date, today, ledger.shares(account.number))
+
+    return _change(db, member_id, actor, action)
+
+
+def withdraw_notice(db: Database, member_id: str, notice_id: str, today: date, actor: str) -> Member:
+    """Kündigung oder Teilkündigung zurücknehmen."""
+    return _change(db, member_id, actor, lambda member: member.withdraw_notice(notice_id, today))
 
 
 def change_name(db: Database, member_id: str, name: PersonName, actor: str) -> Member:

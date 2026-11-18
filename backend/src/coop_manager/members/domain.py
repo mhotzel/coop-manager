@@ -1,13 +1,13 @@
 import unicodedata
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import date
 from typing import Self
 
 from ..core import DomainError
 from ..eventsource import Aggregate, Event, on
 from .addressing import address_lines
-from .status import MembershipDates, entry_date, status_on
+from .status import MEMBER, MembershipDates, entry_date, status_on
 from .values import (
     ADDRESS_LINE_COUNT,
     Address,
@@ -20,6 +20,20 @@ from .values import (
     validate_name,
     validate_person_type,
 )
+
+NOTICE = "notice"  # Kündigung der Mitgliedschaft (§ 65 GenG): alle Anteile
+PARTIAL_NOTICE = "partial_notice"  # Teilkündigung einzelner Anteile (§ 67b GenG)
+
+
+@dataclass(frozen=True)
+class Notice:
+    """Eine Kündigung; jede hat eine eigene ID, damit sie sich gezielt zurücknehmen lässt."""
+
+    id: str
+    kind: str  # NOTICE oder PARTIAL_NOTICE
+    notice_date: date  # Eingang der Kündigung
+    exit_date: date  # Ausscheiden zum 31.12.
+    shares: int | None = None  # nur bei der Teilkündigung; die Kündigung umfasst alle Anteile
 
 
 class Member(Aggregate):
@@ -46,6 +60,7 @@ class Member(Aggregate):
         self.rejection_date: date | None = None  # Ablehnung oder Rücknahme
         self.withdrawn = False  # True: Rücknahme durch die Person, nicht Ablehnung durch den Vorstand
         self.payment_date: date | None = None  # Geldeingang, erfasst vom Buchungsservice
+        self.notices: list[Notice] = []  # laufende Kündigungen, zurückgenommene fallen heraus
 
     @classmethod
     def apply(
@@ -91,9 +106,25 @@ class Member(Aggregate):
         """Eintrittsdatum: das spätere von Zulassung und Geldeingang; None, solange eines fehlt."""
         return entry_date(self._dates())
 
+    def full_notice(self) -> Notice | None:
+        """Die Kündigung der Mitgliedschaft; None, solange es keine gibt."""
+        return next((n for n in self.notices if n.kind == NOTICE), None)
+
+    def partially_noticed_shares(self) -> int:
+        """Anteile in laufenden Teilkündigungen."""
+        return sum(n.shares or 0 for n in self.notices if n.kind == PARTIAL_NOTICE)
+
     def _dates(self) -> MembershipDates:
         assert self.application_date is not None  # gesetzt durch member.applied
-        return MembershipDates(self.application_date, self.admission_date, self.rejection_date, self.payment_date)
+        full = self.full_notice()
+        return MembershipDates(
+            self.application_date,
+            self.admission_date,
+            self.rejection_date,
+            self.payment_date,
+            notice_date=full.notice_date if full else None,
+            exit_date=full.exit_date if full else None,
+        )
 
     def admit(self, decision_date: date, today: date) -> None:
         """Der Vorstand lässt zu (§ 15 GenG). Mitglied wird man erst mit dem Geldeingang (Schritt 5)."""
@@ -136,6 +167,65 @@ class Member(Aggregate):
         if self.payment_date is None:
             raise DomainError("Es ist kein Geldeingang erfasst.")
         self._record("member.paid-in-revoked")
+
+    def give_notice(self, notice_date: date, exit_date: date, today: date) -> None:
+        """Kündigung der Mitgliedschaft: alle Anteile, die Person scheidet zum `exit_date` aus."""
+        self._ensure_notice_possible(notice_date, exit_date, today)
+        self._record(
+            "member.notice-given",
+            notice_id=str(uuid.uuid7()),
+            notice_date=notice_date.isoformat(),
+            exit_date=exit_date.isoformat(),
+        )
+
+    def give_partial_notice(self, shares: int, notice_date: date, exit_date: date, today: date, held: int) -> None:
+        """Teilkündigung einzelner Anteile; mindestens einer bleibt, die Person bleibt Mitglied.
+
+        `held` sind die Anteile auf dem Konto; die kennt nur das Hauptbuch, deshalb gibt sie der
+        Service mit. Anteile aus laufenden Teilkündigungen lassen sich nicht noch einmal kündigen.
+        """
+        self._ensure_notice_possible(notice_date, exit_date, today)
+        available = held - self.partially_noticed_shares()
+        if shares < 1:
+            raise DomainError("Es muss mindestens ein Anteil gekündigt werden.")
+        if shares >= available:
+            raise DomainError(
+                f"Es können höchstens {available - 1} von {available} Anteilen teilweise gekündigt werden, "
+                "einer muss bleiben. Für alle Anteile die Mitgliedschaft kündigen."
+            )
+        self._record(
+            "member.partial-notice-given",
+            notice_id=str(uuid.uuid7()),
+            notice_date=notice_date.isoformat(),
+            exit_date=exit_date.isoformat(),
+            shares=shares,
+        )
+
+    def withdraw_notice(self, notice_id: str, today: date) -> None:
+        """Nimmt eine Kündigung zurück, solange das Ausscheiden noch nicht vorbei ist."""
+        notice = next((n for n in self.notices if n.id == notice_id), None)
+        if notice is None:
+            raise DomainError("Die Kündigung gibt es nicht.")
+        if today > notice.exit_date:
+            raise DomainError("Das Ausscheiden ist bereits vorbei.")
+        self._record("member.notice-withdrawn", notice_id=notice_id)
+
+    def _ensure_notice_possible(self, notice_date: date, exit_date: date, today: date) -> None:
+        """Gemeinsame Prüfungen für Kündigung und Teilkündigung.
+
+        Am Eingangstag muss die Person Mitglied sein (nicht Antragsteller, nicht schon gekündigt).
+        Das Ausscheiden darf von der Frist abweichen, muss aber ein 31.12. nach dem Eingang sein.
+        """
+        if notice_date > today:
+            raise DomainError("Der Eingang der Kündigung darf nicht in der Zukunft liegen.")
+        if self.full_notice() is not None:
+            raise DomainError("Die Mitgliedschaft ist bereits gekündigt.")
+        if self.status(notice_date) != MEMBER:
+            raise DomainError("Kündigen kann nur, wer am Tag des Eingangs Mitglied ist.")
+        if (exit_date.month, exit_date.day) != (12, 31):
+            raise DomainError("Das Ausscheiden ist immer zum 31.12.")
+        if exit_date <= notice_date:
+            raise DomainError("Das Ausscheiden muss nach dem Eingang der Kündigung liegen.")
 
     def _ensure_open_application(self, day: date, today: date) -> None:
         """Der Antrag darf noch nicht abgelehnt oder zurückgenommen sein.
@@ -230,6 +320,18 @@ class Member(Aggregate):
     def _paid_in_revoked(self, event: Event) -> None:
         self.payment_date = None
 
+    @on("member.notice-given")
+    def _notice_given(self, event: Event) -> None:
+        self.notices.append(_notice(NOTICE, event))
+
+    @on("member.partial-notice-given")
+    def _partial_notice_given(self, event: Event) -> None:
+        self.notices.append(_notice(PARTIAL_NOTICE, event))
+
+    @on("member.notice-withdrawn")
+    def _notice_withdrawn(self, event: Event) -> None:
+        self.notices = [n for n in self.notices if n.id != event.data["notice_id"]]
+
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:
         self.name = PersonName(**event.data["name"])
@@ -257,3 +359,14 @@ class Member(Aggregate):
     @on("member.notes-changed")
     def _notes_changed(self, event: Event) -> None:
         self.notes = event.data["notes"]
+
+
+def _notice(kind: str, event: Event) -> Notice:
+    """Baut eine `Notice` aus den Daten eines Kündigungs-Events."""
+    return Notice(
+        id=event.data["notice_id"],
+        kind=kind,
+        notice_date=date.fromisoformat(event.data["notice_date"]),
+        exit_date=date.fromisoformat(event.data["exit_date"]),
+        shares=event.data.get("shares"),
+    )

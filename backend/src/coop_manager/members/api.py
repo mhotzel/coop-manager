@@ -26,9 +26,12 @@ from .schemas import (
     ChangeNotes,
     ChangeSalutation,
     Decision,
+    GiveNotice,
+    GivePartialNotice,
     MemberDetail,
     SearchRequest,
     Withdraw,
+    WithdrawNotice,
 )
 
 router = APIRouter(prefix="/api/members")
@@ -89,6 +92,28 @@ def reject(body: Decision, db: Db, user: Writer) -> MemberDetail:
 def withdraw(body: Withdraw, db: Db, user: Writer) -> MemberDetail:
     """Rücknahme des Antrags durch die Person."""
     return _detail(services.withdraw(db, body.member_id, body.withdrawal_date, date.today(), actor=user.id))
+
+
+@router.post("/give-notice")
+def give_notice(body: GiveNotice, db: Db, user: Writer) -> MemberDetail:
+    """Kündigung der Mitgliedschaft."""
+    member = services.give_notice(db, body.member_id, body.notice_date, body.exit_date, date.today(), actor=user.id)
+    return _detail(member)
+
+
+@router.post("/give-partial-notice")
+def give_partial_notice(body: GivePartialNotice, db: Db, user: Writer) -> MemberDetail:
+    """Teilkündigung einzelner Anteile."""
+    member = services.give_partial_notice(
+        db, body.member_id, body.shares, body.notice_date, body.exit_date, date.today(), actor=user.id
+    )
+    return _detail(member)
+
+
+@router.post("/withdraw-notice")
+def withdraw_notice(body: WithdrawNotice, db: Db, user: Writer) -> MemberDetail:
+    """Kündigung oder Teilkündigung zurücknehmen."""
+    return _detail(services.withdraw_notice(db, body.member_id, body.notice_id, date.today(), actor=user.id))
 
 
 @router.post("/change-name")

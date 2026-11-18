@@ -1966,3 +1966,47 @@ neue Name sagt, was drinsteht (die beiden Buchhaltungsrollen), und passt zu `ROL
   Eingabefeld kann später kommen.
 - **Auch auf dem Genossenschaftskonto:** Matthias' Entscheidung; es gibt keinen fachlichen Grund,
   es dort zu verbieten. Das Backend findet das Mitgliedskonto selbst aus der Buchung.
+
+## 2026-11-18 – Schritt 5f, Teil 1: Kündigung und Teilkündigung im Backend
+
+**Was:**
+
+- `Plan.md`: 5f nach Vorgang aufgeteilt (Teil 1–4); Entscheidungen „ausgeschieden ab dem 01.01.“,
+  „Ausscheidensdatum überschreibbar, solange 31.12. nach dem Eingang“ und „Ausschluss aufheben“.
+- `members/status.py`: neue Status `notice_given` („gekündigt“) und `exited` („ausgeschieden“),
+  `MembershipDates` mit `notice_date` und `exit_date`, `default_exit_date()` für die Frist.
+- `members/domain.py`:
+  - Wertetyp `Notice` (ID, Art, Eingang, Ausscheiden, bei Teilkündigung die Anteile); der
+    `Member` führt die Liste `notices`.
+  - `give_notice` (Event `member.notice-given`), `give_partial_notice`
+    (`member.partial-notice-given`), `withdraw_notice` (`member.notice-withdrawn`).
+  - Gemeinsame Prüfungen in `_ensure_notice_possible`: Eingang nicht in der Zukunft, am Eingangstag
+    Mitglied, noch keine Kündigung der Mitgliedschaft, Ausscheiden ist ein 31.12. nach dem Eingang.
+- `members/services.py`: die drei Vorgänge; die Teilkündigung holt die gehaltenen Anteile aus dem
+  Hauptbuch. Ohne Ausscheidensdatum gilt die Frist.
+- `members/schemas.py` und `members/api.py`: `POST /api/members/give-notice`,
+  `/give-partial-notice`, `/withdraw-notice`; die Detailansicht zeigt `notices`, `notice_date`
+  und `exit_date`.
+- `members/projections.py`: Spalten `notice_id`, `notice_date`, `exit_date`, damit die Suche den
+  Status richtig berechnet.
+- Tests in `test_members_domain.py` und neu `test_members_notice_api.py`; geprüft mit
+  `uv run pytest` (362 grün), `uv run ruff check`, `uv run ruff format --check` und `uv run pyright`.
+
+**Wichtig nach dem Update:** `backend/data/projections.sqlite` löschen. `CREATE TABLE IF NOT
+EXISTS` ergänzt keine Spalten in einer bestehenden Tabelle (siehe „Offene Punkte“ im Plan). Fehlt
+die Datei, baut `prepare` sie beim Start aus den Events neu auf; es gehen keine Daten verloren.
+Angemeldete Sitzungen und Login-Versuche liegen auch in dieser Datei, man muss sich neu anmelden.
+
+**Warum so:**
+
+- **Zwei Vorgänge statt einer erkannten Vollkündigung:** Rechtlich sind es verschiedene
+  Erklärungen (§ 65 und § 67b GenG). Außerdem steht so im Event selbst, was gemeint war; die
+  Projektion braucht dafür keinen Kontostand.
+- **Liste von Kündigungen mit eigener ID:** Teilkündigungen können mehrfach vorkommen, und 5g
+  legt je Kündigung einen Auseinandersetzungsanspruch an.
+- **Gehaltene Anteile als Parameter:** Das Mitglied kennt sein Konto nicht, das Hauptbuch schon.
+  Der Service holt die Zahl und gibt sie mit; die Regel selbst bleibt im Aggregat.
+- **Status zuerst „Antragsteller“ prüfen:** Ohne Eintritt gibt es weder Kündigung noch Ausscheiden.
+  So bleibt der Status auch dann richtig, wenn ein Storno den Geldeingang zurücknimmt.
+- **Für 5g gemerkt:** Ist das Ausscheiden einer Teilkündigung gebucht, sinken die Anteile auf dem
+  Konto; diese Teilkündigung darf dann nicht noch einmal abgezogen werden.

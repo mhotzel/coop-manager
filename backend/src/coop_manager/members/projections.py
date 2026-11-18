@@ -48,6 +48,9 @@ class MemberList(Projector):
         admission_date   TEXT,
         rejection_date   TEXT,
         payment_date     TEXT,
+        notice_id        TEXT,  -- nur die Kündigung der Mitgliedschaft, nicht Teilkündigungen
+        notice_date      TEXT,
+        exit_date        TEXT,
         search_text      TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_members_number ON members (member_number);
@@ -133,6 +136,23 @@ class MemberList(Projector):
     def _paid_in_revoked(self, conn: sqlite3.Connection, event: Event) -> None:
         conn.execute("UPDATE members SET payment_date = NULL WHERE member_id = ?", (event.subject,))
 
+    @on("member.notice-given")
+    def _notice_given(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute(
+            "UPDATE members SET notice_id = ?, notice_date = ?, exit_date = ? WHERE member_id = ?",
+            (event.data["notice_id"], event.data["notice_date"], event.data["exit_date"], event.subject),
+        )
+
+    @on("member.notice-withdrawn")
+    def _notice_withdrawn(self, conn: sqlite3.Connection, event: Event) -> None:
+        # Trifft nur, wenn die Kündigung der Mitgliedschaft zurückgenommen wird; Teilkündigungen
+        # stehen nicht in dieser Tabelle.
+        conn.execute(
+            "UPDATE members SET notice_id = NULL, notice_date = NULL, exit_date = NULL"
+            " WHERE member_id = ? AND notice_id = ?",
+            (event.subject, event.data["notice_id"]),
+        )
+
 
 def _refresh_search_text(conn: sqlite3.Connection, member_id: str) -> None:
     """Setzt `search_text` aus den aktuellen Spalten neu zusammen."""
@@ -192,6 +212,8 @@ def _to_row(row: sqlite3.Row, today: date) -> MemberRow:
         admission_date=date.fromisoformat(row["admission_date"]) if row["admission_date"] else None,
         rejection_date=date.fromisoformat(row["rejection_date"]) if row["rejection_date"] else None,
         payment_date=date.fromisoformat(row["payment_date"]) if row["payment_date"] else None,
+        notice_date=date.fromisoformat(row["notice_date"]) if row["notice_date"] else None,
+        exit_date=date.fromisoformat(row["exit_date"]) if row["exit_date"] else None,
     )
     return MemberRow(
         id=row["member_id"],

@@ -10,7 +10,7 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 from .addressing import address_lines, address_warnings, salutation
-from .domain import Member
+from .domain import Member, Notice
 from .values import Address, Contact, PersonName
 
 MemberId = Field(max_length=100)
@@ -44,6 +44,9 @@ class MemberDetail(BaseModel):
     # Berechnet, nicht gespeichert:
     status: str | None  # zum Tag der Abfrage
     entry_date: date | None  # Eintrittsdatum: das spätere von Zulassung und Geldeingang
+    notices: list[Notice]  # laufende Kündigungen und Teilkündigungen
+    notice_date: date | None  # Eingang der Kündigung der Mitgliedschaft
+    exit_date: date | None  # Ausscheiden aus der Kündigung der Mitgliedschaft
     salutation: str  # die Briefanrede, wie sie in den Seriendruck kommt
     generated_address_lines: list[str]
     warnings: list[str]
@@ -53,6 +56,7 @@ class MemberDetail(BaseModel):
         """Baut die Detailansicht aus dem Aggregat und berechnet Status, Anrede und Warnungen."""
         assert member.application_date is not None  # gesetzt durch member.applied
         generated = address_lines(member.person_type, member.name, member.address)
+        full = member.full_notice()
         return cls(
             id=member.subject,
             member_number=member.member_number,
@@ -72,6 +76,9 @@ class MemberDetail(BaseModel):
             payment_date=member.payment_date,
             status=member.status(today),
             entry_date=member.entry_date(),
+            notices=member.notices,
+            notice_date=full.notice_date if full else None,
+            exit_date=full.exit_date if full else None,
             salutation=salutation(member.person_type, member.name, member.salutation),
             generated_address_lines=list(generated),
             warnings=address_warnings(member.address_lines, generated),
@@ -150,3 +157,22 @@ class ChangeNotes(MemberCommand):
     """Befehl: Hinweise ändern."""
 
     notes: str = Field(max_length=10000)
+
+
+class GiveNotice(MemberCommand):
+    """Befehl: Kündigung der Mitgliedschaft; ohne Ausscheidensdatum zum Ende der Frist."""
+
+    notice_date: date
+    exit_date: date | None = None
+
+
+class GivePartialNotice(GiveNotice):
+    """Befehl: Teilkündigung einzelner Anteile."""
+
+    shares: int
+
+
+class WithdrawNotice(MemberCommand):
+    """Befehl: eine Kündigung oder Teilkündigung zurücknehmen."""
+
+    notice_id: str = Field(max_length=100)
