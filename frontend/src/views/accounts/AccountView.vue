@@ -11,7 +11,9 @@ import {
   type AccountView,
 } from '../../accounts'
 import { errorText } from '../../api'
+import { ACCOUNTING, currentUser } from '../../auth'
 import { formatDate, getMember, NATURAL_PERSON, statusLabel, statusTagClass, type MemberDetail } from '../../members'
+import BookingForm from './BookingForm.vue'
 
 // Der Router übergibt :number aus dem Pfad als Prop, als Text (siehe props: true in router.ts).
 const props = defineProps<{ number: string }>()
@@ -21,6 +23,29 @@ const member = ref<MemberDetail | null>(null) // Inhaber; beim Genossenschaftsko
 const error = ref('')
 
 const isCooperative = computed(() => account.value?.number === COOPERATIVE_ACCOUNT_NUMBER)
+
+// Die Buchungsmaske nur für die Buchhaltung, nur an Mitgliedskonten und nur mit Anteilspreis.
+// Das ist Komfort; verbindlich prüft das Backend.
+const canBook = computed(
+  () =>
+    currentUser.value?.role === ACCOUNTING &&
+    account.value !== null &&
+    !isCooperative.value &&
+    account.value.share_price !== null,
+)
+
+// Die Maske meldet das Konto nach der Buchung. Den Inhaber laden wir neu, denn eine Buchung kann
+// seinen Status ändern (Geldeingang, Eintritt).
+async function onBooked(updated: AccountView): Promise<void> {
+  account.value = updated
+  if (updated.member_id !== null) {
+    try {
+      member.value = await getMember(updated.member_id)
+    } catch (e) {
+      error.value = errorText(e)
+    }
+  }
+}
 
 const ownerName = computed(() => {
   const m = member.value
@@ -92,6 +117,14 @@ watch(() => props.number, load, { immediate: true })
         </dl>
       </div>
     </div>
+
+    <!-- share_price! : canBook hat schon geprüft, dass er nicht null ist; TypeScript weiß das hier nicht. -->
+    <BookingForm
+      v-if="canBook"
+      :account-number="account.number"
+      :share-price="account.share_price!"
+      @booked="onBooked"
+    />
 
     <div class="card">
       <div class="card-header">Buchungen</div>

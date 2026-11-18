@@ -1751,6 +1751,41 @@ Schritt für Schritt umgesetzt, mit Erklärung und Freigabe je Unterschritt.
 - **Mit ganzen Cent gerechnet:** Der Text wird in Euro- und Centteil zerlegt, nicht über
   `parseFloat`. So entsteht kein Rundungsfehler wie bei 0,1 + 0,2.
 
+## 2026-11-17 – Schritt 5d, Teil 2b: Buchungsmaske für Eintritt und Rückzahlung
+
+**Was:**
+
+- Neue Komponente `frontend/src/views/accounts/BookingForm.vue`:
+  - Felder Buchungsart (Eintritt/Rückzahlung), Anteile, Betrag, Wertstellung und Buchungstext.
+  - Anteile und Betrag füllen sich gegenseitig: Anteile eingetippt → Betrag = Anteile × Preis;
+    Betrag eingetippt → `parseEuro()` und `sharesForAmount()` ergeben die Anteile. Geht der Betrag
+    nicht glatt im Anteilspreis auf, erscheint ein Hinweis, und „Buchen“ bleibt gesperrt.
+  - Wertstellung vorbelegt mit heute, `max` = heute. Leerer Text → `null`, das Backend setzt dann
+    „Eintritt“ bzw. „Rückzahlung“ ein.
+  - Beim Buchen ruft sie `subscribe()` bzw. `refund()` auf, zeigt Erfolg, Warnung (gelb) oder
+    Fehler (rot) an, leert die Felder und meldet das neue Konto mit `emit('booked', …)`.
+- `AccountView.vue`: blendet die Maske ein, wenn `canBook` gilt (Rolle Buchhaltung,
+  Mitgliedskonto, Anteilspreis gesetzt). `onBooked()` übernimmt das Konto aus der Antwort und lädt
+  den Inhaber neu, damit Status, Geldeingang und Eintritt sofort stimmen.
+- Geprüft mit `npm run type-check` und einem Probe-Build (`vite build` in ein Wegwerfverzeichnis).
+
+**Warum so:**
+
+- **Eigene Komponente:** `AccountView` bleibt die Anzeige; Storno, Umbuchung usw. kommen später
+  in die Maske, ohne die Kontoseite aufzublähen.
+- **Props hinein, Emits hinaus:** Die Maske bekommt Kontonummer und Anteilspreis von der
+  Elternseite und ändert selbst nichts an deren Daten. Sie meldet nur „gebucht, hier das neue
+  Konto“; die Elternseite entscheidet, was sie damit macht. So bleibt klar, wem welche Daten gehören.
+- **`@input` statt `watch` für die Umrechnung:** Würden sich beide Felder gegenseitig beobachten,
+  löste jede Änderung die andere wieder aus. Mit `@input` reagiert nur das Feld, in dem gerade
+  getippt wird.
+- **Nur Anteile an den Server:** Der Betrag ist reine Anzeige; der Server rechnet selbst
+  (siehe Plan, „Die API bucht nur über fachliche Vorgänge“).
+- **Knopf während der Anfrage gesperrt (`busy`) und `finally`:** verhindert Doppelbuchungen durch
+  Doppelklick; `finally` gibt den Knopf auch nach einem Fehler wieder frei.
+- **`share_price!` im Template:** Das Ausrufezeichen sagt TypeScript „ist hier nicht null“. Das
+  stimmt, weil `canBook` es vorher prüft, TypeScript kann das über das `v-if` aber nicht erkennen.
+
 ## 2026-11-18 – Startskript `dev.sh` für die Entwicklung
 
 **Was:**
