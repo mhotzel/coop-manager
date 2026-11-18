@@ -110,7 +110,10 @@ def reverse(db: Database, booking_id: str, reason: str, today: date, actor: str)
     def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
         return ledger.reverse(booking_id, f"Storno zu „{original.text}“: {reason.strip()}", today)
 
-    return _book(db, account_number, today, actor, book)
+    # Der Abgleich mit den gezeichneten Anteilen gehört nur zum Eintritt. Nach einem gebuchten
+    # Ausscheiden passen gezeichnete und gehaltene Anteile nicht mehr zusammen; ein Abgleich würde
+    # dann fälschlich den Geldeingang zurücknehmen.
+    return _book(db, account_number, today, actor, book, reconcile=original.kind in (SUBSCRIPTION, REFUND))
 
 
 def member_account_of(booking: Booking) -> int:
@@ -127,7 +130,9 @@ def _ensure_shares(shares: int) -> None:
         raise DomainError("Es muss mindestens ein Anteil gebucht werden.")
 
 
-def _book(db: Database, account_number: int, today: date, actor: str, book: BookAction) -> BookingResult:
+def _book(
+    db: Database, account_number: int, today: date, actor: str, book: BookAction, reconcile: bool = True
+) -> BookingResult:
     """Gemeinsamer Ablauf: laden, prüfen, buchen, abgleichen, zusammen speichern.
 
     Das Konto wird über seine Nummer angesprochen; das Mitglied dazu steht im Hauptbuch.
@@ -150,7 +155,7 @@ def _book(db: Database, account_number: int, today: date, actor: str, book: Book
         if ledger.cooperative_account() is None:
             raise DomainError("Das Genossenschaftskonto fehlt.")
         booking = book(member, ledger, account.number, share_price)
-        warning = _reconcile(member, ledger, account.number, booking, today)
+        warning = _reconcile(member, ledger, account.number, booking, today) if reconcile else None
         try:
             db.save_all([ledger, member], actor)
         except ConcurrencyError:

@@ -2133,3 +2133,42 @@ umsetzen, außer du hast Fragen“); der Plan legte das Wesentliche schon fest.
   als die Kündigung der Mitgliedschaft fälschlich markiert; das fiel beim Schreiben auf.
 - **`git mv` statt neu anlegen:** So sieht Git die Umbenennung, und die Geschichte der Datei bleibt
   mit `git log --follow` erhalten.
+
+## 2026-11-18 – Schritt 5g, Teil 1: Ausscheiden zum Jahresende im Backend
+
+**Was:**
+
+- `Plan.md`: 5g in zwei Teile; Auseinandersetzungsanspruch je Konto aus dem Saldo; eine
+  Ausscheidensbuchung je Konto und 31.12.; nur abgeschlossene Jahre; Warnung in Reports erst mit
+  Schritt 6.
+- `members/domain.py`: `ExitDue` und `Member.exit_due(day)`: Was scheidet zum 31.12. aus (voll
+  und/oder Teilkündigungen) und warum. `partially_noticed_shares` zählt nur Teilkündigungen,
+  deren Ausscheiden noch nicht gebucht ist (`booked_exit_dates` aus dem Hauptbuch).
+- `accounts/domain.py`: `Ledger.exit_booking(number, day)` und `booked_exit_dates(number)`, beide
+  ohne stornierte Buchungen.
+- `members/services.py`: `all_members(db)` lädt alle Mitglieder über das Nummernregister; die
+  Teilkündigung gibt die gebuchten Termine mit.
+- Neu `accounts/exits.py`: `exits_due(db, year)` (Liste mit Grund, Anteilen, Saldo, „gebucht“) und
+  `post_exits(db, year, today, actor)` (bucht alle offenen auf einmal, Betrag 0, Wertstellung
+  31.12., mit Wiederholung bei gleichzeitiger Buchung wie `_book`).
+- `accounts/api.py`: `GET /api/accounts/exits/{year}` (beide Buchhaltungsrollen) und
+  `POST /api/accounts/post-exits` mit `{year}` (nur Buchhaltung).
+- `accounts/bookings.py`: Beim Storno läuft der Abgleich des Geldeingangs nur noch bei Eintritt und
+  Rückzahlung (`_book(..., reconcile=...)`).
+- Tests: neu `test_exits.py`, dazu API-Tests in `test_members_exit_api.py`; 410 grün, ruff und
+  pyright sauber. Die beiden Tests zu den Korrekturen habe ich gegen den Code ohne Korrektur
+  laufen lassen: Sie schlagen dort fehl, prüfen also wirklich etwas.
+
+**Warum so:**
+
+- **„Gebucht“ aus dem Hauptbuch ablesen:** Die Buchung ist der Beweis. Ein zusätzliches Event am
+  Mitglied müsste mit der Buchung übereinstimmen und beim Storno mitgepflegt werden; so kann es
+  gar nicht auseinanderlaufen.
+- **Anspruch aus dem Saldo:** Der Saldo ist ohnehin das, was die Genossenschaft schuldet. Ein
+  eigener Anspruchs-Datensatz wäre eine zweite Wahrheit.
+- **Abgleich nur beim Eintritt:** „Eingezahlte = gezeichnete Anteile“ gilt nur bis zum ersten
+  Ausscheiden. Danach würde der Abgleich ein Storno als Teilzahlung missverstehen.
+- **Alle Mitglieder laden statt Projektion:** Einfacher und immer konsistent mit den Aggregaten;
+  bei der Größe des Dorfladens schnell genug.
+- **Test gegen den Code ohne Korrektur (Mutationstest von Hand):** Ein Test, der auch ohne die
+  Korrektur grün wäre, würde nichts absichern.

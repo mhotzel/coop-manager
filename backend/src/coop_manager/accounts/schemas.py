@@ -55,6 +55,12 @@ class ShareBooking(BaseModel):
     text: str | None = Field(default=None, max_length=200)  # leer = „Eintritt“ bzw. „Rückzahlung“
 
 
+class PostExits(BaseModel):
+    """Befehl: alle offenen Ausscheiden zum 31.12. dieses Jahres buchen."""
+
+    year: int
+
+
 class ReverseBooking(BaseModel):
     """Befehl: Storno einer Buchung. Der Grund ist Pflicht und kommt in den Buchungstext."""
 

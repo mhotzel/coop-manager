@@ -1,5 +1,7 @@
 """Kündigung, Teilkündigung, Tod und Ausschluss über die API, mit Hauptbuch und Suche (Projektion)."""
 
+from datetime import date
+
 import pytest
 
 from coop_manager.accounts.services import open_cooperative_account
@@ -228,3 +230,56 @@ def test_readonly_may_not_expel(client, register, login, member_id):
     command = {"member_id": member_id, "decision_date": "2026-11-12"}
     assert client.post("/api/members/expel", json=command).status_code == 403
     assert client.post("/api/members/lift-expulsion", json=command).status_code == 403
+
+
+# --- Ausscheiden zum Jahresende (5g) ---
+
+OLD_APPLICATION = APPLICATION | {"application_date": "2025-01-02"}
+
+
+@pytest.fixture
+def leaving_2025(client, db, register, login) -> str:
+    """Mitglied seit dem 10.01.2025, gekündigt zum 31.12.2025; 2025 ist immer abgeschlossen."""
+    change_share_price(db, 5000, actor="test")
+    open_cooperative_account(db, "Musterladen eG", actor="test")
+    register("erika", ACCOUNTING)
+    login("erika")
+    member_id = client.post("/api/members/apply", json=OLD_APPLICATION).json()["id"]
+    client.post("/api/members/admit", json={"member_id": member_id, "decision_date": "2025-01-05"})
+    client.post("/api/accounts/subscribe", json={"account_number": 1, "shares": 3, "value_date": "2025-01-10"})
+    client.post(
+        "/api/members/give-notice",
+        json={"member_id": member_id, "notice_date": "2025-02-01", "exit_date": "2025-12-31"},
+    )
+    return member_id
+
+
+def test_exits_list_and_post(client, leaving_2025):
+    [entry] = client.get("/api/accounts/exits/2025").json()
+    assert (entry["member_id"], entry["reasons"], entry["shares"], entry["booked"]) == (
+        leaving_2025,
+        ["notice"],
+        3,
+        False,
+    )
+
+    response = client.post("/api/accounts/post-exits", json={"year": 2025})
+
+    assert response.status_code == 200
+    [entry] = response.json()
+    assert (entry["booked"], entry["balance"]) == (True, 15000)
+    assert client.get("/api/accounts/1").json()["shares"] == 0
+
+
+def test_current_year_cannot_be_posted(client, leaving_2025):
+    response = client.post("/api/accounts/post-exits", json={"year": date.today().year})
+
+    assert response.status_code == 400
+
+
+def test_readonly_may_list_but_not_post_exits(client, register, login, leaving_2025):
+    register("rita", ACCOUNTING_READONLY, full_name="Rita Lesend")
+    login("rita")
+
+    assert client.get("/api/accounts/exits/2025").status_code == 200
+    assert client.post("/api/accounts/post-exits", json={"year": 2025}).status_code == 403

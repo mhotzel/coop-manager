@@ -15,9 +15,10 @@ from ..system_settings.services import get_system_settings
 from ..users.access import require_role
 from ..users.domain import ACCOUNTING, ACCOUNTING_READONLY
 from ..users.projections import UserView
-from . import bookings
+from . import bookings, exits
 from .bookings import BookingResult
-from .schemas import AccountView, BookingResponse, ReverseBooking, ShareBooking
+from .exits import ExitEntry
+from .schemas import AccountView, BookingResponse, PostExits, ReverseBooking, ShareBooking
 from .services import get_ledger
 
 router = APIRouter(prefix="/api/accounts")
@@ -35,6 +36,12 @@ Writer = Annotated[UserView, Depends(require_role(ACCOUNTING))]
 def get_account(number: int, db: Db, user: Reader) -> AccountView:
     """Ein Konto mit Saldo, Anteilen und Buchungen; 404, wenn es die Nummer nicht gibt."""
     return _view(db, number)
+
+
+@router.get("/exits/{year}")
+def get_exits(year: int, db: Db, user: Reader) -> list[ExitEntry]:
+    """Alle, die zum 31.12. `year` ausscheiden, gebucht oder offen."""
+    return exits.exits_due(db, year)
 
 
 # --- Befehle ---
@@ -66,6 +73,12 @@ def reverse(body: ReverseBooking, db: Db, user: Writer) -> BookingResponse:
     """
     result = bookings.reverse(db, body.booking_id, body.reason, date.today(), actor=user.id)
     return _response(db, bookings.member_account_of(result.booking), result)
+
+
+@router.post("/post-exits")
+def post_exits(body: PostExits, db: Db, user: Writer) -> list[ExitEntry]:
+    """Ausscheiden zum Jahresende buchen; antwortet mit der Liste danach."""
+    return exits.post_exits(db, body.year, date.today(), actor=user.id)
 
 
 def _view(db: Database, number: int) -> AccountView:

@@ -194,6 +194,25 @@ class Ledger(Aggregate):
         """Das Storno zu einer Buchung; None, solange sie nicht storniert ist."""
         return next((b for b in self.bookings if b.reverses == booking_id), None)
 
+    def exit_booking(self, number: int, day: date) -> Booking | None:
+        """Die nicht stornierte Ausscheidensbuchung des Kontos zum 31.12. `day`; None, wenn keine."""
+        return next(
+            (
+                b
+                for b in self.bookings
+                if b.kind == EXIT and b.debit == number and b.value_date == day and self.reversal_of(b.id) is None
+            ),
+            None,
+        )
+
+    def booked_exit_dates(self, number: int) -> set[date]:
+        """Die Termine, zu denen das Ausscheiden des Kontos gebucht und nicht storniert ist."""
+        return {
+            b.value_date
+            for b in self.bookings
+            if b.kind == EXIT and b.debit == number and self.reversal_of(b.id) is None
+        }
+
     def bookings_of(self, number: int) -> list[Booking]:
         """Alle Buchungen, an denen das Konto im Soll oder Haben beteiligt ist."""
         return [b for b in self.bookings if number in (b.debit, b.credit)]

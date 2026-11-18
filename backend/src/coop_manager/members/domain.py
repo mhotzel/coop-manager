@@ -1,5 +1,6 @@
 import unicodedata
 import uuid
+from collections.abc import Collection
 from dataclasses import asdict, dataclass
 from datetime import date
 from typing import Self
@@ -34,6 +35,20 @@ class Notice:
     notice_date: date  # Eingang der Kündigung
     exit_date: date  # Ausscheiden zum 31.12.
     shares: int | None = None  # nur bei der Teilkündigung; die Kündigung umfasst alle Anteile
+
+
+# Gründe für ein Ausscheiden zum 31.12.; die Texte macht das Frontend.
+EXIT_REASON_DEATH = "deceased"
+EXIT_REASON_EXPULSION = "expelled"
+
+
+@dataclass(frozen=True)
+class ExitDue:
+    """Was zu einem 31.12. ausscheidet: alle Anteile (`full`) und/oder Anteile aus Teilkündigungen."""
+
+    full: bool
+    partial_shares: int  # Anteile aus Teilkündigungen zu diesem Termin; bei `full` ohne Bedeutung
+    reasons: tuple[str, ...]  # NOTICE, PARTIAL_NOTICE, EXIT_REASON_DEATH, EXIT_REASON_EXPULSION
 
 
 class Member(Aggregate):
@@ -120,9 +135,44 @@ class Member(Aggregate):
         """Läuft am Tag `day` eine Teilkündigung, deren Ausscheiden (31.12.) noch nicht vorbei ist?"""
         return any(n.kind == PARTIAL_NOTICE and day <= n.exit_date for n in self.notices)
 
-    def partially_noticed_shares(self) -> int:
-        """Anteile in laufenden Teilkündigungen."""
-        return sum(n.shares or 0 for n in self.notices if n.kind == PARTIAL_NOTICE)
+    def partially_noticed_shares(self, booked_exit_dates: Collection[date] = ()) -> int:
+        """Anteile in Teilkündigungen, deren Ausscheiden noch nicht gebucht ist.
+
+        Ist es gebucht (`booked_exit_dates` aus dem Hauptbuch), sind die Anteile schon vom Konto
+        weg und dürfen nicht noch einmal abgezogen werden.
+        """
+        return sum(
+            n.shares or 0 for n in self.notices if n.kind == PARTIAL_NOTICE and n.exit_date not in booked_exit_dates
+        )
+
+    def exit_due(self, day: date) -> ExitDue | None:
+        """Was zum 31.12. `day` ausscheidet; None, wenn nichts.
+
+        Voll scheidet aus, wessen wirksames Ausscheiden genau dieser Tag ist (Kündigung, Tod oder
+        Ausschluss). Dazu kommen Teilkündigungen mit diesem Termin. Wer schon früher ausgeschieden
+        ist, hat keine Teilkündigungen mehr, die noch greifen könnten.
+        """
+        exit_date = self.exit_date()
+        if exit_date is not None and exit_date < day:
+            return None
+        full = exit_date == day
+        partial = [n for n in self.notices if n.kind == PARTIAL_NOTICE and n.exit_date == day]
+        if not full and not partial:
+            return None
+        reasons: list[str] = []
+        if full:
+            reasons.append(self._full_exit_reason(day))
+        if partial:
+            reasons.append(PARTIAL_NOTICE)
+        return ExitDue(full, sum(n.shares or 0 for n in partial), tuple(reasons))
+
+    def _full_exit_reason(self, day: date) -> str:
+        """Warum die Mitgliedschaft zu `day` endet; der Tod geht vor, dann der Ausschluss."""
+        if self.date_of_death is not None and self.date_of_death.year == day.year:
+            return EXIT_REASON_DEATH
+        if self.expulsion_date is not None and self.expulsion_date.year == day.year:
+            return EXIT_REASON_EXPULSION
+        return NOTICE
 
     def _dates(self) -> MembershipDates:
         assert self.application_date is not None  # gesetzt durch member.applied
@@ -190,14 +240,23 @@ class Member(Aggregate):
             exit_date=exit_date.isoformat(),
         )
 
-    def give_partial_notice(self, shares: int, notice_date: date, exit_date: date, today: date, held: int) -> None:
+    def give_partial_notice(
+        self,
+        shares: int,
+        notice_date: date,
+        exit_date: date,
+        today: date,
+        held: int,
+        booked_exit_dates: Collection[date] = (),
+    ) -> None:
         """Teilkündigung einzelner Anteile; mindestens einer bleibt, die Person bleibt Mitglied.
 
-        `held` sind die Anteile auf dem Konto; die kennt nur das Hauptbuch, deshalb gibt sie der
-        Service mit. Anteile aus laufenden Teilkündigungen lassen sich nicht noch einmal kündigen.
+        `held` sind die Anteile auf dem Konto, `booked_exit_dates` die Termine, zu denen das
+        Ausscheiden schon gebucht ist; beides kennt nur das Hauptbuch, deshalb gibt es der Service
+        mit. Anteile aus laufenden Teilkündigungen lassen sich nicht noch einmal kündigen.
         """
         self._ensure_notice_possible(notice_date, exit_date, today)
-        available = held - self.partially_noticed_shares()
+        available = held - self.partially_noticed_shares(booked_exit_dates)
         if shares < 1:
             raise DomainError("Es muss mindestens ein Anteil gekündigt werden.")
         if shares >= available:

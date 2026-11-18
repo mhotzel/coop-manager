@@ -96,7 +96,10 @@ def give_partial_notice(
         account = ledger.account_of(member_id)
         if account is None:
             raise DomainError("Zum Mitglied gibt es kein Konto.")
-        member.give_partial_notice(shares, notice_date, exit_date, today, ledger.shares(account.number))
+        number = account.number
+        member.give_partial_notice(
+            shares, notice_date, exit_date, today, ledger.shares(number), ledger.booked_exit_dates(number)
+        )
 
     return _change(db, member_id, actor, action)
 
@@ -159,6 +162,16 @@ def change_mail_preference(db: Database, member_id: str, no_mail: bool, actor: s
 def change_notes(db: Database, member_id: str, notes: str, actor: str) -> Member:
     """Hinweise ändern."""
     return _change(db, member_id, actor, lambda member: member.change_notes(notes))
+
+
+def all_members(db: Database) -> list[Member]:
+    """Alle erfassten Personen, nach Mitgliedsnummer; geladen aus ihren Events.
+
+    Für Vorgänge über den ganzen Bestand, z. B. das Ausscheiden zum Jahresende. Bei einigen
+    hundert Mitgliedern ist das schnell genug; eine eigene Projektion wäre mehr Aufwand.
+    """
+    numbers = _load_numbers(db)
+    return [get_member(db, numbers.assigned[number]) for number in sorted(numbers.assigned)]
 
 
 def get_member(db: Database, member_id: str) -> Member:

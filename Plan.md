@@ -67,6 +67,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 3: Tod erfassen, mit Hinweis auf die Adresszeilen der Erben
      - Teil 4: Ausschluss erfassen und aufheben (Widerspruch beim Aufsichtsrat erfolgreich)
    - 5g: „Ausscheiden zum Jahresende buchen“
+     - Teil 1: Domäne, Service und API (Liste der Fälligen, Buchen, Storno öffnet wieder)
+     - Teil 2: Seite „Jahresende“ im Frontend
    - 5h: Umbuchung, Auszahlung, Verlustvortrag, Verjährung, Liste offener Ansprüche
    - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
 6. Reports: die drei Excel-Listen zum Stichtag
@@ -383,8 +385,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 
 ### Auseinandersetzung
 
-- Je Kündigung (auch Teilkündigung) entsteht ein **Auseinandersetzungsanspruch**:
-  `offen → (teilweise) ausgezahlt → ausgezahlt`.
+- Mit dem gebuchten Ausscheiden entsteht ein **Auseinandersetzungsanspruch**:
+  `offen → (teilweise) ausgezahlt → ausgezahlt`. **Er wird je Konto aus dem Saldo abgeleitet**
+  (Stand 2026-11-18), nicht je Kündigung gespeichert: Saldo größer als Anteile × Preis heißt
+  offener Anspruch, Auszahlungen (5h) mindern den Saldo. Für die Liste der offenen Ansprüche
+  zählt das Datum der letzten Ausscheidensbuchung.
 - **Die Auszahlungsfähigkeit (Mindestkapital, Satzung 6.6) prüft die App nicht.** Ob und wie viel
   ausgezahlt werden darf, stellt der Mitarbeiter im Einzelfall fest.
 - **Teilauszahlungen** (Bruchteile des Anspruchs) müssen möglich sein, ebenso Kürzungen um
@@ -462,7 +467,16 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Vorgang „Ausscheiden zum Jahresende buchen“:** Die Buchhaltung startet ihn nach dem 31.12. Er
   zeigt alle zu diesem Termin fälligen Kündigungen, Todesfälle und Ausschlüsse und bucht nach
   Bestätigung mit Wertstellung 31.12. Kein automatischer Lauf. Reports zu einem Stichtag, für den
-  das Ausscheiden noch nicht gebucht ist, zeigen eine Warnung.
+  das Ausscheiden noch nicht gebucht ist, zeigen eine Warnung (kommt mit den Reports, Schritt 6).
+  Entscheidungen (Stand 2026-11-18):
+  - **Eine Ausscheidensbuchung je Konto und 31.12.**, auch wenn volles Ausscheiden und
+    Teilkündigungen zusammenfallen. Volles Ausscheiden bucht alle Anteile des Kontos aus,
+    Teilkündigungen ihre Anteile. Konten ohne Anteile (z. B. nach Umbuchung auf Erben) entfallen.
+  - **Ob gebucht ist, steht im Hauptbuch:** eine nicht stornierte Ausscheidensbuchung des Kontos
+    mit diesem Termin; kein eigenes Event am Mitglied. Ein Storno öffnet das Ausscheiden wieder.
+  - **Nur für abgeschlossene Jahre** (Jahr vor dem heutigen). Bis einschließlich 31.12. kann sich
+    noch etwas ändern, z. B. eine zurückgenommene Kündigung.
+  - Alle offenen Ausscheiden eines Jahres werden zusammen gebucht, alle oder keines.
 - **Eingabe:** Wo Betrag und Anteile nötig sind, wird eins von beiden eingegeben und das andere
   berechnet; ein Betrag muss ein Vielfaches des Anteilspreises sein. Die Maske zeigt nur die
   Felder, die die Buchungsart braucht.
