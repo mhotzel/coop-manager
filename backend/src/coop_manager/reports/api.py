@@ -3,8 +3,9 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 
+from ..accounts.schemas import YEAR_MAX, YEAR_MIN
 from ..db import Database, get_db
 from ..users.access import require_role
 from ..users.domain import ACCOUNTING, ACCOUNTING_READONLY
@@ -48,6 +49,13 @@ def members_mailing(reference_date: date, db: Db, user: Reader) -> Response:
     """Seriendruck-Liste zum Stichtag, z. B. für die Einladung zur Generalversammlung."""
     content = excel.members_mailing(services.members_mailing(db, reference_date), reference_date)
     return _xlsx(content, f"Seriendruck-{reference_date.isoformat()}.xlsx")
+
+
+@router.get("/fiscal-year-events")
+def fiscal_year_events(fiscal_year: Annotated[int, Query(ge=YEAR_MIN, le=YEAR_MAX)], db: Db, user: Reader) -> Response:
+    """Auswertung der Vorgänge eines Geschäftsjahres, z. B. `?fiscal_year=2025`."""
+    content = excel.fiscal_year_events(services.fiscal_year_events(db, fiscal_year), fiscal_year)
+    return _xlsx(content, f"Vorgaenge-{fiscal_year}.xlsx")
 
 
 def _xlsx(content: bytes, filename: str) -> Response:

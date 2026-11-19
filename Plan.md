@@ -628,6 +628,23 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Zeilen:** Vorgang, Mitgliedsnummer, Name, Datum, Anteile, Betrag. **Keine Summen.**
 - **Weggelassen:** stornierte Buchungen sowie zurückgenommene Kündigungen, Todesfälle und
   Ausschlüsse.
+- **Entscheidungen zu 6f (Stand 2026-11-19):**
+  - **Alle Buchungen** des Jahres kommen in die Liste, auch Rückzahlung, Kürzung Verlustvortrag und
+    Ausbuchung Verjährung; nur stornierte Buchungen und ihre Stornos nicht.
+  - **Eintritt und Weitere Anteile** zählen mit der Buchung (Einzahlung), nicht mit Zulassung oder
+    Zeichnung. Erben, die über eine Umbuchung Mitglied werden, erscheinen als Umbuchung.
+  - **Spalte „Gegenkonto“:** bei Buchungen die Nummer des anderen Kontos (meist 9999, das
+    Genossenschaftskonto), bei Kündigung, Todesfall und Ausschluss leer.
+  - **Umbuchung in zwei Zeilen**, je eine für das abgebende und das empfangende Konto, jeweils mit
+    dem anderen als Gegenkonto. So zeigt ein Filter auf eine Mitgliedsnummer alle Bewegungen.
+  - **Vorzeichen aus Sicht des Mitgliedskontos:** Zugänge positiv, Abgänge negativ.
+  - **Anteile und Betrag passen in jeder Zeile zusammen** (Betrag = Anteile × Preis), außer bei
+    Auszahlung, Kürzung und Ausbuchung, die nur Geld bewegen. Beim **Ausscheiden** zeigt die Liste
+    deshalb den Wert der Anteile zum aktuellen Anteilspreis, obwohl die Buchung Betrag 0 hat (das
+    Geld bleibt als Anspruch auf dem Konto, siehe Buchungsarten). Das Buchungsmodell bleibt so.
+  - Bei der Teilkündigung stehen die gekündigten Anteile und ihr Wert; bei Kündigung, Todesfall
+    und Ausschluss bleiben Anteile und Betrag leer.
+  - Sortiert nach Datum, dann nach Mitgliedsnummer; Autofilter auf der Kopfzeile.
 
 ### Migration der Altdaten (Schritt 7)
 

@@ -1,4 +1,4 @@
-"""Reports zum Stichtag: GenG-Liste (6a), Generalversammlung (6c), Seriendruck (6d), Warnungen (6e)."""
+"""Reports: GenG-Liste (6a), Generalversammlung (6c), Seriendruck (6d), Warnungen (6e), Vorgänge (6f)."""
 
 from datetime import date
 from io import BytesIO
@@ -13,7 +13,9 @@ from coop_manager.members import services
 from coop_manager.members.values import NATURAL_PERSON, Address, PersonName
 from coop_manager.reports.services import (
     AssemblyRow,
+    EventRow,
     GengRow,
+    fiscal_year_events,
     members_assembly,
     members_geng,
     members_mailing,
@@ -373,3 +375,101 @@ def test_warning_in_download(client, db, partial_notice, register, login):
         sheet = load_workbook(BytesIO(response.content)).active
         assert sheet is not None
         assert sheet["A3"].value == OPEN_EXIT
+
+
+# --- Auswertung der Vorgänge eines Geschäftsjahres (6f) ---
+
+
+def events(db: Database, year: int = 2026) -> list[tuple[str, int, date, int | None, int | None, int | None]]:
+    """Die Zeilen verkürzt: Vorgang, Nr., Datum, Anteile, Betrag, Gegenkonto."""
+    return [
+        (row.event, row.member_number, row.day, row.shares, row.amount, row.counter_account)
+        for row in fiscal_year_events(db, year)
+    ]
+
+
+def test_event_row(db, setup):
+    member(db)
+
+    assert fiscal_year_events(db, 2026) == [
+        EventRow("Eintritt", 1, "Muster, Erika", ENTRY, shares=3, amount=15000, counter_account=9999)
+    ]
+
+
+def test_events_only_of_the_year(db, setup):
+    member(db)
+
+    assert fiscal_year_events(db, 2025) == []
+    assert fiscal_year_events(db, 2027) == []
+
+
+def test_notice_and_exit(db, setup):
+    member_id = member(db)
+    services.give_partial_notice(db, member_id, 1, date(2026, 11, 20), YEAR_END, TODAY, actor="test")
+    exits.post_exits(db, 2026, date(2027, 1, 5), actor="test")
+
+    assert events(db) == [
+        ("Eintritt", 1, ENTRY, 3, 15000, 9999),
+        ("Teilkündigung", 1, date(2026, 11, 20), 1, 5000, None),
+        # Wertstellung 31.12.2026: gehört zum alten Jahr, auch wenn erst im Januar gebucht. Gebucht
+        # ist Betrag 0, die Liste zeigt aber den Wert der Anteile, damit beides zusammenpasst.
+        ("Ausscheiden", 1, YEAR_END, -1, -5000, 9999),
+    ]
+    assert events(db, 2027) == []
+
+
+def test_full_notice_without_shares(db, setup):
+    member_id = member(db)
+    services.give_notice(db, member_id, date(2026, 11, 20), None, TODAY, actor="test")
+
+    assert events(db)[1] == ("Kündigung", 1, date(2026, 11, 20), None, None, None)
+
+
+def test_death_and_expulsion(db, setup):
+    services.record_death(db, member(db, "Adler"), date(2026, 11, 15), TODAY, actor="test")
+    services.expel(db, member(db, "Zabel"), date(2026, 11, 25), TODAY, actor="test")
+
+    assert [(event, number) for event, number, *_ in events(db)[2:]] == [("Todesfall", 1), ("Ausschluss", 2)]
+
+
+def test_transfer_in_two_rows(db, setup):
+    source, target = member(db, "Adler"), member(db, "Zabel")
+    day = date(2026, 11, 20)
+    bookings.transfer(db, account_number(db, source), account_number(db, target), 2, day, TODAY, actor="test")
+
+    assert events(db)[2:] == [
+        ("Umbuchung", 1, day, -2, -10000, 2),
+        ("Umbuchung", 2, day, 2, 10000, 1),
+    ]
+
+
+def test_reversed_and_withdrawn_left_out(db, setup):
+    reversed_entry = member(db, "Adler")
+    [subscription] = get_ledger(db).bookings_of(account_number(db, reversed_entry))
+    bookings.reverse(db, subscription.id, "falsch erfasst", TODAY, actor="test")
+    deceased = member(db, "Zabel")
+    services.record_death(db, deceased, date(2026, 11, 15), TODAY, actor="test")
+    services.revoke_death(db, deceased, actor="test")
+
+    # Übrig bleibt nur der Eintritt von Nr. 2; Storno und zurückgenommener Tod fehlen.
+    assert [(event, number) for event, number, *_ in events(db)] == [("Eintritt", 2)]
+
+
+def test_events_download(client, db, setup, register, login):
+    member(db)
+    register("rita", ACCOUNTING_READONLY)
+    login("rita")
+
+    response = client.get("/api/reports/fiscal-year-events", params={"fiscal_year": 2026})
+
+    assert response.status_code == 200
+    assert "Vorgaenge-2026.xlsx" in response.headers["content-disposition"]
+    sheet = load_workbook(BytesIO(response.content)).active
+    assert sheet is not None
+    assert sheet["A1"].value == "Vorgänge im Geschäftsjahr 2026"
+    assert sheet["A2"].value == "Zeitraum: 01.01.2026 bis 31.12.2026"
+    assert [cell.value for cell in sheet[4]] == ["Vorgang", "Nr.", "Name", "Datum", "Anteile", "Betrag", "Gegenkonto"]
+    row = [cell.value for cell in sheet[5]]
+    assert row[:3] == ["Eintritt", 1, "Muster, Erika"]
+    assert row[4:] == [3, 150, 9999]
+    assert sheet.auto_filter.ref == "A4:G5"

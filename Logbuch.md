@@ -2611,3 +2611,38 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
   stand.
 - **`watch` mit `immediate: true`:** läuft einmal sofort beim Öffnen der Seite und danach bei jeder
   Änderung des Stichtags.
+
+## 2026-11-19 – Schritt 6f (Backend): Auswertung der Vorgänge eines Geschäftsjahres
+
+**Was:**
+
+- Entscheidungen in `Plan.md` eingetragen (alle Buchungen, Spalte „Gegenkonto“, Umbuchung in zwei
+  Zeilen, Vorzeichen aus Sicht des Mitgliedskontos).
+- `reports/services.py`: `fiscal_year_events(db, year)` mit `EventRow`. Kündigungen, Todesfälle und
+  Ausschlüsse kommen aus den Mitgliedsdaten (`_member_events`), alle Buchungen aus dem Hauptbuch
+  (`_booking_row`); `BOOKING_LABELS` übersetzt die Buchungsart in den Text der Spalte „Vorgang“.
+- `reports/excel.py`: `EVENT_COLUMNS` und `fiscal_year_events()` mit Autofilter auf der Kopfzeile.
+  `_new_sheet()` kommt jetzt auch ohne Stichtag aus (`day=None`).
+- `reports/api.py`: `GET /api/reports/fiscal-year-events?fiscal_year=2025`, Jahr geprüft wie auf
+  der Seite „Jahresende“ (`YEAR_MIN`, `YEAR_MAX`).
+- Tests in `tests/test_reports.py`; geprüft mit `uv run pytest`, `ruff`, `pyright`.
+
+**Warum so:**
+
+- **Jede Seite einer Buchung, die ein Mitgliedskonto ist, wird eine Zeile:** Die Schleife sieht sich
+  Haben (Vorzeichen +) und Soll (Vorzeichen −) an. Das Genossenschaftskonto hat kein Mitglied und
+  fällt dabei von selbst heraus; bei der Umbuchung sind beide Seiten Mitglieder, also zwei Zeilen.
+- **Zurückgenommenes fehlt von allein:** Ein zurückgenommener Tod oder eine zurückgenommene
+  Kündigung steht nach dem Abspielen der Events nicht mehr im Mitglied. Bei Buchungen bleibt das
+  Original im Hauptbuch, deshalb filtern wir stornierte Buchungen und ihre Stornos wie in
+  `shares_on()`.
+- **Ausscheiden mit dem Wert der Anteile:** Die Ausscheidensbuchung bewegt nur Anteile (Betrag 0);
+  das Geld bleibt als Anspruch auf dem Konto. Matthias will in der Liste aber Anteile und Betrag
+  passend sehen. Deshalb rechnet `_booking_row` beim Ausscheiden Anteile × aktuellen Anteilspreis,
+  statt das Buchungsmodell zu ändern; das hätte Anspruch, Auszahlung und Seite „Ansprüche“
+  betroffen. Ebenso bekommt die Teilkündigung ihren Betrag.
+- **Autofilter:** `sheet.auto_filter.ref = "A4:G…"` setzt in Excel die Filterpfeile in die
+  Kopfzeile, damit man ohne eigene Tabellen je Vorgangsart filtern kann.
+- **Fallstrick im Test:** In `get_ledger(db).bookings_of(account_number(db, member(db)))` lädt
+  Python zuerst das Hauptbuch und legt erst danach das Mitglied an; das geladene Hauptbuch kennt
+  die neue Buchung dann nicht. Deshalb erst das Mitglied anlegen, dann das Hauptbuch laden.

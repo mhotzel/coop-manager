@@ -7,12 +7,24 @@ Mitgliedern ist das schnell genug; eine eigene Projektion wäre mehr Aufwand.
 from dataclasses import dataclass
 from datetime import date
 
-from ..accounts.domain import EXIT, Ledger
+from ..accounts.domain import (
+    ADDITIONAL_SHARES,
+    EXIT,
+    LIMITATION_WRITEOFF,
+    LOSS_DEDUCTION,
+    PAYOUT,
+    REFUND,
+    SHARE_DONATION,
+    SUBSCRIPTION,
+    TRANSFER,
+    Booking,
+    Ledger,
+)
 from ..accounts.exits import exits_due
 from ..accounts.services import get_ledger
 from ..db import Database
 from ..members.addressing import list_name, salutation
-from ..members.domain import Member
+from ..members.domain import NOTICE, Member
 from ..members.services import all_members
 from ..members.status import DECEASED, EXPELLED, MEMBER, NOTICE_GIVEN
 from ..system_settings.services import get_system_settings
@@ -62,6 +74,36 @@ class MailingRow:
     amount: int  # Anteile × Anteilspreis in Cent
     shares: int
     date_of_death: date | None
+
+
+# Bezeichnung jeder Buchungsart in der Spalte „Vorgang“; Stornos kommen nicht in die Liste.
+BOOKING_LABELS = {
+    SUBSCRIPTION: "Eintritt",
+    ADDITIONAL_SHARES: "Weitere Anteile",
+    REFUND: "Rückzahlung",
+    TRANSFER: "Umbuchung",
+    EXIT: "Ausscheiden",
+    LOSS_DEDUCTION: "Kürzung Verlustvortrag",
+    PAYOUT: "Auszahlung",
+    LIMITATION_WRITEOFF: "Ausbuchung Verjährung",
+    SHARE_DONATION: "Spende des Anteils",
+}
+
+
+@dataclass(frozen=True)
+class EventRow:
+    """Eine Zeile der Auswertung eines Geschäftsjahres: ein Vorgang bei einem Mitglied.
+
+    Anteile und Betrag zählen aus Sicht des Mitgliedskontos: Zugänge positiv, Abgänge negativ.
+    """
+
+    event: str  # „Eintritt“, „Kündigung“, …
+    member_number: int
+    name: str
+    day: date  # Wertstellung, Eingang der Kündigung, Sterbedatum oder Beschluss
+    shares: int | None  # leer bei Kündigung, Todesfall und Ausschluss
+    amount: int | None  # in Cent; leer, wenn es keine Buchung gibt
+    counter_account: int | None  # Kontonummer der Gegenseite; leer, wenn es keine Buchung gibt
 
 
 def shares_on(ledger: Ledger, number: int, day: date) -> int:
@@ -163,6 +205,76 @@ def members_mailing(db: Database, day: date) -> list[MailingRow]:
             )
         )
     return rows
+
+
+def fiscal_year_events(db: Database, year: int) -> list[EventRow]:
+    """Alle Vorgänge des Geschäftsjahres (= Kalenderjahr), nach Datum und Mitgliedsnummer.
+
+    Aus den Mitgliedsdaten kommen Kündigungen, Todesfälle und Ausschlüsse, aus dem Hauptbuch alle
+    Buchungen. Zurückgenommenes fehlt: Die Mitgliedsdaten enthalten es nicht mehr, stornierte
+    Buchungen und ihre Stornos lassen wir weg (siehe Plan).
+    """
+    ledger = get_ledger(db)
+    share_price = get_system_settings(db).share_price or 0
+    rows: list[EventRow] = []
+    by_account: dict[int, Member] = {}  # Kontonummer → Mitglied, für die Buchungen
+    for member in all_members(db):
+        account = ledger.account_of(member.subject)
+        if account is not None:
+            by_account[account.number] = member
+        rows.extend(_member_events(member, share_price))
+    for booking in ledger.bookings:
+        if booking.reverses is not None or ledger.reversal_of(booking.id) is not None:
+            continue
+        # Jede Seite, die ein Mitgliedskonto ist, bekommt eine Zeile; bei der Umbuchung also zwei.
+        for number, counter, sign in ((booking.credit, booking.debit, 1), (booking.debit, booking.credit, -1)):
+            member = by_account.get(number)
+            if member is not None:
+                rows.append(_booking_row(booking, member, counter, sign, share_price))
+    rows = [row for row in rows if row.day.year == year]
+    return sorted(rows, key=lambda row: (row.day, row.member_number))
+
+
+def _member_events(member: Member, share_price: int) -> list[EventRow]:
+    """Kündigungen, Todesfall und Ausschluss eines Mitglieds, mit ihrem maßgeblichen Datum.
+
+    Nur die Teilkündigung hat Anteile und Betrag (gekündigte Anteile × Anteilspreis), bei den
+    anderen bleiben beide leer (siehe Plan).
+    """
+    name = list_name(member.person_type, member.name)
+
+    def row(event: str, day: date, shares: int | None = None) -> EventRow:
+        amount = shares * share_price if shares is not None else None
+        return EventRow(event, member.member_number, name, day, shares, amount, counter_account=None)
+
+    rows = [
+        row("Kündigung", n.notice_date) if n.kind == NOTICE else row("Teilkündigung", n.notice_date, n.shares)
+        for n in member.notices
+    ]
+    if member.date_of_death is not None:
+        rows.append(row("Todesfall", member.date_of_death))
+    if member.expulsion_date is not None:
+        rows.append(row("Ausschluss", member.expulsion_date))
+    return rows
+
+
+def _booking_row(booking: Booking, member: Member, counter: int, sign: int, share_price: int) -> EventRow:
+    """Eine Buchung aus Sicht des Mitgliedskontos; `sign` ist +1 im Haben und -1 im Soll.
+
+    Ausnahme Ausscheiden: Gebucht wird es mit Betrag 0, das Geld bleibt als Anspruch auf dem Konto.
+    In der Auswertung sollen Anteile und Betrag aber zusammenpassen; deshalb steht hier der Wert der
+    Anteile zum aktuellen Anteilspreis, nicht der Betrag aus dem Hauptbuch (siehe Plan).
+    """
+    amount = booking.shares * share_price if booking.kind == EXIT else booking.amount
+    return EventRow(
+        event=BOOKING_LABELS[booking.kind],
+        member_number=member.member_number,
+        name=list_name(member.person_type, member.name),
+        day=booking.value_date,
+        shares=sign * booking.shares,
+        amount=sign * amount,
+        counter_account=counter,
+    )
 
 
 def _holders(db: Database, day: date, statuses: set[str]) -> list[tuple[Member, date, int]]:

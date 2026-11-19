@@ -12,7 +12,7 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from .services import AssemblyRow, GengRow, MailingRow
+from .services import AssemblyRow, EventRow, GengRow, MailingRow
 
 Columns = tuple[tuple[str, int, str], ...]
 
@@ -57,6 +57,16 @@ MAILING_COLUMNS: Columns = (
     ("anz_anteile", 10, "0"),
     ("jahr_report", 10, "0"),
     ("Verstorben", 12, "DD.MM.YYYY"),
+)
+
+EVENT_COLUMNS: Columns = (
+    ("Vorgang", 24, "@"),
+    ("Nr.", 8, "0"),
+    ("Name", 35, "@"),
+    ("Datum", 12, "DD.MM.YYYY"),
+    ("Anteile", 10, "0"),
+    ("Betrag", 14, '#,##0.00 "€"'),
+    ("Gegenkonto", 12, "0"),
 )
 
 
@@ -130,17 +140,32 @@ def members_mailing(rows: list[MailingRow], day: date) -> bytes:
     return _save(workbook)
 
 
+def fiscal_year_events(rows: list[EventRow], year: int) -> bytes:
+    """Auswertung der Vorgänge eines Geschäftsjahres als .xlsx, mit Filter in der Kopfzeile."""
+    workbook, sheet = _new_sheet("Vorgänge", f"Vorgänge im Geschäftsjahr {year}", None, [], EVENT_COLUMNS)
+    sheet["A2"] = f"Zeitraum: 01.01.{year} bis 31.12.{year}"
+    for row in rows:
+        amount = row.amount / 100 if row.amount is not None else None
+        values = [row.event, row.member_number, row.name, row.day, row.shares, amount, row.counter_account]
+        _append(sheet, EVENT_COLUMNS, values)
+    # Autofilter: In jeder Spalte der Kopfzeile erscheint in Excel ein Pfeil zum Filtern, z. B. nach Vorgang.
+    last_column = get_column_letter(len(EVENT_COLUMNS))
+    sheet.auto_filter.ref = f"A{HEADER_ROW}:{last_column}{max(sheet.max_row, HEADER_ROW)}"
+    return _save(workbook)
+
+
 def _new_sheet(
-    sheet_title: str, title: str, day: date, warnings: list[str], columns: Columns
+    sheet_title: str, title: str, day: date | None, warnings: list[str], columns: Columns
 ) -> tuple[Workbook, Worksheet]:
-    """Neue Arbeitsmappe mit Titel, „Stichtag: TT.MM.JJJJ“, ggf. Warnung und fett gedruckter Kopfzeile."""
+    """Neue Arbeitsmappe mit Titel, „Stichtag: TT.MM.JJJJ“ (ohne `day` leer), ggf. Warnung und Kopfzeile."""
     workbook = Workbook()
     sheet = workbook.active
     assert isinstance(sheet, Worksheet)  # eine neue Arbeitsmappe hat immer ein Blatt
     sheet.title = sheet_title
     sheet["A1"] = title
     sheet["A1"].font = Font(bold=True, size=14)
-    sheet["A2"] = f"Stichtag: {day:%d.%m.%Y}"
+    if day is not None:
+        sheet["A2"] = f"Stichtag: {day:%d.%m.%Y}"
     if warnings:
         # Auch auf dem Ausdruck soll zu sehen sein, dass die Liste unter Vorbehalt steht.
         sheet["A3"] = " ".join(warnings)
