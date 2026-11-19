@@ -56,7 +56,7 @@ class PartyList(Projector):
 
     @on("party.registered")
     def _registered(self, conn: sqlite3.Connection, event: Event) -> None:
-        conn.execute("INSERT INTO party_list VALUES (?, ?)", (event.subject, event.data["name"]))
+        conn.execute("INSERT INTO party_list (id, name) VALUES (?, ?)", (event.subject, event.data["name"]))
 
     @on("party.renamed")
     def _renamed(self, conn: sqlite3.Connection, event: Event) -> None:
@@ -256,3 +256,57 @@ def test_projector_added_later_catches_up_from_the_beginning(store, projections,
 
     assert event_count(extended) == 1
     assert party_names(extended) == ["Eins"]
+
+
+class PartyListV2(PartyList):
+    """Wie `PartyList`, aber mit geändertem Schema (neue Spalte) und deshalb Version 2.
+
+    Der Checkpoint heißt nach dem Klassennamen; damit es derselbe Projektor bleibt, gilt hier
+    weiter „PartyList“.
+    """
+
+    schema = (
+        "CREATE TABLE IF NOT EXISTS party_list"
+        " (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, note TEXT NOT NULL DEFAULT '')"
+    )
+    version = 2
+
+    @property
+    def name(self) -> str:
+        return "PartyList"
+
+
+def columns(projections: Projections) -> list[str]:
+    return [row["name"] for row in projections.conn.execute("PRAGMA table_info(party_list)")]
+
+
+def test_same_version_keeps_the_tables(store, projections, make_projections):
+    store.save(Party.register("p-1", "Eins"))
+    projections.catch_up(store)
+
+    again = make_projections(PartyList())  # wie ein Neustart der App
+
+    assert party_names(again) == ["Eins"]  # nicht gelöscht, kein Neuaufbau nötig
+
+
+def test_new_version_recreates_and_refills_the_tables(store, projections, make_projections):
+    store.save(Party.register("p-1", "Eins"))
+    projections.catch_up(store)
+
+    changed = make_projections(PartyListV2())
+
+    assert "note" in columns(changed)  # Tabelle mit dem neuen Schema angelegt
+    assert party_names(changed) == []  # gelöscht ...
+    changed.catch_up(store)
+    assert party_names(changed) == ["Eins"]  # ... und aus den Events neu befüllt
+
+
+def test_new_version_leaves_other_projectors_alone(store, make_projections):
+    store.save(Party.register("p-1", "Eins"))
+    make_projections(PartyList(), EventCounter()).catch_up(store)
+
+    changed = make_projections(PartyListV2(), EventCounter())
+    changed.catch_up(store)
+
+    assert event_count(changed) == 1  # nicht doppelt gezählt: EventCounter lief nicht neu
+    assert party_names(changed) == ["Eins"]

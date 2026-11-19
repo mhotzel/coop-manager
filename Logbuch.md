@@ -2671,3 +2671,32 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
   auch sein Name. `_account_name()` in `reports/services.py` sucht ihn: erst unter den Mitgliedern
   (`by_account`), sonst ist es das Genossenschaftskonto, dessen Bezeichnung im Hauptbuch steht
   (`ledger.accounts[number].name`).
+
+## 2026-11-19 – Schemaversion je Projektor
+
+**Was:**
+
+- `eventsource/projection.py`: Klassenattribut `version = 1` an `Projector`, neue Methode
+  `drop_schema()` (`DROP TABLE IF EXISTS` für alle `tables`). Die Tabelle `projection_checkpoints`
+  hat eine Spalte `version`. `Projections.create_schema()` vergleicht beim Start die gespeicherte
+  mit der Version im Code; weichen sie ab, werden die Tabellen gelöscht und der Checkpoint auf 0
+  gesetzt. Das folgende `catch_up()` in `prepare()` befüllt sie neu.
+- Tests in `tests/test_eventsource.py`: gleiche Version behält die Daten, neue Version baut neu
+  auf, andere Projektoren bleiben unberührt.
+- Einmalig: Matthias hat `backend/data/projections.sqlite` gelöscht, weil die alte
+  Checkpoint-Tabelle die neue Spalte noch nicht hatte. Probelauf mit einer Kopie des Event Stores
+  im Scratchpad: zwei Starts, beide Projektoren mit Version 1, alle Mitglieder wieder da.
+- Geprüft mit `uv run pytest`, `ruff`, `pyright`; offener Punkt in `Plan.md` erledigt.
+
+**Warum so:**
+
+- **`CREATE TABLE IF NOT EXISTS`** legt eine Tabelle nur an, wenn sie fehlt; eine neue Spalte im
+  Code kommt in einer bestehenden Datei nie an. `ALTER TABLE` für jede Änderung wäre viel Arbeit;
+  eine Projektion lässt sich ja jederzeit aus den Events neu berechnen, also löschen wir sie.
+- **Version von Hand statt automatisch aus dem Schema-Text:** Eine Prüfsumme des Textes würde auch
+  bei einem geänderten Kommentar neu aufbauen. Die Zahl ist einfach und sichtbar.
+- **Je Projektor:** Ändert sich nur die Mitgliederliste, bleiben die Benutzer unberührt.
+- **`executescript()` außerhalb der Transaktion:** Python schließt vor `executescript()` eine
+  offene Transaktion ab; deshalb erst Löschen + Checkpoint in einer Transaktion, danach anlegen.
+- **Fallstrick im Test:** `INSERT INTO party_list VALUES (?, ?)` ohne Spaltennamen scheitert, sobald
+  die Tabelle eine dritte Spalte hat. Spalten immer ausdrücklich nennen.

@@ -104,6 +104,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Service-Funktionen, keine Command- oder Query-Busse. `eventstore.sqlite` ist die einzige Quelle
   der Wahrheit, Projektionen in `projections.sqlite` mit Checkpoint pro Projektor, synchron nach
   jedem Speichern. Fachliche Regeln prüft der Service, bevor das Event entsteht. Ein Prozess.
+- **Schemaversion je Projektor** (Stand 2026-11-19): Jeder Projektor hat eine `version`, die
+  Checkpoint-Tabelle merkt sich, mit welcher Version seine Tabellen angelegt wurden. Weicht sie beim
+  Start ab, werden seine Tabellen gelöscht, neu angelegt und aus allen Events neu befüllt; die
+  anderen Projektoren bleiben unberührt. **Wer das `schema` eines Projektors ändert, erhöht seine
+  `version`.** Grund: `CREATE TABLE IF NOT EXISTS` ändert eine bestehende Tabelle nicht, und
+  `projections.sqlite` soll im Betrieb nicht von Hand gelöscht werden müssen.
 - **KISS:** Der Code soll so einfach sein, dass Matthias ihn selbst durchschaut.
 - **Frontend: Vue 3 mit TypeScript und Vite**, eigenes CSS auf Basis von `style.css` und
   `colorscheme-dorfladen.css` aus `purchase-prices`, keine Komponentenbibliothek. Svelte wurde
@@ -711,11 +717,6 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 ## Offene Punkte
 
 - Access-Datei bzw. Tabellenexporte des Altsystems bereitstellen (in `Beispieldaten/`).
-- **Schemaänderungen an Projektionen vor dem Produktivbetrieb lösen:** `CREATE TABLE IF NOT
-  EXISTS` ändert eine bestehende Tabelle nicht, und `rebuild()` leert die Tabellen nur. Bis zum
-  Produktivbetrieb wird nach einer Änderung `projections.sqlite` gelöscht und beim Start neu
-  aufgebaut. Idee: Schemaversion je Projektor; weicht sie ab, Tabellen löschen, neu anlegen und
-  neu abspielen.
 
 
 - **Höchstzahl an Anteilen je Mitglied:** Steht in der Satzung eine Grenze? Bis zur Klärung prüft
