@@ -1,0 +1,28 @@
+"""Reports-API: liefert die Listen als Excel-Datei zum Herunterladen."""
+
+from datetime import date
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Response
+
+from ..db import Database, get_db
+from ..users.access import require_role
+from ..users.domain import ACCOUNTING, ACCOUNTING_READONLY
+from ..users.projections import UserView
+from . import excel, services
+
+router = APIRouter(prefix="/api/reports")
+
+Db = Annotated[Database, Depends(get_db)]
+Reader = Annotated[UserView, Depends(require_role(ACCOUNTING, ACCOUNTING_READONLY))]
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.get("/members-geng")
+def members_geng(reference_date: date, db: Db, user: Reader) -> Response:
+    """Mitgliederliste nach GenG zum Stichtag, z. B. `?reference_date=2026-12-31`."""
+    content = excel.members_geng(services.members_geng(db, reference_date), reference_date)
+    filename = f"Mitgliederliste-GenG-{reference_date.isoformat()}.xlsx"
+    # attachment: Der Browser speichert die Datei, statt sie anzuzeigen.
+    return Response(content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{filename}"'})

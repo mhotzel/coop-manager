@@ -15,6 +15,7 @@ from .eventsource import Projector
 from .logs import init_logging
 from .members import api as members_api
 from .members.projections import MemberList
+from .reports import api as reports_api
 from .security import init_security
 from .users import api as users_api
 from .users import login_attempts
@@ -48,6 +49,7 @@ def create_app(settings: Settings | None = None, projectors: Sequence[Projector]
     app.include_router(users_api.router)
     app.include_router(members_api.router)
     app.include_router(accounts_api.router)
+    app.include_router(reports_api.router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

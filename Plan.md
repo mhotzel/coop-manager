@@ -84,7 +84,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 2: Frontend: Buchungsart „Spende Anteil“ in der Buchungsmaske des Kontos (nicht als
        Aktion am Mitglied, Stand 2026-11-19), Datum der Spende auf der Mitgliederseite
 6. Reports: die drei Excel-Listen zum Stichtag
-   - Auswertung der Vorgänge eines Geschäftsjahres (Stand 2026-11-19), siehe unten
+   - 6a: Mitgliederliste nach GenG (Backend: Abfrage, Excel, API)
+   - 6b: Frontend: Seite „Reports“ mit Stichtag und Download
+   - 6c: Liste zur Generalversammlung (Anwesenheit, Unterschrift)
+   - 6d: Seriendruck-Liste
+   - 6e: Warnung, wenn zum Stichtag ein Ausscheiden noch nicht gebucht ist
+   - 6f: Auswertung der Vorgänge eines Geschäftsjahres (Stand 2026-11-19), siehe unten
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
@@ -568,6 +573,24 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Eingabe:** Wo Betrag und Anteile nötig sind, wird eins von beiden eingegeben und das andere
   berechnet; ein Betrag muss ein Vielfaches des Anteilspreises sein. Die Maske zeigt nur die
   Felder, die die Buchungsart braucht.
+
+### Reports zum Stichtag (Schritt 6)
+
+- **Excel mit `openpyxl`**, aufgebaut wie in `purchase-prices`: Titel, darunter einmalig
+  „Stichtag: TT.MM.JJJJ“, dann Kopfzeile und Zeilen. Kein eigenes Feld für das Jahr des Stichtags.
+- **Wer in der Liste steht** (Stand 2026-11-19): wer zum Stichtag den Status „Mitglied“,
+  „gekündigt“, „verstorben“ oder „ausgeschlossen“ hat, also eingetreten und noch nicht
+  ausgeschieden ist, **und Anteile hält**. Wer am Stichtag 0 Anteile hat, z. B. am Tag einer Spende
+  des Anteils oder der Übertragung aller Anteile, fehlt.
+- **Anteile zum Stichtag:** alle Buchungen mit Wertstellung bis einschließlich Stichtag; stornierte
+  Buchungen und ihre Stornos fallen heraus. **Ausnahme:** Die Ausscheidensbuchung zum 31.12. wirkt
+  im Report erst ab dem 01.01., weil die Person bis einschließlich 31.12. mit ihren Anteilen zählt.
+  Das gilt auch für Teilkündigungen.
+- **Betrag** = Anteile × Anteilspreis, nicht der Saldo: Nach einer Teilkündigung enthält der Saldo
+  bis zur Auszahlung auch den Anspruch auf die gekündigten Anteile.
+- **Mitgliederliste nach GenG** (6a): Nr., Name („Nachname, Vornamen“ bzw. Firma), Anschrift
+  einzeilig („Straße Hausnummer, PLZ Ort“), Eintritt, Betrag, Anteile; nach Mitgliedsnummer.
+  Herunterladen dürfen beide Buchhaltungsrollen.
 
 ### Auswertung der Vorgänge eines Geschäftsjahres (Schritt 6)
 

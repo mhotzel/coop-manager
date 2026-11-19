@@ -2491,3 +2491,33 @@ blieb nur das Frontend.
 **Lehre:** TypeScript hilft hier nicht: `ref('')` behauptet `string`, zur Laufzeit steht eine Zahl
 darin. Bei Zahlenfeldern deshalb immer `Number(...)` verwenden und keine String-Methoden. Die
 Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
+
+## 2026-11-19 – Schritt 6a: Mitgliederliste nach GenG (Backend)
+
+**Was:**
+
+- `uv add openpyxl` im Ordner `backend`: Bibliothek zum Schreiben von Excel-Dateien, trägt sich in
+  `pyproject.toml` und `uv.lock` ein.
+- Neues Modul `coop_manager/reports/`:
+  - `services.py`: `shares_on()` zählt die Anteile eines Kontos zum Stichtag, `members_geng()`
+    liefert die Zeilen der Liste (`GengRow`).
+  - `excel.py`: baut die `.xlsx` nach dem Vorbild von `purchase-prices`: eine Spaltentabelle
+    (Überschrift, Breite, Zahlenformat), oben Titel und „Stichtag: TT.MM.JJJJ“, fixierte Kopfzeile.
+  - `api.py`: `GET /api/reports/members-geng?reference_date=2026-12-31` liefert die Datei mit
+    `Content-Disposition: attachment`, damit der Browser sie speichert.
+  - In `app.py` mit `app.include_router(reports_api.router)` eingehängt.
+- `tests/test_reports.py` mit erfundenen Mitgliedern: Eintritt, Antragsteller, Kündigung bis
+  31.12., Teilkündigung, Spende, Storno, Sortierung, Download und Rechte.
+- Geprüft mit `uv run pytest`, `uv run ruff check .`, `uv run pyright`.
+
+**Warum so:**
+
+- **Ausscheidensbuchung erst ab 01.01.:** Sie hat Wertstellung 31.12., die Person zählt aber bis
+  einschließlich 31.12. mit ihren Anteilen. Ohne Ausnahme stünde sie zum 31.12. mit 0 Anteilen da.
+- **Wer 0 Anteile hat, fehlt:** Am Tag einer Spende ist die Person laut Status noch Mitglied, ihre
+  Anteile sind aber schon weg. Statt einer weiteren Ausnahme wird sie einfach nicht aufgeführt.
+- **Betrag = Anteile × Preis statt Saldo:** Nach einer Teilkündigung steckt im Saldo bis zur
+  Auszahlung noch der Anspruch auf die gekündigten Anteile.
+- **Pyright-Fehler:** `sheet.cell(...).column_letter` kennt Pyright nicht, weil eine Zelle auch eine
+  verbundene Zelle (`MergedCell`) sein kann. `get_column_letter(index)` aus `openpyxl.utils` macht
+  aus der Spaltennummer direkt den Buchstaben und ist ohnehin einfacher.
