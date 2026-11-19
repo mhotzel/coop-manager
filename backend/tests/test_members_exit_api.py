@@ -332,3 +332,24 @@ def test_readonly_may_not_pay_out(client, register, login, leaving_2025):
     assert client.post("/api/accounts/payout", json=command).status_code == 403
     assert client.post("/api/accounts/deduct-loss", json=command).status_code == 403
     assert client.post("/api/accounts/write-off", json=command).status_code == 403
+
+
+# --- Offene Ansprüche (5h-2) ---
+
+
+def test_open_claims(client, leaving_2025):
+    assert client.get("/api/accounts/claims").json() == []
+    client.post("/api/accounts/post-exits", json={"year": 2025})
+
+    response = client.get("/api/accounts/claims")
+
+    assert response.status_code == 200
+    [entry] = response.json()
+    assert (entry["member_id"], entry["exit_date"], entry["claim"]) == (leaving_2025, "2025-12-31", 15000)
+
+
+def test_readonly_may_read_claims(client, register, login, leaving_2025):
+    register("rita", ACCOUNTING_READONLY, full_name="Rita Lesend")
+    login("rita")
+
+    assert client.get("/api/accounts/claims").status_code == 200

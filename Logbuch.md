@@ -2234,3 +2234,30 @@ umsetzen, außer du hast Fragen“); der Plan legte das Wesentliche schon fest.
   Zweig hat. Kommt später eine Art dazu und fehlt der Zweig, meldet `type-check` einen Fehler.
 - **`Omit<ClaimBooking, 'amount'>`:** ein TypeScript-Hilfstyp, „ClaimBooking ohne das Feld amount“.
   So muss für die Ausbuchung kein eigenes Interface geschrieben werden.
+
+## 2026-11-18 – Schritt 5h, Teil 2: Seite „Offene Ansprüche“
+
+**Was:**
+
+- Neu `accounts/claims.py`: `open_claims(db, today)` liefert alle Konten mit gebuchtem Ausscheiden
+  und offenem Anspruch (`ClaimEntry` mit Nummern, Name, Status, Ausscheiden, Anspruch), das älteste
+  Ausscheiden zuerst.
+- `accounts/api.py`: `GET /api/accounts/claims` für beide Buchhaltungsrollen, **vor**
+  `GET /{number}` definiert.
+- Frontend: `ClaimEntry` und `getClaims()` in `accounts.ts`; neue Seite
+  `views/accounts/OpenClaimsView.vue` (Tabelle mit Links zu Mitglied und Konto, Summe in `<tfoot>`);
+  Route `/claims`; Menüpunkt „Ansprüche“ mit Tooltip „Offene Ansprüche“.
+- `Plan.md`: Entscheidungen zur Liste.
+- Tests in `test_claims.py` und `test_members_exit_api.py`; 434 grün, ruff, pyright und
+  `npm run type-check` sauber.
+
+**Warum so:**
+
+- **Reihenfolge der Routen:** FastAPI prüft die Routen in der Reihenfolge, in der sie definiert
+  sind. `/{number}` passt auf jeden einzelnen Pfadteil, also auch auf „claims“, und hätte mit 422
+  geantwortet, weil „claims“ keine Zahl ist. Deshalb steht `/claims` davor (mit Kommentar).
+  `/exits/{year}` hat zwei Pfadteile und kollidiert deshalb nicht.
+- **`sorted` ist stabil:** Bei gleichem Ausscheidensdatum bleibt die Reihenfolge nach
+  Mitgliedsnummer erhalten, weil `all_members` schon danach sortiert ist.
+- **Summe mit `reduce`:** Array-Methode in JavaScript, die alle Einträge zu einem Wert
+  zusammenfasst; hier beginnend bei 0 jeweils plus den Anspruch.

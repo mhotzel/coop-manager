@@ -1,17 +1,18 @@
-"""Auszahlung, Kürzung Verlustvortrag und Ausbuchung Verjährung (Schritt 5h-1)."""
+"""Auszahlung, Kürzung Verlustvortrag, Ausbuchung Verjährung (5h-1) und Liste offener Ansprüche (5h-2)."""
 
 from collections.abc import Iterator
 from datetime import date
 
 import pytest
 
-from coop_manager.accounts import bookings, exits
+from coop_manager.accounts import bookings, claims, exits
 from coop_manager.accounts.domain import COOPERATIVE_ACCOUNT_NUMBER, LIMITATION_WRITEOFF, LOSS_DEDUCTION, PAYOUT
 from coop_manager.accounts.services import get_ledger, open_cooperative_account
 from coop_manager.app import PROJECTORS, SCHEMAS
 from coop_manager.core import DomainError
 from coop_manager.db import Database, prepare
 from coop_manager.members import services
+from coop_manager.members.status import EXITED, MEMBER
 from coop_manager.members.values import NATURAL_PERSON, Address, PersonName
 from coop_manager.system_settings.services import change_share_price
 
@@ -31,12 +32,12 @@ def db(tmp_path) -> Iterator[Database]:
     db.close()
 
 
-def member(db: Database) -> int:
+def member(db: Database, last_name: str = "Muster") -> int:
     """Erfundenes Mitglied seit dem 10.11.2026 mit 3 Anteilen (150,00 €); liefert die Kontonummer."""
     member_id = services.apply_for_membership(
         db,
         person_type=NATURAL_PERSON,
-        name=PersonName(first_names="Erika", last_name="Muster", gender="w"),
+        name=PersonName(first_names="Erika", last_name=last_name, gender="w"),
         address=Address(street="Hauptstraße", house_number="1", postal_code="12345", city="Musterstadt"),
         application_date=date(2026, 11, 2),
         shares_subscribed=3,
@@ -163,3 +164,60 @@ def test_reverse_payout_restores_claim(db, exited):
 
     assert result.warning is None
     assert claim(db, exited) == 15000
+
+
+# --- Liste offener Ansprüche (5h-2) ---
+
+
+def member_id_of(db: Database, number: int) -> str:
+    member_id = get_ledger(db).accounts[number].member_id
+    assert member_id is not None
+    return member_id
+
+
+def test_open_claims_lists_exited_member(db, exited):
+    [entry] = claims.open_claims(db, JANUARY)
+
+    assert (entry.account_number, entry.name, entry.status) == (exited, "Muster, Erika", EXITED)
+    assert (entry.exit_date, entry.claim) == (date(2026, 12, 31), 15000)
+
+
+def test_open_claims_shows_rest_and_drops_paid(db, exited):
+    bookings.payout(db, exited, 10000, JANUARY, JANUARY, actor="test")
+    assert [e.claim for e in claims.open_claims(db, JANUARY)] == [5000]
+
+    bookings.payout(db, exited, 5000, JANUARY, JANUARY, actor="test")
+
+    assert claims.open_claims(db, JANUARY) == []
+
+
+def test_open_claims_after_partial_exit(db):
+    number = member(db)
+    services.give_partial_notice(
+        db, member_id_of(db, number), 1, date(2026, 11, 20), date(2026, 12, 31), TODAY, actor="test"
+    )
+    exits.post_exits(db, 2026, date(2027, 1, 5), actor="test")
+
+    [entry] = claims.open_claims(db, JANUARY)
+
+    assert (entry.status, entry.claim) == (MEMBER, 5000)
+
+
+def test_open_claims_needs_booked_exit(db):
+    member(db)  # Mitglied ohne Ausscheiden
+    change_share_price(db, 4000, actor="test")  # rechnerisch läge der Saldo nun über dem Wert
+
+    assert claims.open_claims(db, JANUARY) == []
+
+
+def test_open_claims_oldest_exit_first(db):
+    later = member(db, "Später")
+    earlier = member(db, "Früher")
+    services.give_notice(db, member_id_of(db, later), date(2026, 11, 20), date(2027, 12, 31), TODAY, actor="test")
+    services.give_notice(db, member_id_of(db, earlier), date(2026, 11, 20), date(2026, 12, 31), TODAY, actor="test")
+    exits.post_exits(db, 2026, date(2027, 1, 5), actor="test")
+    exits.post_exits(db, 2027, date(2028, 1, 5), actor="test")
+
+    entries = claims.open_claims(db, date(2028, 1, 5))
+
+    assert [e.account_number for e in entries] == [earlier, later]

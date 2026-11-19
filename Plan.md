@@ -404,6 +404,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   wegen Verjährung nimmt immer den ganzen Rest**. Kein Abgleich mit dem Geldeingang.
 - **Verjährung** (Satzung 2.7) überwacht die App nicht. Sie bietet eine **Liste der offenen
   Ansprüche** mit Ausscheidensdatum; die Ausbuchung erfolgt von Hand.
+- **Liste der offenen Ansprüche** (Stand 2026-11-18): Seite „Ansprüche“ mit Nummer, Name, Status,
+  Ausscheidensdatum (letzte Ausscheidensbuchung) und offenem Anspruch, das älteste Ausscheiden
+  zuerst, mit Summe. **Nur Konten mit gebuchtem Ausscheiden**, sonst hätte nach einer Senkung des
+  Anteilspreises jedes Mitglied rechnerisch einen Anspruch. Keine Spalte „Jahre seit
+  Ausscheiden“, das Datum reicht.
 
 ### Hauptbuch
 

@@ -200,3 +200,20 @@ export function getExits(year: number): Promise<ExitEntry[]> {
 export function postExits(year: number): Promise<ExitEntry[]> {
   return api<ExitEntry[]>('/api/accounts/post-exits', { method: 'POST', body: { year } })
 }
+
+// --- Offene Ansprüche ---
+
+// Muss zu ClaimEntry im Backend passen (accounts/claims.py).
+export interface ClaimEntry {
+  member_id: string
+  member_number: number
+  account_number: number
+  name: string
+  status: string | null
+  exit_date: string // letztes gebuchtes Ausscheiden
+  claim: number // offener Anspruch in Cent
+}
+
+export function getClaims(): Promise<ClaimEntry[]> {
+  return api<ClaimEntry[]>('/api/accounts/claims')
+}
