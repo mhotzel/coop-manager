@@ -392,7 +392,7 @@ def test_event_row(db, setup):
     member(db)
 
     assert fiscal_year_events(db, 2026) == [
-        EventRow("Eintritt", 1, "Muster, Erika", ENTRY, shares=3, amount=15000, counter_account=9999)
+        EventRow("Eintritt", 1, "Muster, Erika", ENTRY, 3, 15000, counter_account=9999, counter_name="Musterladen eG")
     ]
 
 
@@ -441,6 +441,7 @@ def test_transfer_in_two_rows(db, setup):
         ("Umbuchung", 1, day, -2, -10000, 2),
         ("Umbuchung", 2, day, 2, 10000, 1),
     ]
+    assert [row.counter_name for row in fiscal_year_events(db, 2026)[2:]] == ["Zabel, Erika", "Adler, Erika"]
 
 
 def test_reversed_and_withdrawn_left_out(db, setup):
@@ -468,8 +469,17 @@ def test_events_download(client, db, setup, register, login):
     assert sheet is not None
     assert sheet["A1"].value == "Vorgänge im Geschäftsjahr 2026"
     assert sheet["A2"].value == "Zeitraum: 01.01.2026 bis 31.12.2026"
-    assert [cell.value for cell in sheet[4]] == ["Vorgang", "Nr.", "Name", "Datum", "Anteile", "Betrag", "Gegenkonto"]
+    assert [cell.value for cell in sheet[4]] == [
+        "Vorgang",
+        "Nr.",
+        "Name",
+        "Datum",
+        "Anteile",
+        "Betrag",
+        "Gegenkonto",
+        "Name Gegenkonto",
+    ]
     row = [cell.value for cell in sheet[5]]
     assert row[:3] == ["Eintritt", 1, "Muster, Erika"]
-    assert row[4:] == [3, 150, 9999]
-    assert sheet.auto_filter.ref == "A4:G5"
+    assert row[4:] == [3, 150, 9999, "Musterladen eG"]
+    assert sheet.auto_filter.ref == "A4:H5"

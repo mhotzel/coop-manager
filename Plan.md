@@ -634,7 +634,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   - **Eintritt und Weitere Anteile** zählen mit der Buchung (Einzahlung), nicht mit Zulassung oder
     Zeichnung. Erben, die über eine Umbuchung Mitglied werden, erscheinen als Umbuchung.
   - **Spalte „Gegenkonto“:** bei Buchungen die Nummer des anderen Kontos (meist 9999, das
-    Genossenschaftskonto), bei Kündigung, Todesfall und Ausschluss leer.
+    Genossenschaftskonto), bei Kündigung, Todesfall und Ausschluss leer. Daneben die Spalte **„Name
+    Gegenkonto“**: Name des Mitglieds bzw. Bezeichnung des Genossenschaftskontos.
   - **Umbuchung in zwei Zeilen**, je eine für das abgebende und das empfangende Konto, jeweils mit
     dem anderen als Gegenkonto. So zeigt ein Filter auf eine Mitgliedsnummer alle Bewegungen.
   - **Vorzeichen aus Sicht des Mitgliedskontos:** Zugänge positiv, Abgänge negativ.

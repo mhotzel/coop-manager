@@ -2646,3 +2646,28 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
 - **Fallstrick im Test:** In `get_ledger(db).bookings_of(account_number(db, member(db)))` lädt
   Python zuerst das Hauptbuch und legt erst danach das Mitglied an; das geladene Hauptbuch kennt
   die neue Buchung dann nicht. Deshalb erst das Mitglied anlegen, dann das Hauptbuch laden.
+
+## 2026-11-19 – Schritt 6f (Frontend): Link zur Auswertung eines Geschäftsjahres
+
+**Was:**
+
+- `ReportsView.vue`: Abschnitt „Auswertung eines Geschäftsjahres“ mit Feld „Geschäftsjahr“
+  (`<input type="number" v-model.number>`, vorbelegt mit dem Vorjahr) und dem Link auf
+  `/api/reports/fiscal-year-events?fiscal_year=…`.
+- Geprüft mit `npm run type-check`.
+
+**Warum so:**
+
+- **Eigenes Feld statt Stichtag:** Die Auswertung gilt immer für ein ganzes Jahr; der Stichtag
+  gehört nur zu den drei Listen darüber.
+- **`v-model.number`:** Ein Eingabefeld liefert immer Text. Mit `.number` wandelt Vue ihn in eine
+  Zahl um, sodass `fiscalYear` vom Typ `number` bleibt und TypeScript zufrieden ist.
+- **Gültigkeit wie auf der Seite „Jahresende“:** `isValidYear` nutzt dieselben Grenzen
+  `YEAR_MIN`/`YEAR_MAX` aus `accounts.ts`; solange das Jahr ungültig ist (leer oder halb getippt),
+  gibt es keinen Link.
+- **Keine Warnung:** Die Auswertung listet, was gebucht ist; ein nicht gebuchtes Ausscheiden fehlt
+  dann einfach in der Liste.
+- **Nachtrag „Name Gegenkonto“:** Auf Matthias' Wunsch steht neben der Nummer des Gegenkontos
+  auch sein Name. `_account_name()` in `reports/services.py` sucht ihn: erst unter den Mitgliedern
+  (`by_account`), sonst ist es das Genossenschaftskonto, dessen Bezeichnung im Hauptbuch steht
+  (`ledger.accounts[number].name`).

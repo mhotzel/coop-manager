@@ -67,6 +67,7 @@ EVENT_COLUMNS: Columns = (
     ("Anteile", 10, "0"),
     ("Betrag", 14, '#,##0.00 "€"'),
     ("Gegenkonto", 12, "0"),
+    ("Name Gegenkonto", 35, "@"),
 )
 
 
@@ -146,7 +147,16 @@ def fiscal_year_events(rows: list[EventRow], year: int) -> bytes:
     sheet["A2"] = f"Zeitraum: 01.01.{year} bis 31.12.{year}"
     for row in rows:
         amount = row.amount / 100 if row.amount is not None else None
-        values = [row.event, row.member_number, row.name, row.day, row.shares, amount, row.counter_account]
+        values = [
+            row.event,
+            row.member_number,
+            row.name,
+            row.day,
+            row.shares,
+            amount,
+            row.counter_account,
+            row.counter_name,
+        ]
         _append(sheet, EVENT_COLUMNS, values)
     # Autofilter: In jeder Spalte der Kopfzeile erscheint in Excel ein Pfeil zum Filtern, z. B. nach Vorgang.
     last_column = get_column_letter(len(EVENT_COLUMNS))

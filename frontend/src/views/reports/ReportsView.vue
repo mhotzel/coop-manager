@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import { YEAR_MAX, YEAR_MIN } from '../../accounts'
 import { errorText } from '../../api'
 import { todayIso } from '../../members'
 import { getReportWarnings } from '../../reports'
@@ -13,6 +14,15 @@ const referenceDate = ref(todayIso())
 const gengUrl = computed(() => `/api/reports/members-geng?reference_date=${referenceDate.value}`)
 const assemblyUrl = computed(() => `/api/reports/members-assembly?reference_date=${referenceDate.value}`)
 const mailingUrl = computed(() => `/api/reports/members-mailing?reference_date=${referenceDate.value}`)
+
+// Geschäftsjahr für die Auswertung der Vorgänge. Vorbelegt mit dem Vorjahr, denn ausgewertet wird
+// meist ein abgeschlossenes Jahr. v-model.number macht aus dem eingegebenen Text eine Zahl.
+const fiscalYear = ref(new Date().getFullYear() - 1)
+// Leeres Feld oder halb getipptes Jahr: kein Link, wie beim leeren Stichtag.
+const isValidYear = computed(
+  () => Number.isInteger(fiscalYear.value) && fiscalYear.value >= YEAR_MIN && fiscalYear.value <= YEAR_MAX,
+)
+const eventsUrl = computed(() => `/api/reports/fiscal-year-events?fiscal_year=${fiscalYear.value}`)
 
 const warnings = ref<string[]>([])
 const error = ref('')
@@ -67,12 +77,28 @@ watch(
           – Adresszeilen und Briefanrede für die Einladung, ohne „keine Post“ (Feldnamen wie im Altsystem)
         </li>
       </ul>
+
+      <h3>Auswertung eines Geschäftsjahres</h3>
+      <div class="form-group fiscal-year">
+        <label for="reports-fiscal-year">Geschäftsjahr</label>
+        <input id="reports-fiscal-year" v-model.number="fiscalYear" type="number" :min="YEAR_MIN" :max="YEAR_MAX" />
+      </div>
+
+      <ul class="report-list">
+        <li>
+          <a v-if="isValidYear" :href="eventsUrl" download>Vorgänge im Geschäftsjahr</a>
+          <span v-else>Vorgänge im Geschäftsjahr</span>
+          – Eintritte, Kündigungen, Todesfälle, Ausschlüsse und alle Buchungen des Jahres, zum Filtern in
+          Excel (ohne Stornos)
+        </li>
+      </ul>
     </div>
   </div>
 </template>
 
 <style scoped>
-.reference-date {
+.reference-date,
+.fiscal-year {
   max-width: 12rem;
 }
 

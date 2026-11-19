@@ -104,6 +104,7 @@ class EventRow:
     shares: int | None  # leer bei Kündigung, Todesfall und Ausschluss
     amount: int | None  # in Cent; leer, wenn es keine Buchung gibt
     counter_account: int | None  # Kontonummer der Gegenseite; leer, wenn es keine Buchung gibt
+    counter_name: str | None  # Mitglied oder Bezeichnung des Genossenschaftskontos; leer wie oben
 
 
 def shares_on(ledger: Ledger, number: int, day: date) -> int:
@@ -230,7 +231,8 @@ def fiscal_year_events(db: Database, year: int) -> list[EventRow]:
         for number, counter, sign in ((booking.credit, booking.debit, 1), (booking.debit, booking.credit, -1)):
             member = by_account.get(number)
             if member is not None:
-                rows.append(_booking_row(booking, member, counter, sign, share_price))
+                counter_name = _account_name(ledger, by_account, counter)
+                rows.append(_booking_row(booking, member, counter, counter_name, sign, share_price))
     rows = [row for row in rows if row.day.year == year]
     return sorted(rows, key=lambda row: (row.day, row.member_number))
 
@@ -245,7 +247,7 @@ def _member_events(member: Member, share_price: int) -> list[EventRow]:
 
     def row(event: str, day: date, shares: int | None = None) -> EventRow:
         amount = shares * share_price if shares is not None else None
-        return EventRow(event, member.member_number, name, day, shares, amount, counter_account=None)
+        return EventRow(event, member.member_number, name, day, shares, amount, None, None)
 
     rows = [
         row("Kündigung", n.notice_date) if n.kind == NOTICE else row("Teilkündigung", n.notice_date, n.shares)
@@ -258,7 +260,17 @@ def _member_events(member: Member, share_price: int) -> list[EventRow]:
     return rows
 
 
-def _booking_row(booking: Booking, member: Member, counter: int, sign: int, share_price: int) -> EventRow:
+def _account_name(ledger: Ledger, by_account: dict[int, Member], number: int) -> str:
+    """Name zu einer Kontonummer: das Mitglied oder die Bezeichnung des Genossenschaftskontos."""
+    member = by_account.get(number)
+    if member is not None:
+        return list_name(member.person_type, member.name)
+    return ledger.accounts[number].name or ""
+
+
+def _booking_row(
+    booking: Booking, member: Member, counter: int, counter_name: str, sign: int, share_price: int
+) -> EventRow:
     """Eine Buchung aus Sicht des Mitgliedskontos; `sign` ist +1 im Haben und -1 im Soll.
 
     Ausnahme Ausscheiden: Gebucht wird es mit Betrag 0, das Geld bleibt als Anspruch auf dem Konto.
@@ -274,6 +286,7 @@ def _booking_row(booking: Booking, member: Member, counter: int, sign: int, shar
         shares=sign * booking.shares,
         amount=sign * amount,
         counter_account=counter,
+        counter_name=counter_name,
     )
 
 
