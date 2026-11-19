@@ -2413,3 +2413,63 @@ also vor dem nächsten Start `backend/data/projections.sqlite` löschen.
   empfangen erlaubt ist, entscheidet das Backend.
 - **Namensgleichheit Prop/computed:** In `<script setup>` gewinnt im Template die Variable aus dem
   Skript vor der Prop gleichen Namens. Deshalb `props.shares` ausdrücklich schreiben.
+
+## 2026-11-19 – Schritt 5i, Teil 1: Weitere Anteile zeichnen und einzahlen (Backend)
+
+**Was:**
+
+- `members/domain.py`: `AdditionalSubscription` (ID, Anteile, Datum der Zulassung),
+  `subscribe_additional_shares()` mit Event `member.additional-shares-subscribed`,
+  `revoke_additional_shares()` mit `member.additional-shares-revoked`, dazu
+  `additional_shares_subscribed()` und `total_shares_subscribed()`.
+- `accounts/domain.py`: Buchungsart `ADDITIONAL_SHARES` („Weitere Anteile“) und
+  `Ledger.paid_additional_shares()`: Anteile aus nicht stornierten Buchungen dieser Art.
+- `accounts/bookings.py`: Vorgang `pay_additional_shares()`. Der Abgleich beim Eintritt
+  (`_reconcile`) und die Prüfung „bereits eingezahlt“ in `subscribe()` zählen jetzt nur die Anteile
+  ohne „Weitere Anteile“.
+- `members/services.py`, `api.py`, `schemas.py`: `POST /api/members/subscribe-additional-shares`,
+  `POST /api/members/revoke-additional-shares`; die Detailansicht hat `additional_subscriptions`
+  und `additional_shares_open`. Dafür bekommt `_detail()` die Datenbank, denn die offenen Anteile
+  stehen im Hauptbuch.
+- `accounts/api.py`: `POST /api/accounts/pay-additional-shares` (gleicher Body wie der Eintritt).
+- Tests: neu `test_additional_shares.py` (10 Tests), ein API-Test; 479 grün, ruff und pyright sauber.
+- `Plan.md`: Abschnitt „Weitere Anteile“ ausgeführt, Höchstzahl an Anteilen unter „Offene Punkte“.
+
+**Warum so:**
+
+- **Vereinfachter Ablauf (b):** Die Zulassung durch den Vorstand ist rechtlich nötig und wird mit
+  Datum festgehalten, ein eigener Zwischenstatus wie beim Antrag lohnt sich aber nicht.
+- **Offen = gezeichnet minus gebucht:** Wie viel eingezahlt ist, steht im Hauptbuch. Das Mitglied
+  speichert nur die Zeichnungen; es gibt kein zweites „bezahlt“-Event, das auseinanderlaufen könnte.
+- **Warnung aus dem Vorgang:** `book()` legt die Warnung in einer Liste ab, weil eine innere
+  Funktion eine Variable der äußeren nicht neu zuweisen kann (dafür bräuchte es `nonlocal`). Eine
+  Liste darf sie dagegen verändern. So muss nach dem Buchen nichts neu geladen werden.
+- **Abgleich nur mit den Anteilen aus dem Antrag:** Der Eintritt hängt allein an der ersten
+  Einzahlung. Ohne die Korrektur würde nach Storno und Neubuchung eines Eintritts fälschlich
+  „mehr eingezahlt als gezeichnet“ gemeldet oder die Neubuchung abgelehnt.
+
+## 2026-11-19 – Schritt 5i, Teil 2: Weitere Anteile im Frontend
+
+**Was:**
+
+- `frontend/src/members.ts`: Interface `AdditionalSubscription`, Felder `additional_subscriptions`
+  und `additional_shares_open`, Funktionen `subscribeAdditionalShares()` und `revokeAdditionalShares()`.
+- `views/members/AdditionalSharesCard.vue` (neu), nach dem Vorbild von `NoticeCard.vue`: Tabelle
+  der Zeichnungen (Zulassung, Anteile, „Zurücknehmen“), Hinweis auf noch offene Anteile, Knopf
+  „Weitere Anteile zeichnen“ mit Anzahl und Datum der Zulassung. Die Mitgliederseite zeigt die
+  Karte ab dem Eintritt.
+- `accounts.ts`: `payAdditionalShares()`, Text „Weitere Anteile“ für die Buchungsart.
+- `BookingForm.vue`: Buchungsart „Weitere Anteile“, nur solange Anteile offen sind, dann als erste
+  Art vorausgewählt. Die Zahl der offenen Anteile reicht `AccountView.vue` als Prop `additionalOpen`
+  aus der Detailansicht des Inhabers durch.
+- Geprüft mit `npm run type-check`.
+
+**Warum so:**
+
+- **Eigene Karte statt Aktion im Kopf der Mitgliederseite:** Wie bei den Kündigungen gibt es eine
+  Liste mit Einträgen, die sich einzeln zurücknehmen lassen. Die Karte hält das zusammen, und
+  `MemberDetailView.vue` wächst nicht weiter.
+- **Zeichnen am Mitglied, Einzahlen am Konto:** Die Zeichnung ist ein Beschluss über das Mitglied,
+  die Einzahlung eine Buchung. Das folgt derselben Trennung wie Antrag und Eintritt.
+- **Vorauswahl:** Sind weitere Anteile offen, ist die Einzahlung fast immer das, was gebucht werden
+  soll.

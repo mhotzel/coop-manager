@@ -18,8 +18,10 @@ from ..db import Database
 from ..eventsource import ConcurrencyError
 from ..members.domain import Member
 from ..members.services import MAX_ATTEMPTS, get_member
+from ..members.status import MEMBER, NOTICE_GIVEN
 from ..system_settings.services import get_system_settings
 from .domain import (
+    ADDITIONAL_SHARES,
     COOPERATIVE_ACCOUNT_NUMBER,
     LIMITATION_WRITEOFF,
     LOSS_DEDUCTION,
@@ -67,7 +69,8 @@ def subscribe(
     _ensure_shares(shares)
 
     def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
-        if member.payment_date is not None or ledger.shares(account) >= member.shares_subscribed:
+        entry_shares = ledger.shares(account) - ledger.paid_additional_shares(account)
+        if member.payment_date is not None or entry_shares >= member.shares_subscribed:
             raise DomainError("Die gezeichneten Anteile sind bereits eingezahlt.")
         assert member.application_date is not None  # gesetzt durch member.applied
         if value_date < member.application_date:
@@ -78,6 +81,54 @@ def subscribe(
         )
 
     return _book(db, account_number, today, actor, book)
+
+
+def pay_additional_shares(
+    db: Database,
+    account_number: int,
+    shares: int,
+    value_date: date,
+    today: date,
+    actor: str,
+    text: str | None = None,
+) -> BookingResult:
+    """Weitere Anteile: Einzahlung später gezeichneter Anteile (siehe Plan: Weitere Anteile).
+
+    Soll Genossenschaftskonto an Haben Mitgliedskonto, Betrag = Anteile × Preis. Höchstens die
+    offenen Anteile (gezeichnet, aber noch nicht eingezahlt); weniger geht mit Warnung. Kein
+    Abgleich am Mitglied: Die Mitgliedschaft hängt nur an der Einzahlung des Antrags.
+    """
+    _ensure_shares(shares)
+    remaining: list[str] = []  # Warnung aus `book`; eine Liste, weil `book` sie nicht neu zuweisen kann
+
+    def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
+        remaining.clear()  # bei einem zweiten Versuch (Versionskonflikt) neu rechnen
+        subscribed = member.additional_shares_subscribed()
+        open_shares = subscribed - ledger.paid_additional_shares(account)
+        if open_shares <= 0:
+            raise DomainError("Es sind keine weiteren Anteile gezeichnet, die noch offen sind.")
+        if shares > open_shares:
+            raise DomainError(f"Offen sind nur {open_shares} weitere Anteile.")
+        if value_date < min(s.decision_date for s in member.additional_subscriptions):
+            raise DomainError("Die Wertstellung darf nicht vor der Zulassung liegen.")
+        if member.status(value_date) not in (MEMBER, NOTICE_GIVEN):
+            raise DomainError("Weitere Anteile einzahlen kann nur, wer an diesem Tag Mitglied ist.")
+        if shares < open_shares:
+            paid = subscribed - open_shares + shares
+            remaining.append(f"{paid} von {subscribed} weiteren Anteilen eingezahlt.")
+        return ledger.post_booking(
+            ADDITIONAL_SHARES,
+            COOPERATIVE_ACCOUNT_NUMBER,
+            account,
+            shares * share_price,
+            shares,
+            text or "Weitere Anteile",
+            value_date,
+            today,
+        )
+
+    result = _book(db, account_number, today, actor, book, reconcile=False)
+    return BookingResult(result.booking, remaining[0] if remaining else None)
 
 
 def refund(
@@ -443,7 +494,9 @@ def _reconcile(member: Member, ledger: Ledger, account: int, booking: Booking, t
     Nach einem Storno kann ein erfasster Geldeingang seine Grundlage verlieren; dann wird er
     zurückgenommen. Beides geschieht beim Storno nie still, sondern immer mit Warnung.
     """
-    paid, subscribed = ledger.shares(account), member.shares_subscribed
+    # Nur die Anteile aus dem Antrag zählen; eingezahlte weitere Anteile haben eigene Buchungen.
+    paid = ledger.shares(account) - ledger.paid_additional_shares(account)
+    subscribed = member.shares_subscribed
     if member.rejection_date is not None:
         if paid > 0:
             return "Der Antrag ist abgelehnt oder zurückgenommen; das Geld muss zurückgezahlt werden."

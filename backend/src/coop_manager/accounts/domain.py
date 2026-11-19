@@ -22,6 +22,7 @@ PAYOUT = "payout"  # Auszahlung
 LIMITATION_WRITEOFF = "limitation_writeoff"  # Ausbuchung Verjährung
 REVERSAL = "reversal"  # Storno
 SHARE_DONATION = "share_donation"  # Spende Anteil: ganzes Guthaben an die Genossenschaft, Ausscheiden
+ADDITIONAL_SHARES = "additional_shares"  # Weitere Anteile: Einzahlung später gezeichneter Anteile
 BOOKING_KINDS = {
     SUBSCRIPTION,
     REFUND,
@@ -32,6 +33,7 @@ BOOKING_KINDS = {
     LIMITATION_WRITEOFF,
     REVERSAL,
     SHARE_DONATION,
+    ADDITIONAL_SHARES,
 }
 
 
@@ -227,6 +229,14 @@ class Ledger(Aggregate):
     def last_exit_date(self, number: int) -> date | None:
         """Der Termin des letzten gebuchten Ausscheidens; None, wenn keines gebucht ist."""
         return max(self.booked_exit_dates(number), default=None)
+
+    def paid_additional_shares(self, number: int) -> int:
+        """Anteile aus nicht stornierten Buchungen „Weitere Anteile“ auf dem Konto."""
+        return sum(
+            b.shares
+            for b in self.bookings
+            if b.kind == ADDITIONAL_SHARES and b.credit == number and self.reversal_of(b.id) is None
+        )
 
     def claim(self, number: int, share_price: int | None) -> int:
         """Offener Auseinandersetzungsanspruch in Cent: Saldo minus Anteile × Anteilspreis (siehe Plan).

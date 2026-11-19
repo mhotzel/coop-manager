@@ -20,6 +20,7 @@ import {
 import AddressFields from './AddressFields.vue'
 import ContactFields from './ContactFields.vue'
 import NameFields from './NameFields.vue'
+import AdditionalSharesCard from './AdditionalSharesCard.vue'
 import NoticeCard from './NoticeCard.vue'
 
 // Der Router übergibt :id aus dem Pfad als Prop (siehe props: true in router.ts).
@@ -368,6 +369,13 @@ function generateLines(): void {
       <!-- Erst ab dem Eintritt sinnvoll; laufende Kündigungen bleiben sichtbar. -->
       <NoticeCard
         v-if="member.entry_date !== null || member.notices.length > 0"
+        :member="member"
+        @changed="(updated) => (member = updated)"
+      />
+
+      <!-- Wie die Kündigungen: ab dem Eintritt, bestehende Zeichnungen bleiben sichtbar. -->
+      <AdditionalSharesCard
+        v-if="member.entry_date !== null || member.additional_subscriptions.length > 0"
         :member="member"
         @changed="(updated) => (member = updated)"
       />

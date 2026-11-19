@@ -31,7 +31,9 @@ from .schemas import (
     MemberCommand,
     MemberDetail,
     RecordDeath,
+    RevokeAdditionalShares,
     SearchRequest,
+    SubscribeAdditionalShares,
     Withdraw,
     WithdrawNotice,
 )
@@ -56,7 +58,7 @@ def search(body: SearchRequest, db: Db, user: Reader) -> list[MemberRow]:
 @router.get("/{member_id}")
 def get_member(member_id: str, db: Db, user: Reader) -> MemberDetail:
     """Ein Mitglied mit allen Daten; 404, wenn es keines gibt."""
-    return _detail(services.get_member(db, member_id))
+    return _detail(db, services.get_member(db, member_id))
 
 
 # --- Befehle ---
@@ -75,32 +77,32 @@ def apply(body: ApplyForMembership, db: Db, user: Writer) -> MemberDetail:
         body.contact,
         actor=user.id,
     )
-    return _detail(member)
+    return _detail(db, member)
 
 
 @router.post("/admit")
 def admit(body: Decision, db: Db, user: Writer) -> MemberDetail:
     """Zulassung durch den Vorstand."""
-    return _detail(services.admit(db, body.member_id, body.decision_date, date.today(), actor=user.id))
+    return _detail(db, services.admit(db, body.member_id, body.decision_date, date.today(), actor=user.id))
 
 
 @router.post("/reject")
 def reject(body: Decision, db: Db, user: Writer) -> MemberDetail:
     """Ablehnung durch den Vorstand."""
-    return _detail(services.reject(db, body.member_id, body.decision_date, date.today(), actor=user.id))
+    return _detail(db, services.reject(db, body.member_id, body.decision_date, date.today(), actor=user.id))
 
 
 @router.post("/withdraw")
 def withdraw(body: Withdraw, db: Db, user: Writer) -> MemberDetail:
     """Rücknahme des Antrags durch die Person."""
-    return _detail(services.withdraw(db, body.member_id, body.withdrawal_date, date.today(), actor=user.id))
+    return _detail(db, services.withdraw(db, body.member_id, body.withdrawal_date, date.today(), actor=user.id))
 
 
 @router.post("/give-notice")
 def give_notice(body: GiveNotice, db: Db, user: Writer) -> MemberDetail:
     """Kündigung der Mitgliedschaft."""
     member = services.give_notice(db, body.member_id, body.notice_date, body.exit_date, date.today(), actor=user.id)
-    return _detail(member)
+    return _detail(db, member)
 
 
 @router.post("/give-partial-notice")
@@ -109,81 +111,96 @@ def give_partial_notice(body: GivePartialNotice, db: Db, user: Writer) -> Member
     member = services.give_partial_notice(
         db, body.member_id, body.shares, body.notice_date, body.exit_date, date.today(), actor=user.id
     )
-    return _detail(member)
+    return _detail(db, member)
 
 
 @router.post("/withdraw-notice")
 def withdraw_notice(body: WithdrawNotice, db: Db, user: Writer) -> MemberDetail:
     """Kündigung oder Teilkündigung zurücknehmen."""
-    return _detail(services.withdraw_notice(db, body.member_id, body.notice_id, date.today(), actor=user.id))
+    return _detail(db, services.withdraw_notice(db, body.member_id, body.notice_id, date.today(), actor=user.id))
+
+
+@router.post("/subscribe-additional-shares")
+def subscribe_additional_shares(body: SubscribeAdditionalShares, db: Db, user: Writer) -> MemberDetail:
+    """Weitere Anteile zeichnen; eingezahlt wird über die Buchung „Weitere Anteile“."""
+    member = services.subscribe_additional_shares(
+        db, body.member_id, body.shares, body.decision_date, date.today(), actor=user.id
+    )
+    return _detail(db, member)
+
+
+@router.post("/revoke-additional-shares")
+def revoke_additional_shares(body: RevokeAdditionalShares, db: Db, user: Writer) -> MemberDetail:
+    """Falsch erfasste Zeichnung weiterer Anteile zurücknehmen."""
+    return _detail(db, services.revoke_additional_shares(db, body.member_id, body.subscription_id, actor=user.id))
 
 
 @router.post("/record-death")
 def record_death(body: RecordDeath, db: Db, user: Writer) -> MemberDetail:
     """Tod erfassen."""
-    return _detail(services.record_death(db, body.member_id, body.date_of_death, date.today(), actor=user.id))
+    return _detail(db, services.record_death(db, body.member_id, body.date_of_death, date.today(), actor=user.id))
 
 
 @router.post("/revoke-death")
 def revoke_death(body: MemberCommand, db: Db, user: Writer) -> MemberDetail:
     """Falsche Erfassung des Todes zurücknehmen."""
-    return _detail(services.revoke_death(db, body.member_id, actor=user.id))
+    return _detail(db, services.revoke_death(db, body.member_id, actor=user.id))
 
 
 @router.post("/expel")
 def expel(body: Decision, db: Db, user: Writer) -> MemberDetail:
     """Ausschluss durch den Vorstand."""
-    return _detail(services.expel(db, body.member_id, body.decision_date, date.today(), actor=user.id))
+    return _detail(db, services.expel(db, body.member_id, body.decision_date, date.today(), actor=user.id))
 
 
 @router.post("/lift-expulsion")
 def lift_expulsion(body: Decision, db: Db, user: Writer) -> MemberDetail:
     """Ausschluss aufheben (Widerspruch erfolgreich oder Fehlerfassung)."""
-    return _detail(services.lift_expulsion(db, body.member_id, body.decision_date, date.today(), actor=user.id))
+    return _detail(db, services.lift_expulsion(db, body.member_id, body.decision_date, date.today(), actor=user.id))
 
 
 @router.post("/change-name")
 def change_name(body: ChangeName, db: Db, user: Writer) -> MemberDetail:
     """Name ändern; die Adresszeilen bleiben, die Detailansicht warnt dann."""
-    return _detail(services.change_name(db, body.member_id, body.name, actor=user.id))
+    return _detail(db, services.change_name(db, body.member_id, body.name, actor=user.id))
 
 
 @router.post("/change-address")
 def change_address(body: ChangeAddress, db: Db, user: Writer) -> MemberDetail:
     """Anschrift ändern; die Adresszeilen bleiben, die Detailansicht warnt dann."""
-    return _detail(services.change_address(db, body.member_id, body.address, actor=user.id))
+    return _detail(db, services.change_address(db, body.member_id, body.address, actor=user.id))
 
 
 @router.post("/change-contact")
 def change_contact(body: ChangeContact, db: Db, user: Writer) -> MemberDetail:
     """Telefon und E-Mail ändern."""
-    return _detail(services.change_contact(db, body.member_id, body.contact, actor=user.id))
+    return _detail(db, services.change_contact(db, body.member_id, body.contact, actor=user.id))
 
 
 @router.post("/change-address-lines")
 def change_address_lines(body: ChangeAddressLines, db: Db, user: Writer) -> MemberDetail:
     """Die sechs Adresszeilen setzen, von Hand gepflegt oder aus `generated_address_lines`."""
-    return _detail(services.change_address_lines(db, body.member_id, body.address_lines, actor=user.id))
+    return _detail(db, services.change_address_lines(db, body.member_id, body.address_lines, actor=user.id))
 
 
 @router.post("/change-salutation")
 def change_salutation(body: ChangeSalutation, db: Db, user: Writer) -> MemberDetail:
     """Abweichende Briefanrede setzen; leer = wieder erzeugen."""
-    return _detail(services.change_salutation(db, body.member_id, body.salutation, actor=user.id))
+    return _detail(db, services.change_salutation(db, body.member_id, body.salutation, actor=user.id))
 
 
 @router.post("/change-mail-preference")
 def change_mail_preference(body: ChangeMailPreference, db: Db, user: Writer) -> MemberDetail:
     """„Keine Post“ setzen oder aufheben."""
-    return _detail(services.change_mail_preference(db, body.member_id, body.no_mail, actor=user.id))
+    return _detail(db, services.change_mail_preference(db, body.member_id, body.no_mail, actor=user.id))
 
 
 @router.post("/change-notes")
 def change_notes(body: ChangeNotes, db: Db, user: Writer) -> MemberDetail:
     """Hinweise ändern."""
-    return _detail(services.change_notes(db, body.member_id, body.notes, actor=user.id))
+    return _detail(db, services.change_notes(db, body.member_id, body.notes, actor=user.id))
 
 
-def _detail(member: Member) -> MemberDetail:
-    """Die Detailansicht mit dem Status von heute."""
-    return MemberDetail.from_member(member, date.today())
+def _detail(db: Database, member: Member) -> MemberDetail:
+    """Die Detailansicht mit dem Status von heute und den offenen weiteren Anteilen."""
+    return MemberDetail.from_member(member, date.today(), services.paid_additional_shares(db, member.subject))

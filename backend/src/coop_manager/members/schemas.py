@@ -10,7 +10,7 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 from .addressing import address_lines, address_warnings, salutation
-from .domain import Member, Notice
+from .domain import AdditionalSubscription, Member, Notice
 from .values import Address, Contact, PersonName
 
 MemberId = Field(max_length=100)
@@ -51,14 +51,19 @@ class MemberDetail(BaseModel):
     expulsion_date: date | None  # Beschluss des Vorstands
     donation_date: date | None  # Ausscheiden mit Spende des Anteils
     transfer_date: date | None  # Ausscheiden durch Übertragung aller Anteile (Umbuchung)
+    additional_subscriptions: list[AdditionalSubscription]  # weitere Anteile, gezeichnet und zugelassen
+    additional_shares_open: int  # davon noch nicht eingezahlt (aus dem Hauptbuch)
     partial_notice: bool  # heute läuft eine Teilkündigung (Hinweis neben dem Status)
     salutation: str  # die Briefanrede, wie sie in den Seriendruck kommt
     generated_address_lines: list[str]
     warnings: list[str]
 
     @classmethod
-    def from_member(cls, member: Member, today: date) -> MemberDetail:
-        """Baut die Detailansicht aus dem Aggregat und berechnet Status, Anrede und Warnungen."""
+    def from_member(cls, member: Member, today: date, paid_additional: int = 0) -> MemberDetail:
+        """Baut die Detailansicht aus dem Aggregat und berechnet Status, Anrede und Warnungen.
+
+        `paid_additional`: eingezahlte weitere Anteile; die kennt nur das Hauptbuch.
+        """
         assert member.application_date is not None  # gesetzt durch member.applied
         generated = address_lines(member.person_type, member.name, member.address)
         full = member.full_notice()
@@ -88,6 +93,8 @@ class MemberDetail(BaseModel):
             expulsion_date=member.expulsion_date,
             donation_date=member.donation_date,
             transfer_date=member.transfer_date,
+            additional_subscriptions=member.additional_subscriptions,
+            additional_shares_open=member.additional_shares_subscribed() - paid_additional,
             partial_notice=member.has_partial_notice(today),
             salutation=salutation(
                 member.person_type, member.name, member.salutation, deceased=member.date_of_death is not None
@@ -188,6 +195,19 @@ class WithdrawNotice(MemberCommand):
     """Befehl: eine Kündigung oder Teilkündigung zurücknehmen."""
 
     notice_id: str = Field(max_length=100)
+
+
+class SubscribeAdditionalShares(MemberCommand):
+    """Befehl: weitere Anteile zeichnen, mit dem Datum der Zulassung durch den Vorstand."""
+
+    shares: int
+    decision_date: date
+
+
+class RevokeAdditionalShares(MemberCommand):
+    """Befehl: eine falsch erfasste Zeichnung weiterer Anteile zurücknehmen."""
+
+    subscription_id: str = Field(max_length=100)
 
 
 class RecordDeath(MemberCommand):

@@ -76,7 +76,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
        - a: Domäne, Service, Storno zwischen zwei Mitgliedskonten, API, Tests
        - b: Frontend: Buchungsart „Umbuchung“ in der Buchungsmaske mit Anzeige des Zielkontoinhabers,
          Datum auf der Mitgliederseite
-   - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
+   - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder, Stand 2026-11-19)
+     - Teil 1: Zeichnung am Mitglied, Buchungsart „Weitere Anteile“, Abgleich, API, Tests
+     - Teil 2: Frontend: Aktion an der Mitgliederseite, Buchungsart in der Buchungsmaske
    - 5j: Ausscheiden mit Spende des Anteils (Stand 2026-11-18)
      - Teil 1: Domäne, Buchungsart, Service, Storno, API, Tests
      - Teil 2: Frontend: Buchungsart „Spende Anteil“ in der Buchungsmaske des Kontos (nicht als
@@ -503,8 +505,19 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   `booking.posted`). Ein späterer Wechsel zu B ist möglich, weil die Buchungen alle Informationen
   enthalten; die `member.paid-in`-Events würden dann ignoriert.
 - **Weitere Anteile:** Ein Mitglied darf später weitere Anteile zeichnen und einzahlen (Stand
-  2026-11-17). Umsetzung als eigener Vorgang in 5i. Bis dahin ist eine Eintrittsbuchung nur
-  möglich, solange die gezeichneten Anteile noch nicht voll eingezahlt sind.
+  2026-11-17). Umsetzung in 5i (Stand 2026-11-19):
+  - **Ein Vorgang „Weitere Anteile zeichnen“** mit Anzahl und Datum der Zulassung durch den
+    Vorstand (§ 15b GenG), Event `member.additional-shares-subscribed`; kein eigener Zwischenstatus
+    wie beim Antrag. Nur bei Mitgliedern, nicht gekündigt. Zurücknehmen nur bei Fehlerfassung und
+    nur, solange die Anteile nicht eingezahlt sind (`member.additional-shares-revoked`).
+  - **Eigene Buchungsart „Weitere Anteile“** (`additional_shares`), nicht „Eintritt“, damit die
+    Jahresauswertung beides trennen kann. Betrag = Anteile × Preis, höchstens die offenen Anteile
+    (gezeichnet, noch nicht gebucht); weniger geht mit Warnung. Wertstellung nicht vor der Zulassung.
+    Die Anteile zählen ab der Wertstellung. Storno ohne Auswirkung auf die Mitgliedschaft.
+  - **Gezeichnete Anteile insgesamt** = Antrag plus weitere Zeichnungen. Per Umbuchung erhaltene
+    Anteile zählen nicht als gezeichnet.
+  - **Abgleich beim Eintritt** zählt nur Anteile ohne die Buchungen „Weitere Anteile“; sonst
+    stört eine spätere Zeichnung, wenn ein Eintritt storniert und neu gebucht wird.
 - **Die API bucht nur über fachliche Vorgänge** (Stand 2026-11-17): Es gibt keinen Endpunkt, der
   frei eine Buchung mit beliebigen Konten, Beträgen und Anteilen anlegt. Jeder Endpunkt ruft einen
   Service für einen Vorgang (Eintritt, Rückzahlung, später Storno, Umbuchung usw.), der dessen
@@ -616,6 +629,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 | Ausbuchung Verjährung | `limitation_writeoff` |
 | Storno | `reversal` |
 | Spende des Anteils | `share_donation`, `donate_shares` |
+| Weitere Anteile (zeichnen, einzahlen) | `additional_shares`, `subscribe_additional_shares` |
 | verstorben, Sterbedatum, Erben | `deceased`, `date_of_death`, `heirs` |
 | natürliche / juristische Person | `natural_person` / `legal_entity` |
 | Firmenname, Ansprechpartner | `company_name`, `contact_person` |
@@ -640,6 +654,9 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
   aufgebaut. Idee: Schemaversion je Projektor; weicht sie ab, Tabellen löschen, neu anlegen und
   neu abspielen.
 
+
+- **Höchstzahl an Anteilen je Mitglied:** Steht in der Satzung eine Grenze? Bis zur Klärung prüft
+  die App keine.
 
 ## Mögliche Weiterentwicklungen
 

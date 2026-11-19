@@ -104,6 +104,33 @@ def give_partial_notice(
     return _change(db, member_id, actor, action)
 
 
+def subscribe_additional_shares(
+    db: Database, member_id: str, shares: int, decision_date: date, today: date, actor: str
+) -> Member:
+    """Weitere Anteile zeichnen, zugelassen vom Vorstand."""
+
+    def action(member: Member) -> None:
+        member.subscribe_additional_shares(shares, decision_date, today)
+
+    return _change(db, member_id, actor, action)
+
+
+def revoke_additional_shares(db: Database, member_id: str, subscription_id: str, actor: str) -> Member:
+    """Falsch erfasste Zeichnung weiterer Anteile zurücknehmen; die Einzahlungen kommen aus dem Hauptbuch."""
+
+    def action(member: Member) -> None:
+        member.revoke_additional_shares(subscription_id, paid_additional_shares(db, member_id))
+
+    return _change(db, member_id, actor, action)
+
+
+def paid_additional_shares(db: Database, member_id: str) -> int:
+    """Eingezahlte weitere Anteile des Mitglieds laut Hauptbuch; 0 ohne Konto."""
+    ledger = get_ledger(db)
+    account = ledger.account_of(member_id)
+    return 0 if account is None else ledger.paid_additional_shares(account.number)
+
+
 def withdraw_notice(db: Database, member_id: str, notice_id: str, today: date, actor: str) -> Member:
     """Kündigung oder Teilkündigung zurücknehmen."""
     return _change(db, member_id, actor, lambda member: member.withdraw_notice(notice_id, today))

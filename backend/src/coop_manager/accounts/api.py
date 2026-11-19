@@ -77,6 +77,15 @@ def subscribe(body: ShareBooking, db: Db, user: Writer) -> BookingResponse:
     return _response(db, body.account_number, result)
 
 
+@router.post("/pay-additional-shares")
+def pay_additional_shares(body: ShareBooking, db: Db, user: Writer) -> BookingResponse:
+    """Weitere Anteile: Einzahlung später gezeichneter Anteile."""
+    result = bookings.pay_additional_shares(
+        db, body.account_number, body.shares, body.value_date, date.today(), actor=user.id, text=body.text
+    )
+    return _response(db, body.account_number, result)
+
+
 @router.post("/refund")
 def refund(body: ShareBooking, db: Db, user: Writer) -> BookingResponse:
     """Rückzahlung bei abgelehntem Antrag oder ungeklärter Zahlung."""

@@ -40,6 +40,13 @@ export interface Contact {
 }
 
 // Muss zu Notice im Backend passen (members/domain.py).
+// Muss zu AdditionalSubscription im Backend passen (members/domain.py): weitere Anteile (5i).
+export interface AdditionalSubscription {
+  id: string
+  shares: number
+  decision_date: string // Zulassung durch den Vorstand
+}
+
 export interface Notice {
   id: string
   kind: string // NOTICE oder PARTIAL_NOTICE
@@ -80,6 +87,8 @@ export interface MemberDetail {
   expulsion_date: string | null // Beschluss des Vorstands
   donation_date: string | null // Ausscheiden mit Spende des Anteils
   transfer_date: string | null // Ausscheiden durch Übertragung aller Anteile (Umbuchung)
+  additional_subscriptions: AdditionalSubscription[] // weitere Anteile, gezeichnet und zugelassen
+  additional_shares_open: number // davon noch nicht eingezahlt
   partial_notice: boolean // heute läuft eine Teilkündigung
   salutation: string
   generated_address_lines: string[]
@@ -235,6 +244,20 @@ export function givePartialNotice(
   return api<MemberDetail>('/api/members/give-partial-notice', {
     method: 'POST',
     body: { member_id: memberId, shares, notice_date: noticeDate, exit_date: exitDate },
+  })
+}
+
+export function subscribeAdditionalShares(memberId: string, shares: number, decisionDate: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/subscribe-additional-shares', {
+    method: 'POST',
+    body: { member_id: memberId, shares, decision_date: decisionDate },
+  })
+}
+
+export function revokeAdditionalShares(memberId: string, subscriptionId: string): Promise<MemberDetail> {
+  return api<MemberDetail>('/api/members/revoke-additional-shares', {
+    method: 'POST',
+    body: { member_id: memberId, subscription_id: subscriptionId },
   })
 }
 

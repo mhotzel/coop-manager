@@ -46,6 +46,15 @@ class Notice:
     shares: int | None = None  # nur bei der Teilkündigung; die Kündigung umfasst alle Anteile
 
 
+@dataclass(frozen=True)
+class AdditionalSubscription:
+    """Zeichnung weiterer Anteile durch ein Mitglied (§ 15b GenG), zugelassen vom Vorstand."""
+
+    id: str
+    shares: int
+    decision_date: date  # Zulassung durch den Vorstand
+
+
 # Gründe für ein Ausscheiden zum 31.12.; die Texte macht das Frontend.
 EXIT_REASON_DEATH = "deceased"
 EXIT_REASON_EXPULSION = "expelled"
@@ -90,6 +99,7 @@ class Member(Aggregate):
         self.expulsion_date: date | None = None  # Beschluss des Vorstands
         self.donation_date: date | None = None  # Ausscheiden mit Spende des Anteils
         self.transfer_date: date | None = None  # Ausscheiden durch Übertragung aller Anteile
+        self.additional_subscriptions: list[AdditionalSubscription] = []  # weitere Anteile (5i)
 
     @classmethod
     def apply(
@@ -138,6 +148,14 @@ class Member(Aggregate):
     def exit_date(self) -> date | None:
         """Das wirksame Ausscheiden (31.12.): nach einem Tod das des Todesjahres, sonst aus der Kündigung."""
         return effective_exit_date(self._dates())
+
+    def additional_shares_subscribed(self) -> int:
+        """Alle weiteren Anteile, die nach dem Antrag gezeichnet und zugelassen wurden."""
+        return sum(s.shares for s in self.additional_subscriptions)
+
+    def total_shares_subscribed(self) -> int:
+        """Gezeichnete Anteile insgesamt: Antrag plus weitere Zeichnungen."""
+        return self.shares_subscribed + self.additional_shares_subscribed()
 
     def full_notice(self) -> Notice | None:
         """Die Kündigung der Mitgliedschaft; None, solange es keine gibt."""
@@ -375,6 +393,36 @@ class Member(Aggregate):
             raise DomainError("Es ist keine Spende erfasst.")
         self._record("member.donation-revoked")
 
+    def subscribe_additional_shares(self, shares: int, decision_date: date, today: date) -> None:
+        """Weitere Anteile zeichnen, mit dem Datum der Zulassung durch den Vorstand (siehe Plan).
+
+        Nur bei Mitgliedern, nicht gekündigt. Eingezahlt wird mit der Buchung „Weitere Anteile“.
+        """
+        if shares < 1:
+            raise DomainError("Es muss mindestens ein Anteil gezeichnet werden.")
+        if decision_date > today:
+            raise DomainError("Das Datum darf nicht in der Zukunft liegen.")
+        if self.status(decision_date) != MEMBER:
+            raise DomainError("Weitere Anteile zeichnen kann nur, wer an diesem Tag Mitglied ist.")
+        self._record(
+            "member.additional-shares-subscribed",
+            subscription_id=str(uuid.uuid7()),
+            shares=shares,
+            decision_date=decision_date.isoformat(),
+        )
+
+    def revoke_additional_shares(self, subscription_id: str, paid: int) -> None:
+        """Nimmt eine falsch erfasste Zeichnung zurück, solange ihre Anteile nicht eingezahlt sind.
+
+        `paid` sind die als „Weitere Anteile“ gebuchten Anteile; die kennt nur das Hauptbuch.
+        """
+        subscription = next((s for s in self.additional_subscriptions if s.id == subscription_id), None)
+        if subscription is None:
+            raise DomainError("Die Zeichnung gibt es nicht.")
+        if paid > self.additional_shares_subscribed() - subscription.shares:
+            raise DomainError("Die Anteile sind schon eingezahlt; zuerst die Buchung stornieren.")
+        self._record("member.additional-shares-revoked", subscription_id=subscription_id)
+
     def ensure_can_give_shares(self, day: date) -> None:
         """Darf die Person am Tag `day` Anteile per Umbuchung abgeben? (siehe Plan: Umbuchung)
 
@@ -575,6 +623,22 @@ class Member(Aggregate):
     @on("member.transfer-revoked")
     def _transfer_revoked(self, event: Event) -> None:
         self.transfer_date = None
+
+    @on("member.additional-shares-subscribed")
+    def _additional_shares_subscribed(self, event: Event) -> None:
+        self.additional_subscriptions.append(
+            AdditionalSubscription(
+                id=event.data["subscription_id"],
+                shares=event.data["shares"],
+                decision_date=date.fromisoformat(event.data["decision_date"]),
+            )
+        )
+
+    @on("member.additional-shares-revoked")
+    def _additional_shares_revoked(self, event: Event) -> None:
+        self.additional_subscriptions = [
+            s for s in self.additional_subscriptions if s.id != event.data["subscription_id"]
+        ]
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

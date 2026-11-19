@@ -403,3 +403,20 @@ def test_transfer_to_unknown_account_is_404(client, member_id):
     body = {"account_number": 1, "target_account_number": 42, "shares": 1, "value_date": "2026-11-15"}
 
     assert client.post("/api/accounts/transfer", json=body).status_code == 404
+
+
+def test_additional_shares_over_api(client, member_id):
+    body = {"member_id": member_id, "shares": 2, "decision_date": "2026-11-12"}
+    detail = client.post("/api/members/subscribe-additional-shares", json=body).json()
+    assert detail["additional_shares_open"] == 2
+    [subscription] = detail["additional_subscriptions"]
+    assert (subscription["shares"], subscription["decision_date"]) == (2, "2026-11-12")
+
+    payment = {"account_number": 1, "shares": 2, "value_date": "2026-11-13"}
+    response = client.post("/api/accounts/pay-additional-shares", json=payment)
+
+    assert response.status_code == 200
+    assert response.json()["account"]["shares"] == 5
+    assert client.get(f"/api/members/{member_id}").json()["additional_shares_open"] == 0
+    revoke = {"member_id": member_id, "subscription_id": subscription["id"]}
+    assert client.post("/api/members/revoke-additional-shares", json=revoke).status_code == 400

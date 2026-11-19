@@ -42,6 +42,7 @@ const BOOKING_KIND_LABELS: Record<string, string> = {
   payout: 'Auszahlung',
   limitation_writeoff: 'Ausbuchung Verjährung',
   share_donation: 'Spende Anteil',
+  additional_shares: 'Weitere Anteile',
   reversal: 'Storno',
 }
 
@@ -94,6 +95,11 @@ export interface BookingResponse {
 
 export function subscribe(command: ShareBooking): Promise<BookingResponse> {
   return api<BookingResponse>('/api/accounts/subscribe', { method: 'POST', body: command })
+}
+
+// Einzahlung später gezeichneter Anteile; gleicher Befehl wie beim Eintritt.
+export function payAdditionalShares(command: ShareBooking): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/pay-additional-shares', { method: 'POST', body: command })
 }
 
 export function refund(command: ShareBooking): Promise<BookingResponse> {

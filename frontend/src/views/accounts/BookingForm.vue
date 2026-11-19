@@ -8,6 +8,7 @@ import {
   formatEuro,
   getAccount,
   parseEuro,
+  payAdditionalShares,
   payout,
   refund,
   sharesForAmount,
@@ -24,7 +25,15 @@ import { displayName, getMember, statusLabel, todayIso } from '../../members'
 // claim: offener Auseinandersetzungsanspruch; erst damit gibt es Auszahlung usw.
 // shares und balance: Bestand des Kontos, für Spende und Umbuchung. Achtung: Im Template heißt die
 // Prop props.shares, denn „shares“ allein ist dort die gleichnamige Eingabe weiter unten.
-const props = defineProps<{ accountNumber: number; sharePrice: number; claim: number; shares: number; balance: number }>()
+// additionalOpen: weitere Anteile, die gezeichnet, aber noch nicht eingezahlt sind (5i).
+const props = defineProps<{
+  accountNumber: number
+  sharePrice: number
+  claim: number
+  shares: number
+  balance: number
+  additionalOpen: number
+}>()
 
 // Emits: Ereignisse, die diese Komponente nach außen meldet. Die Elternseite hört mit
 // @booked="..." zu und bekommt das Konto nach der Buchung, um die Anzeige zu aktualisieren.
@@ -33,9 +42,10 @@ const emit = defineEmits<{ booked: [account: AccountView] }>()
 // Die Buchungsarten der Maske. Zwei Gruppen: mit Anteilen (Betrag = Anteile × Preis) und mit
 // freiem Betrag ohne Anteile, die den Anspruch mindern (siehe Plan: Buchungsarten). Dazu die
 // Umbuchung auf ein anderes Mitgliedskonto und die Spende, die immer das ganze Guthaben bucht.
-type Kind = 'subscribe' | 'refund' | 'payout' | 'deductLoss' | 'writeOff' | 'transfer' | 'donate'
+type Kind = 'subscribe' | 'additional' | 'refund' | 'payout' | 'deductLoss' | 'writeOff' | 'transfer' | 'donate'
 const KIND_LABELS: Record<Kind, string> = {
   subscribe: 'Eintritt',
+  additional: 'Weitere Anteile',
   refund: 'Rückzahlung',
   payout: 'Auszahlung',
   deductLoss: 'Kürzung Verlustvortrag',
@@ -46,18 +56,22 @@ const KIND_LABELS: Record<Kind, string> = {
 const SHARE_KINDS: Kind[] = ['subscribe', 'refund']
 const CLAIM_KINDS: Kind[] = ['payout', 'deductLoss', 'writeOff']
 
-// Die Arten, die gerade passen: die mindernden nur, solange es einen Anspruch gibt, Umbuchung und
-// Spende nur, solange es Anteile gibt. Ob die Person das darf (Status), prüft das Backend.
+// Die Arten, die gerade passen: die mindernden nur, solange es einen Anspruch gibt, „Weitere
+// Anteile“ nur, solange welche offen sind, Umbuchung und Spende nur, solange es Anteile gibt.
+// Ob die Person das darf (Status), prüft das Backend.
 const kinds = computed<Kind[]>(() => {
   const result: Kind[] = props.claim > 0 ? [...CLAIM_KINDS, ...SHARE_KINDS] : [...SHARE_KINDS]
+  if (props.additionalOpen > 0) {
+    result.unshift('additional') // vorne, denn dann ist das meist die gesuchte Buchung
+  }
   if (props.shares > 0) {
     result.push('transfer', 'donate')
   }
   return result
 })
-const kind = ref<Kind>(props.claim > 0 ? 'payout' : 'subscribe')
-// Arten mit Anteilsfeld, bei denen Betrag = Anteile × Preis gilt; die Umbuchung gehört dazu.
-const isShareKind = computed(() => [...SHARE_KINDS, 'transfer'].includes(kind.value))
+const kind = ref<Kind>(kinds.value[0] ?? 'subscribe')
+// Arten mit Anteilsfeld, bei denen Betrag = Anteile × Preis gilt.
+const isShareKind = computed(() => [...SHARE_KINDS, 'additional', 'transfer'].includes(kind.value))
 
 // Fällt der Anspruch weg (z. B. nach der Auszahlung des Rests), passt die gewählte Art nicht mehr.
 watch(kinds, (available) => {
@@ -198,9 +212,17 @@ async function send(): Promise<[BookingResponse, string]> {
   const label = KIND_LABELS[kind.value]
   switch (kind.value) {
     case 'subscribe':
+    case 'additional':
     case 'refund': {
       const command = { ...base, shares: shares.value! } // ready hat geprüft, dass es nicht null ist
-      const response = kind.value === 'subscribe' ? await subscribe(command) : await refund(command)
+      let response: BookingResponse
+      if (kind.value === 'subscribe') {
+        response = await subscribe(command)
+      } else if (kind.value === 'additional') {
+        response = await payAdditionalShares(command)
+      } else {
+        response = await refund(command)
+      }
       return [response, `${label} über ${command.shares} Anteile gebucht.`]
     }
     case 'payout':

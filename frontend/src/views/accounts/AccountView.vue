@@ -179,6 +179,7 @@ watch(() => props.number, load, { immediate: true })
       :claim="account.claim"
       :shares="account.shares"
       :balance="account.balance"
+      :additional-open="member?.additional_shares_open ?? 0"
       @booked="onBooked"
     />
 
