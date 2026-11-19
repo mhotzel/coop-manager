@@ -2331,3 +2331,15 @@ Vor dem nächsten Start also `projections.sqlite` löschen; sie wird aus den Eve
 - **Bedingung `v-else-if` erweitert:** Das Betragsfeld erscheint jetzt ausdrücklich nur bei
   Auszahlung und Verlustvortrag. Vorher hieß es „alles außer Ausbuchung“, das hätte die Spende
   fälschlich mit eingeschlossen.
+
+## 2026-11-19 – Anforderung: Auswertung der Vorgänge eines Geschäftsjahres
+
+**Was:** In `Plan.md` unter Schritt 6 und im neuen Abschnitt „Auswertung der Vorgänge eines
+Geschäftsjahres“ festgehalten: Excel je Geschäftsjahr mit Eintritten, weiteren Anteilen,
+Kündigungen, Todesfällen, Ausschlüssen, Spenden, Ausscheiden, Auszahlungen und Umbuchungen.
+Kündigungen zählen mit ihrem Eingang, Buchungen mit der Wertstellung, keine Summen, Storniertes und
+Zurückgenommenes bleibt weg. Eine gemeinsame Liste mit Spalte „Vorgang“ zum Filtern, Todesfälle mit
+dem Sterbedatum, Ausschlüsse mit dem Beschluss des Vorstands.
+
+**Warum:** Matthias will für jedes Geschäftsjahr einen Überblick über alle Vorgänge. Umgesetzt wird
+es zusammen mit den anderen Reports in Schritt 6.

@@ -79,6 +79,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 2: Frontend: Buchungsart „Spende Anteil“ in der Buchungsmaske des Kontos (nicht als
        Aktion am Mitglied, Stand 2026-11-19), Datum der Spende auf der Mitgliederseite
 6. Reports: die drei Excel-Listen zum Stichtag
+   - Auswertung der Vorgänge eines Geschäftsjahres (Stand 2026-11-19), siehe unten
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
@@ -524,6 +525,21 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   berechnet; ein Betrag muss ein Vielfaches des Anteilspreises sein. Die Maske zeigt nur die
   Felder, die die Buchungsart braucht.
 
+### Auswertung der Vorgänge eines Geschäftsjahres (Schritt 6)
+
+- **Anforderung (Stand 2026-11-19):** Excel-Auswertung der Vorgänge eines Geschäftsjahres:
+  Eintritte, weitere Anteile, Kündigungen und Teilkündigungen, Todesfälle, Ausschlüsse, Spenden,
+  Ausscheiden, Auszahlungen, Umbuchungen.
+- **Format:** Excel, wie die anderen Reports.
+- **Zeitraum:** immer ein ganzes Geschäftsjahr (= Kalenderjahr), kein freier Zeitraum.
+- **Maßgebliches Datum:** bei Kündigungen der Eingang der Kündigung, bei Todesfällen das
+  Sterbedatum, bei Ausschlüssen der Beschluss des Vorstands, bei Buchungen die Wertstellung.
+- **Eine gemeinsame Liste** mit der Spalte „Vorgang“ zum Filtern in Excel, nicht je Vorgangsart
+  eine eigene Tabelle.
+- **Zeilen:** Vorgang, Mitgliedsnummer, Name, Datum, Anteile, Betrag. **Keine Summen.**
+- **Weggelassen:** stornierte Buchungen sowie zurückgenommene Kündigungen, Todesfälle und
+  Ausschlüsse.
+
 ### Migration der Altdaten (Schritt 7)
 
 - **Altsystem:** Access-Datenbank mit eigener VBA-Logik. Die Excel-Listen in `Beispieldaten/`
@@ -592,6 +608,7 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
   Produktivbetrieb wird nach einer Änderung `projections.sqlite` gelöscht und beim Start neu
   aufgebaut. Idee: Schemaversion je Projektor; weicht sie ab, Tabellen löschen, neu anlegen und
   neu abspielen.
+
 
 ## Mögliche Weiterentwicklungen
 
