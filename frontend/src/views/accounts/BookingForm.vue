@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import {
   deductLoss,
+  donate,
   formatEuro,
   parseEuro,
   payout,
@@ -18,27 +19,37 @@ import { todayIso } from '../../members'
 
 // Props: kommen von der Elternseite (AccountView.vue) herein und werden hier nur gelesen.
 // claim: offener Auseinandersetzungsanspruch; erst damit gibt es Auszahlung usw.
-const props = defineProps<{ accountNumber: number; sharePrice: number; claim: number }>()
+// shares und balance: für die Spende, die immer das ganze Guthaben umfasst.
+const props = defineProps<{ accountNumber: number; sharePrice: number; claim: number; shares: number; balance: number }>()
 
 // Emits: Ereignisse, die diese Komponente nach außen meldet. Die Elternseite hört mit
 // @booked="..." zu und bekommt das Konto nach der Buchung, um die Anzeige zu aktualisieren.
 const emit = defineEmits<{ booked: [account: AccountView] }>()
 
 // Die Buchungsarten der Maske. Zwei Gruppen: mit Anteilen (Betrag = Anteile × Preis) und mit
-// freiem Betrag ohne Anteile, die den Anspruch mindern (siehe Plan: Buchungsarten).
-type Kind = 'subscribe' | 'refund' | 'payout' | 'deductLoss' | 'writeOff'
+// freiem Betrag ohne Anteile, die den Anspruch mindern (siehe Plan: Buchungsarten). Dazu die Spende,
+// die immer das ganze Guthaben bucht und deshalb keine Eingabe braucht.
+type Kind = 'subscribe' | 'refund' | 'payout' | 'deductLoss' | 'writeOff' | 'donate'
 const KIND_LABELS: Record<Kind, string> = {
   subscribe: 'Eintritt',
   refund: 'Rückzahlung',
   payout: 'Auszahlung',
   deductLoss: 'Kürzung Verlustvortrag',
   writeOff: 'Ausbuchung Verjährung',
+  donate: 'Spende Anteil',
 }
 const SHARE_KINDS: Kind[] = ['subscribe', 'refund']
 const CLAIM_KINDS: Kind[] = ['payout', 'deductLoss', 'writeOff']
 
-// Die Arten, die gerade passen: die mindernden nur, solange es einen Anspruch gibt.
-const kinds = computed<Kind[]>(() => (props.claim > 0 ? [...CLAIM_KINDS, ...SHARE_KINDS] : SHARE_KINDS))
+// Die Arten, die gerade passen: die mindernden nur, solange es einen Anspruch gibt, die Spende nur,
+// solange es Anteile gibt. Ob die Person spenden darf (Status), prüft das Backend.
+const kinds = computed<Kind[]>(() => {
+  const result: Kind[] = props.claim > 0 ? [...CLAIM_KINDS, ...SHARE_KINDS] : [...SHARE_KINDS]
+  if (props.shares > 0) {
+    result.push('donate')
+  }
+  return result
+})
 const kind = ref<Kind>(props.claim > 0 ? 'payout' : 'subscribe')
 const isShareKind = computed(() => SHARE_KINDS.includes(kind.value))
 
@@ -78,7 +89,7 @@ const ready = computed(() => {
   if (isShareKind.value) {
     return shares.value !== null
   }
-  return kind.value === 'writeOff' || amount.value !== null
+  return kind.value === 'writeOff' || kind.value === 'donate' || amount.value !== null
 })
 
 // Hinweis unter dem Betragsfeld, wenn der Betrag nicht zu ganzen Anteilen passt.
@@ -153,6 +164,8 @@ async function send(): Promise<[BookingResponse, string]> {
     }
     case 'writeOff':
       return [await writeOff(base), `${label} über ${formatEuro(props.claim)} gebucht.`]
+    case 'donate':
+      return [await donate(base), `${label} über ${props.shares} Anteile (${formatEuro(props.balance)}) gebucht.`]
   }
 }
 
@@ -161,6 +174,15 @@ async function book(): Promise<void> {
     return
   }
   if (kind.value === 'writeOff' && !confirm(`Den ganzen Restanspruch von ${formatEuro(props.claim)} ausbuchen?`)) {
+    return
+  }
+  if (
+    kind.value === 'donate' &&
+    !confirm(
+      `Alle ${props.shares} Anteile und den ganzen Saldo von ${formatEuro(props.balance)} der Genossenschaft spenden? ` +
+        'Das Mitglied scheidet damit aus.',
+    )
+  ) {
     return
   }
   error.value = ''
@@ -220,7 +242,7 @@ async function book(): Promise<void> {
         </div>
 
         <!-- Auszahlung und Verlustvortrag: freier Betrag, höchstens der offene Anspruch. -->
-        <div v-else-if="kind !== 'writeOff'" class="form-group">
+        <div v-else-if="kind === 'payout' || kind === 'deductLoss'" class="form-group">
           <label for="booking-claim-amount">Betrag (offener Anspruch {{ formatEuro(claim) }})</label>
           <input
             id="booking-claim-amount"
@@ -232,7 +254,14 @@ async function book(): Promise<void> {
           <small v-if="amountHint" class="hint">{{ amountHint }}</small>
         </div>
 
-        <p v-else class="info-text">Ausgebucht wird der ganze Restanspruch von {{ formatEuro(claim) }}.</p>
+        <p v-else-if="kind === 'writeOff'" class="info-text">
+          Ausgebucht wird der ganze Restanspruch von {{ formatEuro(claim) }}.
+        </p>
+
+        <p v-else class="info-text">
+          Gespendet werden alle {{ shares }} Anteile, Saldo {{ formatEuro(balance) }}, an die Genossenschaft. Das
+          Mitglied scheidet damit am Tag nach der Wertstellung aus.
+        </p>
 
         <div class="form-group">
           <label for="booking-text">Buchungstext (leer = „{{ KIND_LABELS[kind] }}“)</label>

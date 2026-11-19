@@ -2304,3 +2304,30 @@ Vor dem nächsten Start also `projections.sqlite` löschen; sie wird aus den Eve
   auf 0, und die Person taucht nicht in der Liste der offenen Ansprüche auf.
 - **Kein Abgleich mit dem Geldeingang (`reconcile=False`):** Die Spende hat mit dem Eintritt nichts
   zu tun; ein Abgleich würde sonst den Geldeingang zurücknehmen, weil keine Anteile mehr da sind.
+
+## 2026-11-19 – Schritt 5j, Teil 2: Spende des Anteils im Frontend
+
+**Was:**
+
+- `frontend/src/accounts.ts`: Funktion `donate()` für `POST /api/accounts/donate`, Interface
+  `ShareDonation`, Text „Spende Anteil“ für die Buchungsart `share_donation` in der Buchungsliste.
+- `views/accounts/BookingForm.vue`: neue Buchungsart „Spende Anteil“. Sie hat keine Eingabefelder
+  für Anteile oder Betrag, nur Wertstellung und Text, und zeigt, was gespendet wird (alle Anteile,
+  ganzer Saldo). Vor dem Buchen fragt `confirm()` nach. Angeboten wird sie nur, solange das Konto
+  Anteile hat; dafür bekommt die Maske die neuen Props `shares` und `balance` von `AccountView.vue`.
+- `members.ts`, `views/members/MemberDetailView.vue`: Feld `donation_date`, auf der Mitgliederseite
+  die Zeile „Anteil gespendet am“.
+- Geprüft mit `npm run type-check`.
+
+**Warum so:**
+
+- **In der Buchungsmaske statt als Knopf am Mitglied:** Die Spende ist zuerst eine Buchung. Storniert
+  wird sie ebenfalls in der Kontoansicht, das Ausscheiden ergibt sich daraus. So bleibt der Vorgang an
+  einer Stelle.
+- **Status prüft das Backend:** Ob die Person spenden darf (Mitglied oder gekündigt, nicht
+  verstorben, ausgeschlossen oder ausgeschieden), entscheidet `donate_shares()` im Backend. Das
+  Frontend blendet die Art nur aus, wenn es nichts zu spenden gibt, und zeigt sonst die Fehlermeldung
+  des Servers. So steht die Regel nur an einer Stelle.
+- **Bedingung `v-else-if` erweitert:** Das Betragsfeld erscheint jetzt ausdrücklich nur bei
+  Auszahlung und Verlustvortrag. Vorher hieß es „alles außer Ausbuchung“, das hätte die Spende
+  fälschlich mit eingeschlossen.

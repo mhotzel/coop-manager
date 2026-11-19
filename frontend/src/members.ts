@@ -78,6 +78,7 @@ export interface MemberDetail {
   exit_date: string | null // wirksames Ausscheiden: aus Kündigung, Tod oder Ausschluss
   date_of_death: string | null
   expulsion_date: string | null // Beschluss des Vorstands
+  donation_date: string | null // Ausscheiden mit Spende des Anteils
   partial_notice: boolean // heute läuft eine Teilkündigung
   salutation: string
   generated_address_lines: string[]

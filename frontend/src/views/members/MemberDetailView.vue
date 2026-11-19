@@ -276,7 +276,11 @@ function generateLines(): void {
               <dt>Verstorben am</dt>
               <dd>{{ formatDate(member.date_of_death) }}</dd>
             </template>
-            <!-- Wirksames Ausscheiden: nach einem Tod der 31.12. des Todesjahres. -->
+            <template v-if="member.donation_date !== null">
+              <dt>Anteil gespendet am</dt>
+              <dd>{{ formatDate(member.donation_date) }}</dd>
+            </template>
+            <!-- Wirksames Ausscheiden: nach einem Tod der 31.12. des Todesjahres, bei einer Spende ihr Tag. -->
             <template v-if="member.exit_date !== null">
               <dt>Ausscheiden zum</dt>
               <dd>{{ formatDate(member.exit_date) }}</dd>

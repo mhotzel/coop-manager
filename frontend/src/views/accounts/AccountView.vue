@@ -183,6 +183,8 @@ watch(() => props.number, load, { immediate: true })
       :account-number="account.number"
       :share-price="account.share_price!"
       :claim="account.claim"
+      :shares="account.shares"
+      :balance="account.balance"
       @booked="onBooked"
     />
 

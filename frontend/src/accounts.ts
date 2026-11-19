@@ -41,6 +41,7 @@ const BOOKING_KIND_LABELS: Record<string, string> = {
   loss_deduction: 'Kürzung Verlustvortrag',
   payout: 'Auszahlung',
   limitation_writeoff: 'Ausbuchung Verjährung',
+  share_donation: 'Spende Anteil',
   reversal: 'Storno',
 }
 
@@ -133,6 +134,20 @@ export function deductLoss(command: ClaimBooking): Promise<BookingResponse> {
 // Immer der ganze Rest; deshalb ohne Betrag.
 export function writeOff(command: Omit<ClaimBooking, 'amount'>): Promise<BookingResponse> {
   return api<BookingResponse>('/api/accounts/write-off', { method: 'POST', body: command })
+}
+
+// --- Ausscheiden mit Spende des Anteils ---
+
+// Muss zu ShareDonation im Backend passen. Ohne Anteile und Betrag: gespendet wird immer das ganze
+// Guthaben (alle Anteile, ganzer Saldo) an das Genossenschaftskonto. Die Person scheidet damit aus.
+export interface ShareDonation {
+  account_number: number
+  value_date: string // Tag der Spende, zugleich Ausscheiden
+  text: string | null // null = Standardtext „Spende Anteil“
+}
+
+export function donate(command: ShareDonation): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/donate', { method: 'POST', body: command })
 }
 
 // Eingabe im Betragsfeld → ganze Cent, oder null, wenn die Eingabe kein Betrag ist.

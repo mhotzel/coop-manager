@@ -76,7 +76,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
    - 5j: Ausscheiden mit Spende des Anteils (Stand 2026-11-18)
      - Teil 1: Domäne, Buchungsart, Service, Storno, API, Tests
-     - Teil 2: Frontend (Aktion an Mitglied bzw. Konto, Buchungsart in der Kontoansicht)
+     - Teil 2: Frontend: Buchungsart „Spende Anteil“ in der Buchungsmaske des Kontos (nicht als
+       Aktion am Mitglied, Stand 2026-11-19), Datum der Spende auf der Mitgliederseite
 6. Reports: die drei Excel-Listen zum Stichtag
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
