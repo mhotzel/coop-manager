@@ -78,6 +78,14 @@ class WriteOff(BaseModel):
     text: str | None = Field(default=None, max_length=200)
 
 
+class ShareDonation(BaseModel):
+    """Befehl: Ausscheiden mit Spende des Anteils; gebucht wird immer das ganze Guthaben."""
+
+    account_number: int
+    value_date: date  # Tag der Spende, zugleich Ausscheiden
+    text: str | None = Field(default=None, max_length=200)  # leer = „Spende Anteil“
+
+
 class PostExits(BaseModel):
     """Befehl: alle offenen Ausscheiden zum 31.12. dieses Jahres buchen."""
 

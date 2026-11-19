@@ -353,3 +353,32 @@ def test_readonly_may_read_claims(client, register, login, leaving_2025):
     login("rita")
 
     assert client.get("/api/accounts/claims").status_code == 200
+
+
+def test_donate_over_api(client, member_id):
+    response = client.post("/api/accounts/donate", json={"account_number": 1, "value_date": "2026-11-15"})
+
+    assert response.status_code == 200
+    account = response.json()["account"]
+    assert (account["balance"], account["shares"]) == (0, 0)
+    assert account["bookings"][-1]["kind"] == "share_donation"
+    detail = client.get(f"/api/members/{member_id}").json()
+    assert (detail["donation_date"], detail["exit_date"], detail["status"]) == ("2026-11-15", "2026-11-15", "exited")
+    assert search_status(client) == "exited"
+
+
+def test_donate_twice_is_400(client, member_id):
+    client.post("/api/accounts/donate", json={"account_number": 1, "value_date": "2026-11-15"})
+
+    response = client.post("/api/accounts/donate", json={"account_number": 1, "value_date": "2026-11-16"})
+
+    assert response.status_code == 400
+
+
+def test_readonly_may_not_donate(client, register, login, member_id):
+    register("max", ACCOUNTING_READONLY, "Max Muster")
+    login("max")
+
+    response = client.post("/api/accounts/donate", json={"account_number": 1, "value_date": "2026-11-15"})
+
+    assert response.status_code == 403

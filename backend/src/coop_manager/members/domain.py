@@ -40,6 +40,7 @@ class Notice:
 # Gründe für ein Ausscheiden zum 31.12.; die Texte macht das Frontend.
 EXIT_REASON_DEATH = "deceased"
 EXIT_REASON_EXPULSION = "expelled"
+EXIT_REASON_DONATION = "donated"  # Spende des Anteils genau am 31.12.
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class Member(Aggregate):
         self.notices: list[Notice] = []  # laufende Kündigungen, zurückgenommene fallen heraus
         self.date_of_death: date | None = None
         self.expulsion_date: date | None = None  # Beschluss des Vorstands
+        self.donation_date: date | None = None  # Ausscheiden mit Spende des Anteils
 
     @classmethod
     def apply(
@@ -132,7 +134,12 @@ class Member(Aggregate):
         return next((n for n in self.notices if n.kind == NOTICE), None)
 
     def has_partial_notice(self, day: date) -> bool:
-        """Läuft am Tag `day` eine Teilkündigung, deren Ausscheiden (31.12.) noch nicht vorbei ist?"""
+        """Läuft am Tag `day` eine Teilkündigung, deren Ausscheiden (31.12.) noch nicht vorbei ist?
+
+        Nach der Spende des Anteils ist die Person ausgeschieden; Teilkündigungen sind gegenstandslos.
+        """
+        if self.donation_date is not None and day > self.donation_date:
+            return False
         return any(n.kind == PARTIAL_NOTICE and day <= n.exit_date for n in self.notices)
 
     def partially_noticed_shares(self, booked_exit_dates: Collection[date] = ()) -> int:
@@ -167,7 +174,9 @@ class Member(Aggregate):
         return ExitDue(full, sum(n.shares or 0 for n in partial), tuple(reasons))
 
     def _full_exit_reason(self, day: date) -> str:
-        """Warum die Mitgliedschaft zu `day` endet; der Tod geht vor, dann der Ausschluss."""
+        """Warum die Mitgliedschaft zu `day` endet; Spende, dann Tod, dann Ausschluss, sonst Kündigung."""
+        if self.donation_date == day:
+            return EXIT_REASON_DONATION
         if self.date_of_death is not None and self.date_of_death.year == day.year:
             return EXIT_REASON_DEATH
         if self.expulsion_date is not None and self.expulsion_date.year == day.year:
@@ -186,6 +195,7 @@ class Member(Aggregate):
             exit_date=full.exit_date if full else None,
             date_of_death=self.date_of_death,
             expulsion_date=self.expulsion_date,
+            donation_date=self.donation_date,
         )
 
     def admit(self, decision_date: date, today: date) -> None:
@@ -330,6 +340,28 @@ class Member(Aggregate):
             raise DomainError("Das Datum darf nicht vor dem Ausschluss liegen.")
         self._record("member.expulsion-lifted", decision_date=decision_date.isoformat())
 
+    def donate_shares(self, donation_date: date, today: date) -> None:
+        """Ausscheiden mit Spende des Anteils: ohne Kündigungsfrist, am Tag der Spende.
+
+        Bewusst so entschieden, obwohl rechtlich umstritten (siehe Plan). Nur bei Mitgliedern, auch
+        gekündigten; laufende Kündigungen werden damit gegenstandslos. Ab dem Folgetag ist die
+        Person ausgeschieden. Die Buchung des ganzen Guthabens an die Genossenschaft macht der
+        Buchungsservice, der das hier mit der Wertstellung aufruft.
+        """
+        if donation_date > today:
+            raise DomainError("Das Datum der Spende darf nicht in der Zukunft liegen.")
+        if self.donation_date is not None:
+            raise DomainError("Die Spende ist bereits erfasst.")
+        if self.status(donation_date) not in (MEMBER, NOTICE_GIVEN):
+            raise DomainError("Mit Spende ausscheiden kann nur, wer an diesem Tag Mitglied ist.")
+        self._record("member.shares-donated", donation_date=donation_date.isoformat())
+
+    def revoke_donation(self) -> None:
+        """Nimmt das Ausscheiden mit Spende zurück, weil die Spendenbuchung storniert wurde."""
+        if self.donation_date is None:
+            raise DomainError("Es ist keine Spende erfasst.")
+        self._record("member.donation-revoked")
+
     def _ensure_notice_possible(self, notice_date: date, exit_date: date, today: date) -> None:
         """Gemeinsame Prüfungen für Kündigung und Teilkündigung.
 
@@ -340,6 +372,8 @@ class Member(Aggregate):
             raise DomainError("Der Eingang der Kündigung darf nicht in der Zukunft liegen.")
         if self.full_notice() is not None:
             raise DomainError("Die Mitgliedschaft ist bereits gekündigt.")
+        if self.donation_date is not None:
+            raise DomainError("Die Person ist mit Spende des Anteils ausgeschieden.")
         if self.status(notice_date) != MEMBER:
             raise DomainError("Kündigen kann nur, wer am Tag des Eingangs Mitglied ist.")
         if (exit_date.month, exit_date.day) != (12, 31):
@@ -467,6 +501,14 @@ class Member(Aggregate):
     @on("member.expulsion-lifted")
     def _expulsion_lifted(self, event: Event) -> None:
         self.expulsion_date = None
+
+    @on("member.shares-donated")
+    def _shares_donated(self, event: Event) -> None:
+        self.donation_date = date.fromisoformat(event.data["donation_date"])
+
+    @on("member.donation-revoked")
+    def _donation_revoked(self, event: Event) -> None:
+        self.donation_date = None
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

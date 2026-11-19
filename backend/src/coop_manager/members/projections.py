@@ -54,6 +54,7 @@ class MemberList(Projector):
         exit_date        TEXT,
         date_of_death    TEXT,
         expulsion_date   TEXT,
+        donation_date    TEXT,  -- Ausscheiden mit Spende des Anteils
         search_text      TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_members_number ON members (member_number);
@@ -175,6 +176,16 @@ class MemberList(Projector):
     def _expulsion_lifted(self, conn: sqlite3.Connection, event: Event) -> None:
         conn.execute("UPDATE members SET expulsion_date = NULL WHERE member_id = ?", (event.subject,))
 
+    @on("member.shares-donated")
+    def _shares_donated(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute(
+            "UPDATE members SET donation_date = ? WHERE member_id = ?", (event.data["donation_date"], event.subject)
+        )
+
+    @on("member.donation-revoked")
+    def _donation_revoked(self, conn: sqlite3.Connection, event: Event) -> None:
+        conn.execute("UPDATE members SET donation_date = NULL WHERE member_id = ?", (event.subject,))
+
     @on("member.partial-notice-given")
     def _partial_notice_given(self, conn: sqlite3.Connection, event: Event) -> None:
         conn.execute(
@@ -230,11 +241,13 @@ def search_members(conn: sqlite3.Connection, query: str, today: date, limit: int
             params.append(f"%{_escape_like(word)}%")
     where = " AND ".join(conditions) or "1 = 1"
     # partial_notice: gibt es eine Teilkündigung, deren Ausscheiden heute noch nicht vorbei ist?
+    # Nach einer Spende des Anteils nicht mehr, die Person ist dann ganz ausgeschieden.
     # Datumsangaben stehen als "2026-11-02" in der Tabelle, so lassen sie sich als Text vergleichen.
     rows = conn.execute(
         "SELECT *, EXISTS (SELECT 1 FROM partial_notices p WHERE p.member_id = members.member_id"
-        f" AND p.exit_date >= ?) AS partial_notice FROM members WHERE {where} ORDER BY member_number LIMIT ?",
-        (today.isoformat(), *params, limit),
+        " AND p.exit_date >= ? AND (members.donation_date IS NULL OR members.donation_date >= ?))"
+        f" AS partial_notice FROM members WHERE {where} ORDER BY member_number LIMIT ?",
+        (today.isoformat(), today.isoformat(), *params, limit),
     )
     return [_to_row(row, today) for row in rows]
 
@@ -262,6 +275,7 @@ def _to_row(row: sqlite3.Row, today: date) -> MemberRow:
         exit_date=date.fromisoformat(row["exit_date"]) if row["exit_date"] else None,
         date_of_death=date.fromisoformat(row["date_of_death"]) if row["date_of_death"] else None,
         expulsion_date=date.fromisoformat(row["expulsion_date"]) if row["expulsion_date"] else None,
+        donation_date=date.fromisoformat(row["donation_date"]) if row["donation_date"] else None,
     )
     return MemberRow(
         id=row["member_id"],

@@ -2261,3 +2261,46 @@ umsetzen, außer du hast Fragen“); der Plan legte das Wesentliche schon fest.
   Mitgliedsnummer erhalten, weil `all_members` schon danach sortiert ist.
 - **Summe mit `reduce`:** Array-Methode in JavaScript, die alle Einträge zu einem Wert
   zusammenfasst; hier beginnend bei 0 jeweils plus den Anspruch.
+
+## 2026-11-18 – Schritt 5j, Teil 1: Ausscheiden mit Spende des Anteils (Backend)
+
+**Was:**
+
+- `members/status.py`: `MembershipDates.donation_date`. `effective_exit_date()` nimmt die Spende
+  als weiteren Kandidaten, und zwar den Tag selbst, nicht den 31.12. Damit ergibt `status_on()`
+  ab dem Folgetag „ausgeschieden“, ohne eigene Sonderregel.
+- `members/domain.py`: `donate_shares(donation_date, today)` mit Event `member.shares-donated` und
+  `revoke_donation()` mit `member.donation-revoked`. Prüfungen: nicht in der Zukunft, nur einmal,
+  am Tag der Spende Mitglied oder gekündigt. Nach der Spende keine neue Kündigung;
+  `has_partial_notice()` ist danach falsch; Grund `donated`, falls die Spende genau auf einen
+  31.12. fällt.
+- `accounts/domain.py`: neue Buchungsart `SHARE_DONATION` („Spende Anteil“).
+- `accounts/bookings.py`: Vorgang `donate()` bucht den ganzen Saldo und alle Anteile vom
+  Mitgliedskonto an das Genossenschaftskonto und hält die Spende am Mitglied fest (zusammen mit
+  `save_all` gespeichert). `reverse()` nimmt bei einer Spendenbuchung die Spende am Mitglied zurück.
+- `accounts/api.py`, `schemas.py`: `POST /api/accounts/donate` mit `{account_number, value_date, text}`.
+- `members/projections.py`: Spalte `donation_date`, beide Events, Status in der Suche;
+  „teilgekündigt“ entfällt nach der Spende. `MemberDetail.donation_date` in der API.
+- Tests: neu `test_donation.py` (14 Tests), drei API-Tests in `test_members_exit_api.py`;
+  451 grün, ruff und pyright sauber.
+- `Plan.md`: Schritt 5j, Abschnitt „Ausscheiden mit Spende des Anteils“, Statusmodell,
+  Buchungsarten, Glossar.
+
+**Wichtig für die Entwicklungsdatenbank:** Die Projektion `members` hat eine neue Spalte. Wie unter
+„Offene Punkte“ beschrieben, ändert `CREATE TABLE IF NOT EXISTS` eine bestehende Tabelle nicht.
+Vor dem nächsten Start also `projections.sqlite` löschen; sie wird aus den Events neu aufgebaut.
+
+**Warum so:**
+
+- **Bewusste fachliche Entscheidung** von Matthias, obwohl rechtlich umstritten (siehe Plan).
+- **Ausscheiden über `effective_exit_date`:** Das wirksame Ausscheiden ist schon der früheste
+  Termin aus Kündigung, Tod und Ausschluss. Die Spende ist nur ein weiterer Termin, so werden
+  laufende Kündigungen automatisch gegenstandslos, und Status, Jahresende und Suche stimmen ohne
+  weitere Sonderfälle.
+- **Event am Mitglied plus Buchung (Variante A wie beim Geldeingang):** Der Status bleibt aus den
+  Events des Mitglieds berechenbar; beides wird gemeinsam gespeichert, also nie nur eines davon.
+- **Ganzer Saldo statt Anteile × Preis:** Nach einer gebuchten Teilkündigung kann der Saldo größer
+  sein als der Wert der Anteile (offener Anspruch). Gespendet wird alles, das Konto steht danach
+  auf 0, und die Person taucht nicht in der Liste der offenen Ansprüche auf.
+- **Kein Abgleich mit dem Geldeingang (`reconcile=False`):** Die Spende hat mit dem Eintritt nichts
+  zu tun; ein Abgleich würde sonst den Geldeingang zurücknehmen, weil keine Anteile mehr da sind.

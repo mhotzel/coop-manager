@@ -21,7 +21,18 @@ LOSS_DEDUCTION = "loss_deduction"  # Kürzung Verlustvortrag
 PAYOUT = "payout"  # Auszahlung
 LIMITATION_WRITEOFF = "limitation_writeoff"  # Ausbuchung Verjährung
 REVERSAL = "reversal"  # Storno
-BOOKING_KINDS = {SUBSCRIPTION, REFUND, TRANSFER, EXIT, LOSS_DEDUCTION, PAYOUT, LIMITATION_WRITEOFF, REVERSAL}
+SHARE_DONATION = "share_donation"  # Spende Anteil: ganzes Guthaben an die Genossenschaft, Ausscheiden
+BOOKING_KINDS = {
+    SUBSCRIPTION,
+    REFUND,
+    TRANSFER,
+    EXIT,
+    LOSS_DEDUCTION,
+    PAYOUT,
+    LIMITATION_WRITEOFF,
+    REVERSAL,
+    SHARE_DONATION,
+}
 
 
 @dataclass(frozen=True)

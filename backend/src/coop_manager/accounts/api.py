@@ -28,6 +28,7 @@ from .schemas import (
     PostExits,
     ReverseBooking,
     ShareBooking,
+    ShareDonation,
     WriteOff,
 )
 from .services import get_ledger
@@ -116,6 +117,13 @@ def deduct_loss(body: ClaimBooking, db: Db, user: Writer) -> BookingResponse:
 def write_off(body: WriteOff, db: Db, user: Writer) -> BookingResponse:
     """Ausbuchung des Restanspruchs wegen Verjährung."""
     result = bookings.write_off(db, body.account_number, body.value_date, date.today(), actor=user.id, text=body.text)
+    return _response(db, body.account_number, result)
+
+
+@router.post("/donate")
+def donate(body: ShareDonation, db: Db, user: Writer) -> BookingResponse:
+    """Ausscheiden mit Spende des Anteils: ganzes Guthaben an die Genossenschaft, ohne Frist."""
+    result = bookings.donate(db, body.account_number, body.value_date, date.today(), actor=user.id, text=body.text)
     return _response(db, body.account_number, result)
 
 

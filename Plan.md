@@ -74,6 +74,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 2: Seite „Offene Ansprüche“
      - Teil 3: Umbuchung zwischen Mitgliedskonten (fachliche Fragen vorher klären)
    - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
+   - 5j: Ausscheiden mit Spende des Anteils (Stand 2026-11-18)
+     - Teil 1: Domäne, Buchungsart, Service, Storno, API, Tests
+     - Teil 2: Frontend (Aktion an Mitglied bzw. Konto, Buchungsart in der Kontoansicht)
 6. Reports: die drei Excel-Listen zum Stichtag
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
@@ -178,7 +181,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
        └─Ablehnung durch den Vorstand / Rücknahme─▶ abgelehnt
                                  ├─Ausschlussbeschluss─▶ ausgeschlossen ─Ende GJ─▶ ausgeschieden
                                  ├─Tod─▶ verstorben (Erben, § 77 GenG) ─Ende GJ─▶ ausgeschieden
-                                 └─Übertragung aller Anteile (Umbuchung)─▶ ausgeschieden
+                                 ├─Übertragung aller Anteile (Umbuchung)─▶ ausgeschieden
+                                 └─Spende des Anteils (sofort, ohne Frist)─▶ ausgeschieden
   ```
 
 - **Antragsteller:** Die Person wird mit Eingang der Beitrittserklärung erfasst, mit Datum und
@@ -198,6 +202,30 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Mitglieds- und Kontonummer werden bei der Erfassung des Antrags vergeben** (höchste Nummer + 1).
   Lücken durch abgelehnte Anträge sind zulässig. Für die Migration der Altdaten ist eine manuelle
   Vergabe möglich (nicht in der Oberfläche); die App prüft dabei die Eindeutigkeit.
+
+### Ausscheiden mit Spende des Anteils
+
+- **Bewusste Entscheidung (Stand 2026-11-18):** Ein Mitglied kann ausscheiden, indem es sein
+  ganzes Guthaben der Genossenschaft spendet, **ohne Kündigungsfrist** und nicht nur zum 31.12.
+  Rechtlich ist das umstritten (Kündigungsfrist nach Satzung 6.1 und § 65 GenG); Matthias hat es
+  trotzdem so entschieden. Die App bildet den Vorgang ab, ob er im Einzelfall zulässig ist,
+  verantwortet der Vorstand.
+- **Nur ganz:** immer alle Anteile und der ganze Saldo, keine Teilspende.
+- **Nur bei Mitgliedern**, auch gekündigten, am Tag der Spende. Nicht bei Antragstellern,
+  Verstorbenen, Ausgeschlossenen oder schon Ausgeschiedenen.
+- **Datum:** frühestens am Eintrittsdatum, höchstens heute; liegt schon ein Ausscheiden gebucht
+  vor (Teilkündigung), muss es danach liegen. Ausgeschieden ist die Person **ab dem Folgetag**,
+  wie bei den anderen Vorgängen.
+- **Buchung** „Spende Anteil“: Soll Mitgliedskonto an Haben Genossenschaftskonto, ganzer Saldo und
+  alle Anteile. Danach steht das Konto auf 0, es entsteht **kein Auseinandersetzungsanspruch**.
+  Am Mitglied wird zusätzlich `member.shares-donated` mit dem Datum festgehalten, beides wird mit
+  `save_all` gespeichert (wie der Geldeingang, Variante A).
+- **Laufende Kündigungen und Teilkündigungen werden gegenstandslos** und bleiben stehen (wie beim
+  Tod). Nach der Spende ist keine neue Kündigung mehr möglich.
+- **Storno** der Spendenbuchung nimmt das Ausscheiden zurück (`member.donation-revoked`); eine
+  frühere Kündigung gilt dann wieder.
+- Fällt die Spende auf einen 31.12., erscheint sie nicht auf der Seite „Jahresende“, denn auf dem
+  Konto ist nichts mehr auszubuchen.
 
 ### Tod eines Mitglieds
 
@@ -473,6 +501,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   | Kürzung Verlustvortrag | frei | 0 | Satzung 6.5 |
   | Auszahlung | frei, höchstens offener Anspruch | 0 | auch Teilauszahlung |
   | Ausbuchung Verjährung | Rest | 0 | Satzung 2.7, Zuführung zur Rücklage |
+  | Spende Anteil | ganzer Saldo | alle | Ausscheiden ohne Frist, Guthaben an die Genossenschaft |
   | Storno | wie Original | wie Original | Korrektur |
 
 - Der „Austritt“ aus `Konzeption.md` ist damit in **Ausscheiden** und **Auszahlung** aufgeteilt.
@@ -538,6 +567,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 | Auszahlung | `payout` |
 | Ausbuchung Verjährung | `limitation_writeoff` |
 | Storno | `reversal` |
+| Spende des Anteils | `share_donation`, `donate_shares` |
 | verstorben, Sterbedatum, Erben | `deceased`, `date_of_death`, `heirs` |
 | natürliche / juristische Person | `natural_person` / `legal_entity` |
 | Firmenname, Ansprechpartner | `company_name`, `contact_person` |

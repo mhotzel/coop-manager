@@ -46,9 +46,10 @@ class MemberDetail(BaseModel):
     entry_date: date | None  # Eintrittsdatum: das spätere von Zulassung und Geldeingang
     notices: list[Notice]  # laufende Kündigungen und Teilkündigungen
     notice_date: date | None  # Eingang der Kündigung der Mitgliedschaft
-    exit_date: date | None  # wirksames Ausscheiden: aus Kündigung, Tod oder Ausschluss
+    exit_date: date | None  # wirksames Ausscheiden: aus Kündigung, Tod, Ausschluss oder Spende
     date_of_death: date | None
     expulsion_date: date | None  # Beschluss des Vorstands
+    donation_date: date | None  # Ausscheiden mit Spende des Anteils
     partial_notice: bool  # heute läuft eine Teilkündigung (Hinweis neben dem Status)
     salutation: str  # die Briefanrede, wie sie in den Seriendruck kommt
     generated_address_lines: list[str]
@@ -84,6 +85,7 @@ class MemberDetail(BaseModel):
             exit_date=member.exit_date(),
             date_of_death=member.date_of_death,
             expulsion_date=member.expulsion_date,
+            donation_date=member.donation_date,
             partial_notice=member.has_partial_notice(today),
             salutation=salutation(
                 member.person_type, member.name, member.salutation, deceased=member.date_of_death is not None

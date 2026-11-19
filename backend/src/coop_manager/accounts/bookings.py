@@ -27,6 +27,7 @@ from .domain import (
     PAYOUT,
     REFUND,
     REVERSAL,
+    SHARE_DONATION,
     SUBSCRIPTION,
     Booking,
     Ledger,
@@ -120,12 +121,47 @@ def reverse(db: Database, booking_id: str, reason: str, today: date, actor: str)
     account_number = member_account_of(original)
 
     def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
+        if original.kind == SHARE_DONATION:  # mit der Buchung entfällt auch das Ausscheiden
+            member.revoke_donation()
         return ledger.reverse(booking_id, f"Storno zu „{original.text}“: {reason.strip()}", today)
 
     # Der Abgleich mit den gezeichneten Anteilen gehört nur zum Eintritt. Nach einem gebuchten
     # Ausscheiden passen gezeichnete und gehaltene Anteile nicht mehr zusammen; ein Abgleich würde
     # dann fälschlich den Geldeingang zurücknehmen.
     return _book(db, account_number, today, actor, book, reconcile=original.kind in (SUBSCRIPTION, REFUND))
+
+
+def donate(
+    db: Database, account_number: int, value_date: date, today: date, actor: str, text: str | None = None
+) -> BookingResult:
+    """Ausscheiden mit Spende des Anteils (siehe Plan): ohne Kündigungsfrist, am Tag der Spende.
+
+    Bucht das ganze Guthaben, Saldo und Anteile, vom Mitgliedskonto an das Genossenschaftskonto;
+    danach steht das Konto auf 0, es bleibt kein Auseinandersetzungsanspruch. Am Mitglied wird die
+    Spende festgehalten, beides wird zusammen gespeichert. Ein Storno der Buchung nimmt das
+    Ausscheiden zurück.
+    """
+
+    def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
+        last_exit = ledger.last_exit_date(account)
+        if last_exit is not None and value_date <= last_exit:
+            raise DomainError(f"Das Datum muss nach dem gebuchten Ausscheiden zum {last_exit:%d.%m.%Y} liegen.")
+        balance, shares = ledger.balance(account), ledger.shares(account)
+        if balance == 0 and shares == 0:
+            raise DomainError("Auf dem Konto ist nichts, was gespendet werden könnte.")
+        member.donate_shares(value_date, today)
+        return ledger.post_booking(
+            SHARE_DONATION,
+            account,
+            COOPERATIVE_ACCOUNT_NUMBER,
+            balance,
+            shares,
+            text or "Spende Anteil",
+            value_date,
+            today,
+        )
+
+    return _book(db, account_number, today, actor, book, reconcile=False)
 
 
 def payout(
