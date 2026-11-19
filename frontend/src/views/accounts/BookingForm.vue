@@ -96,8 +96,10 @@ const targetHint = ref('')
 async function onTargetChange(): Promise<void> {
   target.value = null
   targetHint.value = ''
+  // Achtung: Bei type="number" macht v-model aus der Eingabe eine Zahl (leeres Feld: ''), obwohl
+  // der Typ hier string sagt. Deshalb kein .trim(), sondern nur Number(); '' ergibt 0.
   const number = Number(targetText.value)
-  if (targetText.value.trim() === '' || !Number.isInteger(number) || number < 1) {
+  if (!Number.isInteger(number) || number < 1) {
     return
   }
   if (number === props.accountNumber) {

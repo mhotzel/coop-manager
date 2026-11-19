@@ -2473,3 +2473,21 @@ also vor dem nächsten Start `backend/data/projections.sqlite` löschen.
   die Einzahlung eine Buchung. Das folgt derselben Trennung wie Antrag und Eintritt.
 - **Vorauswahl:** Sind weitere Anteile offen, ist die Einzahlung fast immer das, was gebucht werden
   soll.
+
+## 2026-11-19 – Fehler: Umbuchung ließ sich in der Maske nicht buchen
+
+**Was:** Nach der Eingabe des Zielkontos erschien kein Inhaber, und „Buchen“ blieb gesperrt. Ursache in
+`BookingForm.vue`, `onTargetChange()`: `targetText.value.trim()`. Das Feld ist ein
+`<input type="number">`, und dabei macht `v-model` aus der Eingabe von selbst eine Zahl, auch ohne
+`.number` (nachgesehen in `node_modules/@vue/runtime-dom`: `castToNumber`). Eine Zahl hat kein
+`.trim()`, die Funktion brach mit einem Fehler ab, bevor das Konto geladen war. Behoben: nur noch
+`Number(targetText.value)`, ein leeres Feld ergibt 0 und wird abgewiesen.
+
+**Wie gefunden:** Zuerst auf einer Kopie der Entwicklungsdatenbank im Backend dieselbe Umbuchung
+(Konto 4 → 6) mit 1, 2 und 3 Anteilen ausgeführt: klappte. Dann mit `curl` geprüft, dass der laufende
+Server den Endpunkt kennt (`401` = nicht angemeldet, statt `405` für einen unbekannten Pfad). Damit
+blieb nur das Frontend.
+
+**Lehre:** TypeScript hilft hier nicht: `ref('')` behauptet `string`, zur Laufzeit steht eine Zahl
+darin. Bei Zahlenfeldern deshalb immer `Number(...)` verwenden und keine String-Methoden. Die
+Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
