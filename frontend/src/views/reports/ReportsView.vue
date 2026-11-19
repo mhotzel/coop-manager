@@ -10,6 +10,7 @@ const referenceDate = ref(todayIso())
 // Ein GET braucht kein CSRF-Token, deshalb geht es ohne api().
 const gengUrl = computed(() => `/api/reports/members-geng?reference_date=${referenceDate.value}`)
 const assemblyUrl = computed(() => `/api/reports/members-assembly?reference_date=${referenceDate.value}`)
+const mailingUrl = computed(() => `/api/reports/members-mailing?reference_date=${referenceDate.value}`)
 </script>
 
 <template>
@@ -34,6 +35,11 @@ const assemblyUrl = computed(() => `/api/reports/members-assembly?reference_date
           – stimmberechtigte Mitglieder nach Namen, mit Spalten für Vertretung und Unterschrift (Stichtag =
           Tag der Versammlung)
         </li>
+        <li>
+          <a v-if="referenceDate" :href="mailingUrl" download>Seriendruck-Liste</a>
+          <span v-else>Seriendruck-Liste</span>
+          – Adresszeilen und Briefanrede für die Einladung, ohne „keine Post“ (Feldnamen wie im Altsystem)
+        </li>
       </ul>
     </div>
   </div>
@@ -42,6 +48,12 @@ const assemblyUrl = computed(() => `/api/reports/members-assembly?reference_date
 <style scoped>
 .reference-date {
   max-width: 12rem;
+}
+
+/* Eine Liste ohne Aufzählungspunkte und ohne den Einzug, den der Browser einer <ul> gibt. */
+.report-list {
+  list-style: none;
+  padding-left: 0;
 }
 
 .report-list li {

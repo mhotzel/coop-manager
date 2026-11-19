@@ -33,6 +33,13 @@ def members_assembly(reference_date: date, db: Db, user: Reader) -> Response:
     return _xlsx(content, f"Generalversammlung-{reference_date.isoformat()}.xlsx")
 
 
+@router.get("/members-mailing")
+def members_mailing(reference_date: date, db: Db, user: Reader) -> Response:
+    """Seriendruck-Liste zum Stichtag, z. B. für die Einladung zur Generalversammlung."""
+    content = excel.members_mailing(services.members_mailing(db, reference_date), reference_date)
+    return _xlsx(content, f"Seriendruck-{reference_date.isoformat()}.xlsx")
+
+
 def _xlsx(content: bytes, filename: str) -> Response:
     # attachment: Der Browser speichert die Datei, statt sie anzuzeigen.
     return Response(content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{filename}"'})

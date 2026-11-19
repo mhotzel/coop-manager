@@ -12,7 +12,7 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from .services import AssemblyRow, GengRow
+from .services import AssemblyRow, GengRow, MailingRow
 
 Columns = tuple[tuple[str, int, str], ...]
 
@@ -34,6 +34,29 @@ ASSEMBLY_COLUMNS: Columns = (
     ("Adresse", 45, "@"),
     ("Vertreten durch", 30, "@"),
     ("Unterschrift", 35, "@"),
+)
+
+# Feldnamen wie im Altsystem, damit die Word-Vorlagen für den Seriendruck weiter passen.
+MAILING_COLUMNS: Columns = (
+    ("PersNr", 8, "0"),
+    ("name_mitgl", 35, "@"),
+    ("Land", 12, "@"),
+    ("PLZ", 8, "@"),
+    ("Ort", 20, "@"),
+    ("Strasse", 25, "@"),
+    ("HausNr", 8, "@"),
+    ("BriefAnrede", 35, "@"),
+    ("AdrZeile1", 30, "@"),
+    ("AdrZeile2", 30, "@"),
+    ("AdrZeile3", 30, "@"),
+    ("AdrZeile4", 30, "@"),
+    ("AdrZeile5", 30, "@"),
+    ("AdrZeile6", 30, "@"),
+    ("austritt", 12, "DD.MM.YYYY"),
+    ("summe_anteile", 14, '#,##0.00 "€"'),
+    ("anz_anteile", 10, "0"),
+    ("jahr_report", 10, "0"),
+    ("Verstorben", 12, "DD.MM.YYYY"),
 )
 
 
@@ -66,6 +89,41 @@ def members_assembly(rows: list[AssemblyRow], day: date) -> bytes:
     sheet.page_setup.fitToHeight = 0  # 0 = so viele Seiten hoch wie nötig
     sheet.print_options.gridLines = True
     sheet.print_title_rows = f"{HEADER_ROW}:{HEADER_ROW}"
+    return _save(workbook)
+
+
+def members_mailing(rows: list[MailingRow], day: date) -> bytes:
+    """Seriendruck-Liste als .xlsx.
+
+    Anders als die anderen Listen ohne Titel und Stichtag: Word liest beim Seriendruck die erste
+    Zeile als Feldnamen. Das Jahr des Stichtags steht deshalb als Spalte `jahr_report` in jeder Zeile.
+    """
+    workbook = Workbook()
+    sheet = workbook.active
+    assert isinstance(sheet, Worksheet)
+    sheet.title = "Seriendruck"
+    for index, (header, width, _) in enumerate(MAILING_COLUMNS, start=1):
+        sheet.cell(row=1, column=index, value=header).font = Font(bold=True)
+        sheet.column_dimensions[get_column_letter(index)].width = width
+    for row in rows:
+        values: list[object] = [
+            row.member_number,
+            row.name,
+            row.country,
+            row.postal_code,
+            row.city,
+            row.street,
+            row.house_number,
+            row.salutation,
+            *row.address_lines,
+            row.exit_date,
+            row.amount / 100,
+            row.shares,
+            day.year,
+            row.date_of_death,
+        ]
+        _append(sheet, MAILING_COLUMNS, values)
+    sheet.freeze_panes = "A2"
     return _save(workbook)
 
 

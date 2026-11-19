@@ -598,6 +598,14 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   **Nach Namen sortiert** (DIN 5007: „Ä“ wie „A“, „ß“ wie „ss“), weil man am Eingang nach dem Namen
   sucht. „Vertreten durch“ bleibt leer und wird von Hand ausgefüllt. Druck: A4 quer, eine
   Seitenbreite, Gitterlinien, Kopfzeile auf jeder Seite, höhere Zeilen für die Unterschrift.
+- **Seriendruck-Liste** (6d, Stand 2026-11-19): Feldnamen wie im Altsystem, damit die Word-Vorlagen
+  weiter passen: `PersNr`, `name_mitgl`, `Land` (wie gespeichert, leer = Deutschland), `PLZ`, `Ort`,
+  `Strasse`, `HausNr`, `BriefAnrede`, `AdrZeile1`–`AdrZeile6`, `austritt`, `summe_anteile`,
+  `anz_anteile`, `jahr_report`, `Verstorben`. **Ohne Titel und Stichtagszeile**, denn Word liest
+  die erste Zeile als Feldnamen; das Jahr des Stichtags steht deshalb in `jahr_report`.
+  Dieselben Personen wie in der GV-Liste, **ohne „keine Post“**; nach Mitgliedsnummer.
+  `austritt` = wirksames Ausscheiden, wenn die Person zum Stichtag gekündigt oder verstorben ist,
+  `Verstorben` = Sterbedatum, wenn sie zum Stichtag verstorben ist; sonst beides leer.
 
 ### Auswertung der Vorgänge eines Geschäftsjahres (Schritt 6)
 

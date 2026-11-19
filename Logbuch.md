@@ -2563,3 +2563,29 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
   `casefold()` macht klein und aus „ß“ schon „ss“, die Umlaute ersetzen wir selbst.
 - **Gitterlinien statt Rahmen:** `print_options.gridLines` druckt die Kästchen mit einer Zeile Code,
   Rahmen müsste man für jede Zelle einzeln setzen.
+
+## 2026-11-19 – Schritt 6d: Seriendruck-Liste
+
+**Was:**
+
+- `reports/services.py`: `members_mailing()` mit `MailingRow`, auf Basis von `_holders()` wie die
+  GV-Liste, dazu ohne „keine Post“. Die Briefanrede kommt aus `salutation()` in
+  `members/addressing.py`, die es seit Schritt 4 gibt.
+- `reports/excel.py`: `MAILING_COLUMNS` mit den Feldnamen des Altsystems und `members_mailing()`.
+- `reports/api.py`: `GET /api/reports/members-mailing?reference_date=…`.
+- `ReportsView.vue`: dritter Link. Tests in `tests/test_reports.py`.
+- Die Feldnamen habe ich aus der Beschreibung in `Beispieldaten/` gelesen, nur die Spalten „Feld“
+  und „Format“, ohne die Beispielwerte.
+
+**Warum so:**
+
+- **Keine Titelzeile:** Beim Seriendruck nimmt Word die erste Zeile einer Tabelle als Feldnamen.
+  Stünde dort „Stichtag: …“, hießen die Felder falsch. Deshalb hier `jahr_report` als Spalte.
+- **Alles zum Stichtag:** Anrede, `austritt` und `Verstorben` richten sich nach dem Status am
+  Stichtag. Wer nach dem Stichtag stirbt, bekommt in einer Liste zu einem früheren Tag noch die
+  normale Anrede, wie damals richtig.
+- **`*row.address_lines`:** Der Stern packt das Tupel mit den sechs Zeilen in die Liste aus, als
+  stünden die sechs Werte einzeln da.
+- **Nachtrag Aufzählungspunkte:** Die Links auf der Seite „Reports“ stehen in einer `<ul>`, und der
+  Browser zeigt davor Punkte und rückt ein. Behoben im Stil der Seite mit `list-style: none` und
+  `padding-left: 0`. Wegen `scoped` gilt das nur für diese Seite.

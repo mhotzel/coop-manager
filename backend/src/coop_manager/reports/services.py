@@ -10,7 +10,7 @@ from datetime import date
 from ..accounts.domain import EXIT, Ledger
 from ..accounts.services import get_ledger
 from ..db import Database
-from ..members.addressing import list_name
+from ..members.addressing import list_name, salutation
 from ..members.domain import Member
 from ..members.services import all_members
 from ..members.status import DECEASED, EXPELLED, MEMBER, NOTICE_GIVEN
@@ -42,6 +42,25 @@ class AssemblyRow:
     member_number: int
     name: str
     address: str
+
+
+@dataclass(frozen=True)
+class MailingRow:
+    """Eine Zeile der Seriendruck-Liste; die Felder heißen in Excel wie im Altsystem."""
+
+    member_number: int
+    name: str
+    country: str  # leer = Deutschland
+    postal_code: str
+    city: str
+    street: str
+    house_number: str
+    salutation: str
+    address_lines: tuple[str, ...]  # sechs Zeilen
+    exit_date: date | None  # wirksames Ausscheiden, sobald gekündigt, verstorben oder ausgeschlossen
+    amount: int  # Anteile × Anteilspreis in Cent
+    shares: int
+    date_of_death: date | None
 
 
 def shares_on(ledger: Ledger, number: int, day: date) -> int:
@@ -92,6 +111,41 @@ def members_assembly(db: Database, day: date) -> list[AssemblyRow]:
         for member, _, _ in _holders(db, day, VOTING_STATUSES)
     ]
     return sorted(rows, key=lambda row: sort_key(row.name))
+
+
+def members_mailing(db: Database, day: date) -> list[MailingRow]:
+    """Seriendruck-Liste zum Stichtag, nach Mitgliedsnummer: wer eingeladen wird, ohne „keine Post“.
+
+    Dieselben Personen wie in der Liste zur Generalversammlung. Verstorbene bekommen einen Eintrag
+    an die Adresszeilen, mit der Anrede „Sehr geehrte Damen und Herren“ (siehe Plan).
+    """
+    share_price = get_system_settings(db).share_price or 0
+    rows: list[MailingRow] = []
+    for member, _, shares in _holders(db, day, VOTING_STATUSES):
+        if member.no_mail:
+            continue
+        status = member.status(day)
+        deceased = status == DECEASED
+        address = member.address
+        rows.append(
+            MailingRow(
+                member_number=member.member_number,
+                name=list_name(member.person_type, member.name),
+                country=address.country,
+                postal_code=address.postal_code,
+                city=address.city,
+                street=address.street,
+                house_number=address.house_number,
+                salutation=salutation(member.person_type, member.name, member.salutation, deceased),
+                address_lines=member.address_lines,
+                # Zum Stichtag: Ein später erfasster Tod oder eine spätere Kündigung zählt noch nicht.
+                exit_date=member.exit_date() if status != MEMBER else None,
+                amount=shares * share_price,
+                shares=shares,
+                date_of_death=member.date_of_death if deceased else None,
+            )
+        )
+    return rows
 
 
 def _holders(db: Database, day: date, statuses: set[str]) -> list[tuple[Member, date, int]]:
