@@ -1,0 +1,11 @@
+{
+  "name": "benutzerhandbuch",
+  "private": true,
+  "description": "Erzeugt Dokumentation/Benutzerhandbuch.docx",
+  "scripts": {
+    "build": "node handbuch.js"
+  },
+  "dependencies": {
+    "docx": "9.16.0"
+  }
+}

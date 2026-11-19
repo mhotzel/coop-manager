@@ -2700,3 +2700,26 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
   offene Transaktion ab; deshalb erst Löschen + Checkpoint in einer Transaktion, danach anlegen.
 - **Fallstrick im Test:** `INSERT INTO party_list VALUES (?, ?)` ohne Spaltennamen scheitert, sobald
   die Tabelle eine dritte Spalte hat. Spalten immer ausdrücklich nennen.
+
+## 2026-11-19 – Benutzerhandbuch als Word-Datei
+
+**Was:**
+
+- `Dokumentation/Benutzerhandbuch.docx`: Benutzerhandbuch für Buchhaltung und Vorstand, mit Logo
+  auf der Titelseite und in der Kopfzeile, Farben aus dem Logo (Braun, Grün). Neun Kapitel von der
+  Anmeldung über Mitglieder, Konto, Kündigung und Jahresende bis zu Reports, Benutzerverwaltung und
+  Checklisten für typische Abläufe.
+- `Dokumentation/handbuch/handbuch.js` erzeugt die Datei mit der npm-Bibliothek `docx`
+  (`npm install`, dann `npm run build`). Das Logo kommt direkt aus `frontend/src/assets/img/`.
+- `README.md`: Handbuch in der Dokumentationstabelle, Jahresauswertung in der Kurzfassung.
+
+**Warum so:**
+
+- **Erzeugt statt von Hand in Word:** Ändert sich die App, werden nur die Texte im Skript
+  angepasst und die Datei neu gebaut; Aufbau und Formatierung bleiben einheitlich.
+- **Bezeichnungen aus dem Code:** Knöpfe, Menüpunkte und Feldnamen sind aus den Vue-Dateien
+  übernommen, damit das Handbuch genau das zeigt, was auf dem Bildschirm steht.
+- **Eigener Ordner mit `package.json`:** Die Abhängigkeit `docx` gehört nicht ins Frontend.
+  `node_modules/` ist per `.gitignore` ausgeschlossen.
+- **Nicht gerendert:** Ohne LibreOffice Writer ließ sich die Datei hier nicht als PDF prüfen;
+  die Formatprüfung des docx-Skills lief ohne Fehler. Das Aussehen also in Word prüfen.
