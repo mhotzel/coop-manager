@@ -10,6 +10,7 @@ import MemberApplyView from './views/members/MemberApplyView.vue'
 import MemberDetailView from './views/members/MemberDetailView.vue'
 import MemberSearchView from './views/members/MemberSearchView.vue'
 import PasswordView from './views/PasswordView.vue'
+import ReportsView from './views/reports/ReportsView.vue'
 import UserEditView from './views/users/UserEditView.vue'
 import UserListView from './views/users/UserListView.vue'
 import UserNewView from './views/users/UserNewView.vue'
@@ -54,6 +55,7 @@ export const router = createRouter({
     },
     { path: '/year-end', name: 'year-end', component: YearEndView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
     { path: '/claims', name: 'claims', component: OpenClaimsView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
+    { path: '/reports', name: 'reports', component: ReportsView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
     { path: '/users', name: 'users', component: UserListView, meta: { roles: [ADMIN] } },
     // Anders als in FastAPI egal, ob vor oder nach /users/:id: Feste Pfade gewinnen immer.
     { path: '/users/new', name: 'user-new', component: UserNewView, meta: { roles: [ADMIN] } },

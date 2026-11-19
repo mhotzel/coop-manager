@@ -2521,3 +2521,22 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
 - **Pyright-Fehler:** `sheet.cell(...).column_letter` kennt Pyright nicht, weil eine Zelle auch eine
   verbundene Zelle (`MergedCell`) sein kann. `get_column_letter(index)` aus `openpyxl.utils` macht
   aus der Spaltennummer direkt den Buchstaben und ist ohnehin einfacher.
+
+## 2026-11-19 – Schritt 6b: Seite „Reports“ im Frontend
+
+**Was:**
+
+- `frontend/src/views/reports/ReportsView.vue` (neu): Feld „Stichtag“ (vorbelegt mit heute) und
+  ein Link „Mitgliederliste nach GenG“ auf `/api/reports/members-geng?reference_date=…`.
+- `router.ts`: Route `/reports` für beide Buchhaltungsrollen. `App.vue`: Der Menüeintrag „Reports“,
+  bisher ein Platzhalter, zeigt jetzt auf die Seite.
+- Geprüft mit `npm run type-check`.
+
+**Warum so:**
+
+- **Ein Link statt `api()`:** `api()` erwartet JSON, die Liste ist aber eine Datei. Ein `<a href>`
+  mit dem Attribut `download` lässt den Browser die Datei selbst speichern; das Session-Cookie
+  schickt er mit. Ein CSRF-Token braucht ein GET nicht, es schützt nur ändernde Anfragen.
+- **Nachteil:** Ist die Session abgelaufen, speichert der Browser die Fehlermeldung als Datei,
+  statt zur Anmeldung zu wechseln. Das nehmen wir hin, solange es nicht stört.
+- **`computed` für die Adresse:** Ändert sich der Stichtag, baut Vue den Link von selbst neu.

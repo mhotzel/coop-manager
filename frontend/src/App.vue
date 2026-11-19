@@ -37,7 +37,7 @@ const menuEntries: MenuEntry[] = [
   { title: 'Konten', roles: ACCOUNTING_ROLES },
   { title: 'Jahresende', to: { name: 'year-end' }, roles: ACCOUNTING_ROLES },
   { title: 'Ansprüche', hint: 'Offene Ansprüche', to: { name: 'claims' }, roles: ACCOUNTING_ROLES },
-  { title: 'Reports', roles: ACCOUNTING_ROLES },
+  { title: 'Reports', to: { name: 'reports' }, roles: ACCOUNTING_ROLES },
   { title: 'Benutzer', to: { name: 'users' }, roles: [ADMIN] },
 ]
 
