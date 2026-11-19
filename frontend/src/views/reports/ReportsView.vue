@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
+import { errorText } from '../../api'
 import { todayIso } from '../../members'
+import { getReportWarnings } from '../../reports'
 
 // Stichtag im Format JJJJ-MM-TT, so wie <input type="date"> und das Backend ihn erwarten.
 const referenceDate = ref(todayIso())
@@ -11,12 +13,36 @@ const referenceDate = ref(todayIso())
 const gengUrl = computed(() => `/api/reports/members-geng?reference_date=${referenceDate.value}`)
 const assemblyUrl = computed(() => `/api/reports/members-assembly?reference_date=${referenceDate.value}`)
 const mailingUrl = computed(() => `/api/reports/members-mailing?reference_date=${referenceDate.value}`)
+
+const warnings = ref<string[]>([])
+const error = ref('')
+
+// Bei jedem neuen Stichtag nachsehen, ob die Listen unter Vorbehalt stehen.
+watch(
+  referenceDate,
+  async (day) => {
+    warnings.value = []
+    error.value = ''
+    if (!day) {
+      return // Feld leer, z. B. während man tippt
+    }
+    try {
+      warnings.value = await getReportWarnings(day)
+    } catch (e) {
+      error.value = errorText(e)
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <div class="card">
     <div class="card-header">Reports</div>
     <div class="card-content">
+      <div v-if="error" class="status-box error"><p>{{ error }}</p></div>
+      <div v-for="warning in warnings" :key="warning" class="status-box warning"><p>{{ warning }}</p></div>
+
       <div class="form-group reference-date">
         <label for="reports-reference-date">Stichtag</label>
         <input id="reports-reference-date" v-model="referenceDate" type="date" required />

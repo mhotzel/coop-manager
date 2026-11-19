@@ -2589,3 +2589,25 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
 - **Nachtrag Aufzählungspunkte:** Die Links auf der Seite „Reports“ stehen in einer `<ul>`, und der
   Browser zeigt davor Punkte und rückt ein. Behoben im Stil der Seite mit `list-style: none` und
   `padding-left: 0`. Wegen `scoped` gilt das nur für diese Seite.
+
+## 2026-11-19 – Schritt 6e: Warnung bei nicht gebuchtem Ausscheiden
+
+**Was:**
+
+- `reports/services.py`: `warnings(db, day)` prüft mit `exits_due()` aus `accounts/exits.py`, ob
+  zum 31.12. des Vorjahres des Stichtags noch Ausscheiden offen sind.
+- `reports/excel.py`: `_new_sheet()` bekommt die Warnungen und schreibt sie dunkelrot in Zeile 3
+  der GenG- und der GV-Liste.
+- `reports/api.py`: `GET /api/reports/warnings?reference_date=…` liefert die Warnungen als JSON.
+- Frontend: `src/reports.ts` (neu) mit `getReportWarnings()`. `ReportsView.vue` fragt mit `watch`
+  bei jeder Änderung des Stichtags nach und zeigt jede Warnung in einem gelben Kasten.
+- Tests in `tests/test_reports.py`; geprüft mit `uv run pytest`, `ruff`, `pyright`, `npm run type-check`.
+
+**Warum so:**
+
+- **Wiederverwenden statt neu rechnen:** `exits_due()` kennt schon alle, die zu einem 31.12.
+  ausscheiden, und ob es gebucht ist; dieselbe Liste zeigt die Seite „Jahresende“.
+- **Warnung auch in der Datei:** Einem Ausdruck sieht man später nicht mehr an, was auf der Seite
+  stand.
+- **`watch` mit `immediate: true`:** läuft einmal sofort beim Öffnen der Seite und danach bei jeder
+  Änderung des Stichtags.

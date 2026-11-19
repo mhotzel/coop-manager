@@ -1,4 +1,4 @@
-"""Reports zum Stichtag: Mitgliederliste nach GenG (6a), Generalversammlung (6c), Seriendruck (6d)."""
+"""Reports zum Stichtag: GenG-Liste (6a), Generalversammlung (6c), Seriendruck (6d), Warnungen (6e)."""
 
 from datetime import date
 from io import BytesIO
@@ -18,6 +18,7 @@ from coop_manager.reports.services import (
     members_geng,
     members_mailing,
     sort_key,
+    warnings,
 )
 from coop_manager.system_settings.services import change_share_price
 from coop_manager.users.domain import ACCOUNTING_READONLY, ADMIN
@@ -151,6 +152,7 @@ def test_download(client, db, setup, register, login):
     sheet = load_workbook(BytesIO(response.content)).active
     assert sheet is not None
     assert sheet["A2"].value == "Stichtag: 31.12.2026"
+    assert sheet["A3"].value is None  # keine Warnung
     assert [cell.value for cell in sheet[4]] == ["Nr.", "Name", "Anschrift", "Eintritt", "Betrag", "Anteile"]
     row = [cell.value for cell in sheet[5]]
     assert row[:3] == [1, "Muster, Erika", "Hauptstraße 1, 12345 Musterstadt"]
@@ -327,3 +329,47 @@ def test_mailing_download(client, db, setup, register, login):
     assert (row["PersNr"], row["name_mitgl"], row["AdrZeile3"]) == (1, "Muster, Erika", "Hauptstraße 1")
     assert (row["summe_anteile"], row["anz_anteile"], row["jahr_report"]) == (150, 3, 2027)
     assert (row["austritt"], row["Verstorben"]) == (None, None)
+
+
+# --- Warnung bei nicht gebuchtem Ausscheiden (6e) ---
+
+JANUARY = date(2027, 1, 15)
+OPEN_EXIT = (
+    "Zum 31.12.2026 ist 1 Ausscheiden noch nicht gebucht (Seite Jahresende)."
+    " Anteile und Beträge können deshalb zu hoch sein."
+)
+
+
+@pytest.fixture
+def partial_notice(db, setup) -> None:
+    """Teilkündigung über 1 Anteil zum 31.12.2026, das Ausscheiden ist noch nicht gebucht."""
+    services.give_partial_notice(db, member(db), 1, date(2026, 11, 20), YEAR_END, TODAY, actor="test")
+
+
+def test_warning_for_open_exit(db, partial_notice):
+    assert warnings(db, JANUARY) == [OPEN_EXIT]
+    # Ohne Buchung zählen die gekündigten Anteile noch mit; genau davor warnt der Hinweis.
+    assert shares(db, JANUARY) == [3]
+
+
+def test_no_warning_once_posted(db, partial_notice):
+    exits.post_exits(db, 2026, date(2027, 1, 5), actor="test")
+
+    assert warnings(db, JANUARY) == []
+
+
+def test_no_warning_up_to_year_end(db, partial_notice):
+    # Bis einschließlich 31.12. zählen die Anteile ohnehin noch (siehe Plan).
+    assert warnings(db, YEAR_END) == []
+
+
+def test_warning_in_download(client, db, partial_notice, register, login):
+    register("rita", ACCOUNTING_READONLY)
+    login("rita")
+
+    assert client.get("/api/reports/warnings", params={"reference_date": "2027-01-15"}).json() == [OPEN_EXIT]
+    for path in ("members-geng", "members-assembly"):
+        response = client.get(f"/api/reports/{path}", params={"reference_date": "2027-01-15"})
+        sheet = load_workbook(BytesIO(response.content)).active
+        assert sheet is not None
+        assert sheet["A3"].value == OPEN_EXIT

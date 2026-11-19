@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from ..accounts.domain import EXIT, Ledger
+from ..accounts.exits import exits_due
 from ..accounts.services import get_ledger
 from ..db import Database
 from ..members.addressing import list_name, salutation
@@ -79,6 +80,22 @@ def shares_on(ledger: Ledger, number: int, day: date) -> int:
             continue
         total += booking.shares if booking.credit == number else -booking.shares
     return total
+
+
+def warnings(db: Database, day: date) -> list[str]:
+    """Hinweise zum Stichtag: ob das Ausscheiden zum letzten 31.12. davor schon gebucht ist.
+
+    Wer ganz ausscheidet, fehlt ab dem 01.01. ohnehin, das ergibt sich aus dem Status. Eine nicht
+    gebuchte Teilkündigung aber ließe Anteile und Betrag zu hoch erscheinen. Geprüft wird nur der
+    letzte 31.12.; ältere Jahre sind normalerweise längst gebucht (siehe Plan).
+    """
+    year = day.year - 1
+    count = sum(1 for entry in exits_due(db, year) if not entry.booked)
+    if count == 0:
+        return []
+    verb = "ist" if count == 1 else "sind"
+    text = f"Zum 31.12.{year} {verb} {count} Ausscheiden noch nicht gebucht (Seite Jahresende)."
+    return [f"{text} Anteile und Beträge können deshalb zu hoch sein."]
 
 
 def members_geng(db: Database, day: date) -> list[GengRow]:

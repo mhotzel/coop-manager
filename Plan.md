@@ -606,6 +606,13 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Dieselben Personen wie in der GV-Liste, **ohne „keine Post“**; nach Mitgliedsnummer.
   `austritt` = wirksames Ausscheiden, wenn die Person zum Stichtag gekündigt oder verstorben ist,
   `Verstorben` = Sterbedatum, wenn sie zum Stichtag verstorben ist; sonst beides leer.
+- **Warnung bei nicht gebuchtem Ausscheiden** (6e, Stand 2026-11-19): Geprüft wird nur der letzte
+  31.12. vor dem Stichtag; ältere Jahre sind normalerweise gebucht. Sind dort noch Ausscheiden
+  offen (wie auf der Seite „Jahresende“), zeigt die Seite „Reports“ einen Hinweis, und GenG- und
+  GV-Liste tragen ihn in Zeile 3 (dunkelrot), damit er auch auf dem Ausdruck steht. Die
+  Seriendruck-Liste nicht, dort muss Zeile 1 die Feldnamen enthalten. Grund: Eine nicht gebuchte
+  Teilkündigung ließe Anteile und Betrag zu hoch erscheinen; wer ganz ausscheidet, fehlt dagegen
+  ohnehin, das ergibt der Status.
 
 ### Auswertung der Vorgänge eines Geschäftsjahres (Schritt 6)
 

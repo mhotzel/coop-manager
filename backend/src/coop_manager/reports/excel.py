@@ -16,7 +16,7 @@ from .services import AssemblyRow, GengRow, MailingRow
 
 Columns = tuple[tuple[str, int, str], ...]
 
-HEADER_ROW = 4  # Zeile 1 Titel, Zeile 2 Stichtag, Zeile 3 leer
+HEADER_ROW = 4  # Zeile 1 Titel, Zeile 2 Stichtag, Zeile 3 Warnung oder leer
 
 GENG_COLUMNS: Columns = (
     # (Überschrift, Breite, Zahlenformat)
@@ -60,9 +60,9 @@ MAILING_COLUMNS: Columns = (
 )
 
 
-def members_geng(rows: list[GengRow], day: date) -> bytes:
+def members_geng(rows: list[GengRow], day: date, warnings: list[str]) -> bytes:
     """Mitgliederliste nach GenG als .xlsx, eine Zeile je Mitglied."""
-    workbook, sheet = _new_sheet("Mitgliederliste", "Mitgliederliste nach § 30 GenG", day, GENG_COLUMNS)
+    workbook, sheet = _new_sheet("Mitgliederliste", "Mitgliederliste nach § 30 GenG", day, warnings, GENG_COLUMNS)
     for row in rows:
         # Betrag in Euro: Excel rechnet mit Kommazahlen, die App mit Cent.
         _append(
@@ -73,9 +73,11 @@ def members_geng(rows: list[GengRow], day: date) -> bytes:
     return _save(workbook)
 
 
-def members_assembly(rows: list[AssemblyRow], day: date) -> bytes:
+def members_assembly(rows: list[AssemblyRow], day: date, warnings: list[str]) -> bytes:
     """Liste zur Generalversammlung als .xlsx, zum Ausdrucken und Unterschreiben."""
-    workbook, sheet = _new_sheet("Generalversammlung", "Anwesenheitsliste Generalversammlung", day, ASSEMBLY_COLUMNS)
+    workbook, sheet = _new_sheet(
+        "Generalversammlung", "Anwesenheitsliste Generalversammlung", day, warnings, ASSEMBLY_COLUMNS
+    )
     for row in rows:
         _append(sheet, ASSEMBLY_COLUMNS, [row.member_number, row.name, row.address, "", ""])
         sheet.row_dimensions[sheet.max_row].height = 30  # Platz für die Unterschrift
@@ -95,8 +97,9 @@ def members_assembly(rows: list[AssemblyRow], day: date) -> bytes:
 def members_mailing(rows: list[MailingRow], day: date) -> bytes:
     """Seriendruck-Liste als .xlsx.
 
-    Anders als die anderen Listen ohne Titel und Stichtag: Word liest beim Seriendruck die erste
-    Zeile als Feldnamen. Das Jahr des Stichtags steht deshalb als Spalte `jahr_report` in jeder Zeile.
+    Anders als die anderen Listen ohne Titel, Stichtag und Warnung: Word liest beim Seriendruck die
+    erste Zeile als Feldnamen. Das Jahr des Stichtags steht deshalb als Spalte `jahr_report` in jeder
+    Zeile, Warnungen zeigt nur die Seite „Reports“.
     """
     workbook = Workbook()
     sheet = workbook.active
@@ -127,8 +130,10 @@ def members_mailing(rows: list[MailingRow], day: date) -> bytes:
     return _save(workbook)
 
 
-def _new_sheet(sheet_title: str, title: str, day: date, columns: Columns) -> tuple[Workbook, Worksheet]:
-    """Neue Arbeitsmappe mit Titel, „Stichtag: TT.MM.JJJJ“ und fett gedruckter Kopfzeile."""
+def _new_sheet(
+    sheet_title: str, title: str, day: date, warnings: list[str], columns: Columns
+) -> tuple[Workbook, Worksheet]:
+    """Neue Arbeitsmappe mit Titel, „Stichtag: TT.MM.JJJJ“, ggf. Warnung und fett gedruckter Kopfzeile."""
     workbook = Workbook()
     sheet = workbook.active
     assert isinstance(sheet, Worksheet)  # eine neue Arbeitsmappe hat immer ein Blatt
@@ -136,6 +141,10 @@ def _new_sheet(sheet_title: str, title: str, day: date, columns: Columns) -> tup
     sheet["A1"] = title
     sheet["A1"].font = Font(bold=True, size=14)
     sheet["A2"] = f"Stichtag: {day:%d.%m.%Y}"
+    if warnings:
+        # Auch auf dem Ausdruck soll zu sehen sein, dass die Liste unter Vorbehalt steht.
+        sheet["A3"] = " ".join(warnings)
+        sheet["A3"].font = Font(bold=True, color="C00000")  # dunkelrot
     for index, (header, width, _) in enumerate(columns, start=1):
         cell = sheet.cell(row=HEADER_ROW, column=index, value=header)
         cell.font = Font(bold=True)
