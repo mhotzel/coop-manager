@@ -14,7 +14,7 @@ import {
 } from '../../accounts'
 import { errorText } from '../../api'
 import { ACCOUNTING, currentUser } from '../../auth'
-import { formatDate, getMember, NATURAL_PERSON, statusLabel, statusTagClass, type MemberDetail } from '../../members'
+import { displayName, formatDate, getMember, statusLabel, statusTagClass, type MemberDetail } from '../../members'
 import BookingForm from './BookingForm.vue'
 
 // Der Router übergibt :number aus dem Pfad als Prop, als Text (siehe props: true in router.ts).
@@ -100,13 +100,7 @@ async function onBooked(updated: AccountView): Promise<void> {
   }
 }
 
-const ownerName = computed(() => {
-  const m = member.value
-  if (m === null) {
-    return ''
-  }
-  return m.person_type === NATURAL_PERSON ? `${m.name.first_names} ${m.name.last_name}` : m.name.company_name
-})
+const ownerName = computed(() => (member.value === null ? '' : displayName(member.value)))
 
 // Lädt Konto und Inhaber. Erst das Konto, denn erst darin steht, wem es gehört.
 async function load(): Promise<void> {

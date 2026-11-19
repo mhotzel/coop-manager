@@ -57,6 +57,16 @@ class ShareBooking(BaseModel):
     text: str | None = Field(default=None, max_length=200)  # leer = „Eintritt“ bzw. „Rückzahlung“
 
 
+class ShareTransfer(BaseModel):
+    """Befehl: Umbuchung von Anteilen auf ein anderes Mitgliedskonto. Betrag = Anteile × Preis."""
+
+    account_number: int  # abgebendes Konto
+    target_account_number: int  # empfangendes Konto
+    shares: int
+    value_date: date
+    text: str | None = Field(default=None, max_length=200)  # leer = „Umbuchung“
+
+
 # Plausible Jahre; ohne Grenze ergäbe z. B. Jahr 0 kein gültiges Datum und einen Serverfehler.
 YEAR_MIN, YEAR_MAX = 1900, 2200
 

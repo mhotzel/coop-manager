@@ -3,23 +3,27 @@ import { computed, ref, watch } from 'vue'
 
 import {
   deductLoss,
+  COOPERATIVE_ACCOUNT_NUMBER,
   donate,
   formatEuro,
+  getAccount,
   parseEuro,
   payout,
   refund,
   sharesForAmount,
   subscribe,
+  transfer,
   writeOff,
   type AccountView,
   type BookingResponse,
 } from '../../accounts'
 import { errorText } from '../../api'
-import { todayIso } from '../../members'
+import { displayName, getMember, statusLabel, todayIso } from '../../members'
 
 // Props: kommen von der Elternseite (AccountView.vue) herein und werden hier nur gelesen.
 // claim: offener Auseinandersetzungsanspruch; erst damit gibt es Auszahlung usw.
-// shares und balance: für die Spende, die immer das ganze Guthaben umfasst.
+// shares und balance: Bestand des Kontos, für Spende und Umbuchung. Achtung: Im Template heißt die
+// Prop props.shares, denn „shares“ allein ist dort die gleichnamige Eingabe weiter unten.
 const props = defineProps<{ accountNumber: number; sharePrice: number; claim: number; shares: number; balance: number }>()
 
 // Emits: Ereignisse, die diese Komponente nach außen meldet. Die Elternseite hört mit
@@ -27,31 +31,33 @@ const props = defineProps<{ accountNumber: number; sharePrice: number; claim: nu
 const emit = defineEmits<{ booked: [account: AccountView] }>()
 
 // Die Buchungsarten der Maske. Zwei Gruppen: mit Anteilen (Betrag = Anteile × Preis) und mit
-// freiem Betrag ohne Anteile, die den Anspruch mindern (siehe Plan: Buchungsarten). Dazu die Spende,
-// die immer das ganze Guthaben bucht und deshalb keine Eingabe braucht.
-type Kind = 'subscribe' | 'refund' | 'payout' | 'deductLoss' | 'writeOff' | 'donate'
+// freiem Betrag ohne Anteile, die den Anspruch mindern (siehe Plan: Buchungsarten). Dazu die
+// Umbuchung auf ein anderes Mitgliedskonto und die Spende, die immer das ganze Guthaben bucht.
+type Kind = 'subscribe' | 'refund' | 'payout' | 'deductLoss' | 'writeOff' | 'transfer' | 'donate'
 const KIND_LABELS: Record<Kind, string> = {
   subscribe: 'Eintritt',
   refund: 'Rückzahlung',
   payout: 'Auszahlung',
   deductLoss: 'Kürzung Verlustvortrag',
   writeOff: 'Ausbuchung Verjährung',
+  transfer: 'Umbuchung',
   donate: 'Spende Anteil',
 }
 const SHARE_KINDS: Kind[] = ['subscribe', 'refund']
 const CLAIM_KINDS: Kind[] = ['payout', 'deductLoss', 'writeOff']
 
-// Die Arten, die gerade passen: die mindernden nur, solange es einen Anspruch gibt, die Spende nur,
-// solange es Anteile gibt. Ob die Person spenden darf (Status), prüft das Backend.
+// Die Arten, die gerade passen: die mindernden nur, solange es einen Anspruch gibt, Umbuchung und
+// Spende nur, solange es Anteile gibt. Ob die Person das darf (Status), prüft das Backend.
 const kinds = computed<Kind[]>(() => {
   const result: Kind[] = props.claim > 0 ? [...CLAIM_KINDS, ...SHARE_KINDS] : [...SHARE_KINDS]
   if (props.shares > 0) {
-    result.push('donate')
+    result.push('transfer', 'donate')
   }
   return result
 })
 const kind = ref<Kind>(props.claim > 0 ? 'payout' : 'subscribe')
-const isShareKind = computed(() => SHARE_KINDS.includes(kind.value))
+// Arten mit Anteilsfeld, bei denen Betrag = Anteile × Preis gilt; die Umbuchung gehört dazu.
+const isShareKind = computed(() => [...SHARE_KINDS, 'transfer'].includes(kind.value))
 
 // Fällt der Anspruch weg (z. B. nach der Auszahlung des Rests), passt die gewählte Art nicht mehr.
 watch(kinds, (available) => {
@@ -65,6 +71,41 @@ const sharesText = ref('')
 const amountText = ref('')
 const valueDate = ref(todayIso())
 const text = ref('')
+
+// --- Zielkonto der Umbuchung ---
+// Nach der Eingabe der Nummer wird das Konto mit Inhaber geladen und angezeigt, damit ein
+// Zahlendreher auffällt, bevor gebucht wird.
+const targetText = ref('')
+const target = ref<{ number: number; label: string } | null>(null) // geladenes Zielkonto
+const targetHint = ref('')
+
+async function onTargetChange(): Promise<void> {
+  target.value = null
+  targetHint.value = ''
+  const number = Number(targetText.value)
+  if (targetText.value.trim() === '' || !Number.isInteger(number) || number < 1) {
+    return
+  }
+  if (number === props.accountNumber) {
+    targetHint.value = 'Das ist das eigene Konto.'
+    return
+  }
+  if (number === COOPERATIVE_ACCOUNT_NUMBER) {
+    targetHint.value = 'Auf das Genossenschaftskonto wird nicht umgebucht.'
+    return
+  }
+  try {
+    const account = await getAccount(number)
+    if (account.member_id === null) {
+      targetHint.value = 'Das ist kein Mitgliedskonto.'
+      return
+    }
+    const owner = await getMember(account.member_id)
+    target.value = { number, label: `${displayName(owner)} (${statusLabel(owner.status)})` }
+  } catch (e) {
+    targetHint.value = errorText(e)
+  }
+}
 
 const busy = ref(false)
 const error = ref('')
@@ -86,6 +127,9 @@ const amount = computed<number | null>(() => {
 
 // Kann gebucht werden? Die Ausbuchung braucht keine Eingabe, sie nimmt den ganzen Rest.
 const ready = computed(() => {
+  if (kind.value === 'transfer') {
+    return shares.value !== null && target.value !== null
+  }
   if (isShareKind.value) {
     return shares.value !== null
   }
@@ -132,6 +176,9 @@ function reset(): void {
   amountHint.value = ''
   valueDate.value = todayIso()
   text.value = ''
+  targetText.value = ''
+  target.value = null
+  targetHint.value = ''
 }
 
 // Beim Wechsel der Art passen die bisherigen Eingaben oft nicht mehr; lieber leeren.
@@ -162,6 +209,10 @@ async function send(): Promise<[BookingResponse, string]> {
       const response = kind.value === 'payout' ? await payout(command) : await deductLoss(command)
       return [response, `${label} über ${formatEuro(command.amount)} gebucht.`]
     }
+    case 'transfer': {
+      const command = { ...base, target_account_number: target.value!.number, shares: shares.value! }
+      return [await transfer(command), `${label} über ${command.shares} Anteile auf Konto ${command.target_account_number} gebucht.`]
+    }
     case 'writeOff':
       return [await writeOff(base), `${label} über ${formatEuro(props.claim)} gebucht.`]
     case 'donate':
@@ -169,11 +220,26 @@ async function send(): Promise<[BookingResponse, string]> {
   }
 }
 
+// Rückfrage vor der Umbuchung; wer alle Anteile abgibt, scheidet damit aus.
+function transferQuestion(): string {
+  const count = shares.value!
+  let question =
+    `${count} Anteile (${formatEuro(count * props.sharePrice)}) auf Konto ${target.value!.number}, ` +
+    `${target.value!.label}, umbuchen?`
+  if (count === props.shares) {
+    question += ' Das sind alle Anteile, das Mitglied scheidet damit aus.'
+  }
+  return question
+}
+
 async function book(): Promise<void> {
   if (!ready.value) {
     return
   }
   if (kind.value === 'writeOff' && !confirm(`Den ganzen Restanspruch von ${formatEuro(props.claim)} ausbuchen?`)) {
+    return
+  }
+  if (kind.value === 'transfer' && !confirm(transferQuestion())) {
     return
   }
   if (
@@ -228,6 +294,21 @@ async function book(): Promise<void> {
           </div>
         </div>
 
+        <!-- Umbuchung: zuerst das Zielkonto; gezeigt wird der Inhaber, damit Tippfehler auffallen. -->
+        <div v-if="kind === 'transfer'" class="form-group">
+          <label for="booking-target">Auf Konto</label>
+          <input
+            id="booking-target"
+            v-model="targetText"
+            type="number"
+            min="1"
+            step="1"
+            @change="onTargetChange"
+          />
+          <small v-if="target">{{ target.label }}</small>
+          <small v-else-if="targetHint" class="hint">{{ targetHint }}</small>
+        </div>
+
         <!-- Arten mit Anteilen: Anteile und Betrag rechnen sich gegenseitig aus. -->
         <div v-if="isShareKind" class="form-row">
           <div class="form-group">
@@ -259,7 +340,7 @@ async function book(): Promise<void> {
         </p>
 
         <p v-else class="info-text">
-          Gespendet werden alle {{ shares }} Anteile, Saldo {{ formatEuro(balance) }}, an die Genossenschaft. Das
+          Gespendet werden alle {{ props.shares }} Anteile, Saldo {{ formatEuro(balance) }}, an die Genossenschaft. Das
           Mitglied scheidet damit am Tag nach der Wertstellung aus.
         </p>
 

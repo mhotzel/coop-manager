@@ -36,6 +36,8 @@ class MembershipDates:
     expulsion_date: date | None = None  # Beschluss des Vorstands; Ausscheiden zum 31.12. (§ 68 GenG)
     # Spende des Anteils: Ausscheiden an genau diesem Tag, ohne Frist und ohne 31.12. (siehe Plan)
     donation_date: date | None = None
+    # Übertragung aller Anteile (Umbuchung): Ausscheiden ebenfalls an genau diesem Tag (siehe Plan)
+    transfer_date: date | None = None
 
 
 def status_on(dates: MembershipDates, day: date) -> str | None:
@@ -68,14 +70,15 @@ def entry_date(dates: MembershipDates) -> date | None:
 
 
 def effective_exit_date(dates: MembershipDates) -> date | None:
-    """Das wirksame Ausscheiden: der früheste Termin aus Kündigung, Tod, Ausschluss und Spende.
+    """Das wirksame Ausscheiden: der früheste Termin aus Kündigung, Tod, Ausschluss, Spende und Übertragung.
 
     Tod und Ausschluss führen zum 31.12. ihres Jahres. Sie können das Ausscheiden nur vorziehen:
     Erfasst werden sie nur, solange die Person noch Mitglied ist, ihr Ausscheiden also nicht vor
     diesem 31.12. liegt. Eine Kündigung mit späterem Termin wird damit gegenstandslos.
-    Die Spende des Anteils beendet die Mitgliedschaft am Tag der Spende selbst, nicht zum 31.12.
+    Die Spende des Anteils und die Übertragung aller Anteile beenden die Mitgliedschaft an ihrem
+    Tag selbst, nicht zum 31.12.
     """
-    candidates = [dates.exit_date, dates.donation_date]
+    candidates = [dates.exit_date, dates.donation_date, dates.transfer_date]
     for event_date in (dates.date_of_death, dates.expulsion_date):
         if event_date is not None:
             candidates.append(date(event_date.year, 12, 31))

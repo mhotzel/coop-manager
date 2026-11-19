@@ -72,7 +72,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 5h: Umbuchung, Auszahlung, Verlustvortrag, Verjährung, Liste offener Ansprüche
      - Teil 1: Auszahlung, Kürzung Verlustvortrag, Ausbuchung Verjährung (Backend und Maske)
      - Teil 2: Seite „Offene Ansprüche“
-     - Teil 3: Umbuchung zwischen Mitgliedskonten (fachliche Fragen vorher klären)
+     - Teil 3: Umbuchung zwischen Mitgliedskonten (Stand 2026-11-19)
+       - a: Domäne, Service, Storno zwischen zwei Mitgliedskonten, API, Tests
+       - b: Frontend: Buchungsart „Umbuchung“ in der Buchungsmaske mit Anzeige des Zielkontoinhabers,
+         Datum auf der Mitgliederseite
    - 5i: Weitere Anteile zeichnen und einzahlen (für bestehende Mitglieder)
    - 5j: Ausscheiden mit Spende des Anteils (Stand 2026-11-18)
      - Teil 1: Domäne, Buchungsart, Service, Storno, API, Tests
@@ -229,6 +232,33 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - Fällt die Spende auf einen 31.12., erscheint sie nicht auf der Seite „Jahresende“, denn auf dem
   Konto ist nichts mehr auszubuchen.
 
+### Umbuchung (Übertragung von Anteilen)
+
+- **Allgemein, nicht nur für Erben** (Stand 2026-11-19): Anteile lassen sich auch unter Lebenden
+  auf ein anderes Mitgliedskonto übertragen (§ 76 GenG).
+- **Umfang:** frei wählbare Zahl von Anteilen, eins bis alle. Betrag = Anteile × aktueller Preis.
+  Ein offener Anspruch aus einer früheren Teilkündigung bleibt beim Abgebenden. Anteile aus
+  laufenden Teilkündigungen lassen sich nur mit allen anderen zusammen übertragen.
+- **Buchung** „Umbuchung“: Soll abgebendes an Haben empfangendes Mitgliedskonto. Das
+  Genossenschaftskonto ist nicht wählbar, das eigene Konto auch nicht.
+- **Abgeben** dürfen Mitglieder, auch gekündigte, und Verstorbene, bei diesen auch nach dem 31.12.
+  des Todesjahres (Tod erst später bekannt). Nicht Ausgeschlossene und Ausgeschiedene. Die
+  Wertstellung liegt nach einem gebuchten Ausscheiden.
+- **Empfangen** dürfen Mitglieder und zugelassene Antragsteller, die noch nicht eingezahlt haben.
+  Beim Antragsteller (z. B. dem Erben) zählt die Umbuchung wie die Einzahlung und wird mit den
+  gezeichneten Anteilen abgeglichen; passt sie, ist er Mitglied (Eintritt = das spätere von
+  Zulassung und Wertstellung). Bei Mitgliedern gibt es keinen Abgleich; ihre gezeichneten Anteile
+  bleiben, wie sie sind (siehe 5i).
+- **Alle Anteile übertragen:** Die Person scheidet am Tag der Umbuchung aus, ausgeschieden ab dem
+  Folgetag wie bei der Spende (Event `member.all-shares-transferred`). Laufende Kündigungen werden
+  gegenstandslos, danach ist keine neue Kündigung möglich.
+- **Ausscheiden schon gebucht** (z. B. Tod erst nach dem Jahresende bekannt, Jahresende schon
+  gebucht): Erst die Ausscheidensbuchung stornieren, dann umbuchen. Ein „Umbuchen des Anspruchs“
+  gibt es nicht.
+- **Storno** macht beide Konten rückgängig. Hat der Abgebende danach wieder Anteile, entfällt sein
+  Ausscheiden (`member.transfer-revoked`). Ist der Empfänger durch die Umbuchung Mitglied
+  geworden, wird abgeglichen; er ist dann wieder Antragsteller, mit Warnung.
+
 ### Tod eines Mitglieds
 
 - Rechtslage: Die Mitgliedschaft geht auf die Erben über und endet zum Schluss des Geschäftsjahres
@@ -246,8 +276,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Anschrift der Erben** wird von Hand in den Adresszeilen gepflegt, es gibt keinen eigenen
   Erbenvertreter-Datensatz. Der Vorgang „Tod erfassen“ zeigt dem Erfasser einen Hinweis, wie die
   Adresszeilen umzustellen sind, und führt zu ihnen.
-- **Erbe tritt ein:** Er wird als neues Mitglied erfasst (Antrag, Zulassung), das Guthaben wird
-  umgebucht. Der Verstorbene scheidet mit der Umbuchung ohne Anspruch aus.
+- **Erbe tritt ein** (bestätigt 2026-11-19): Er wird als neue Person erfasst (Antrag über die
+  geerbten Anteile, Zulassung), die Anteile werden umgebucht und damit der Saldo. Der Verstorbene
+  scheidet mit der Umbuchung ohne Anspruch aus (siehe „Umbuchung“).
 - **Kein Eintritt:** Zum 31.12. entsteht der Auseinandersetzungsanspruch der Erben, die Auszahlung
   läuft wie bei einer Kündigung.
 - **Tod wird erst nach dem 31.12. bekannt:** Das Ausscheiden gilt rückwirkend, eine Umbuchung auf
@@ -575,7 +606,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 | Saldo | `balance` |
 | Eintritt (Buchung) | `subscription` |
 | Rückzahlung | `refund` |
-| Umbuchung | `transfer` |
+| Umbuchung | `transfer`, `transfer_all_shares` |
 | Kündigung, Teilkündigung, Kündigungsfrist | `notice`, `partial_notice`, `notice_period` |
 | Ausschluss | `expulsion` |
 | Ausscheiden | `exit` |

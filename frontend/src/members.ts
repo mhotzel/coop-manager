@@ -79,6 +79,7 @@ export interface MemberDetail {
   date_of_death: string | null
   expulsion_date: string | null // Beschluss des Vorstands
   donation_date: string | null // Ausscheiden mit Spende des Anteils
+  transfer_date: string | null // Ausscheiden durch Übertragung aller Anteile (Umbuchung)
   partial_notice: boolean // heute läuft eine Teilkündigung
   salutation: string
   generated_address_lines: string[]
@@ -141,6 +142,13 @@ export function statusTagClass(status: string): string {
 // gekündigt, sagt der Status genug.
 export function showPartialNotice(status: string | null, partialNotice: boolean): boolean {
   return partialNotice && status === 'member'
+}
+
+// Kurzer Name für Überschriften: Vor- und Nachname bzw. Firmenname.
+export function displayName(member: MemberDetail): string {
+  return member.person_type === NATURAL_PERSON
+    ? `${member.name.first_names} ${member.name.last_name}`
+    : member.name.company_name
 }
 
 // "2026-11-02" → "02.11.2026". Bewusst ohne new Date(): Das liest den Text als Mitternacht in

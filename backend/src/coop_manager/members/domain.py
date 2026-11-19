@@ -8,7 +8,16 @@ from typing import Self
 from ..core import DomainError
 from ..eventsource import Aggregate, Event, on
 from .addressing import address_lines
-from .status import EXPELLED, MEMBER, NOTICE_GIVEN, MembershipDates, effective_exit_date, entry_date, status_on
+from .status import (
+    DECEASED,
+    EXPELLED,
+    MEMBER,
+    NOTICE_GIVEN,
+    MembershipDates,
+    effective_exit_date,
+    entry_date,
+    status_on,
+)
 from .values import (
     ADDRESS_LINE_COUNT,
     Address,
@@ -80,6 +89,7 @@ class Member(Aggregate):
         self.date_of_death: date | None = None
         self.expulsion_date: date | None = None  # Beschluss des Vorstands
         self.donation_date: date | None = None  # Ausscheiden mit Spende des Anteils
+        self.transfer_date: date | None = None  # Ausscheiden durch Übertragung aller Anteile
 
     @classmethod
     def apply(
@@ -136,10 +146,12 @@ class Member(Aggregate):
     def has_partial_notice(self, day: date) -> bool:
         """Läuft am Tag `day` eine Teilkündigung, deren Ausscheiden (31.12.) noch nicht vorbei ist?
 
-        Nach der Spende des Anteils ist die Person ausgeschieden; Teilkündigungen sind gegenstandslos.
+        Nach der Spende oder der Übertragung aller Anteile ist die Person ausgeschieden;
+        Teilkündigungen sind dann gegenstandslos.
         """
-        if self.donation_date is not None and day > self.donation_date:
-            return False
+        for ended in (self.donation_date, self.transfer_date):
+            if ended is not None and day > ended:
+                return False
         return any(n.kind == PARTIAL_NOTICE and day <= n.exit_date for n in self.notices)
 
     def partially_noticed_shares(self, booked_exit_dates: Collection[date] = ()) -> int:
@@ -196,6 +208,7 @@ class Member(Aggregate):
             date_of_death=self.date_of_death,
             expulsion_date=self.expulsion_date,
             donation_date=self.donation_date,
+            transfer_date=self.transfer_date,
         )
 
     def admit(self, decision_date: date, today: date) -> None:
@@ -362,6 +375,49 @@ class Member(Aggregate):
             raise DomainError("Es ist keine Spende erfasst.")
         self._record("member.donation-revoked")
 
+    def ensure_can_give_shares(self, day: date) -> None:
+        """Darf die Person am Tag `day` Anteile per Umbuchung abgeben? (siehe Plan: Umbuchung)
+
+        Mitglieder, auch gekündigte, und Verstorbene. Bei Verstorbenen auch nach dem 31.12. des
+        Todesjahres, wenn der Tod erst später bekannt wird; dann ist die Person rechnerisch schon
+        ausgeschieden, die Umbuchung auf Erben bleibt aber erlaubt.
+        """
+        if self.date_of_death is not None and day >= self.date_of_death:
+            return
+        if self.status(day) not in (MEMBER, NOTICE_GIVEN, DECEASED):
+            raise DomainError("Anteile abgeben kann nur, wer an diesem Tag Mitglied ist.")
+
+    def ensure_can_receive_shares(self, day: date) -> None:
+        """Darf die Person am Tag `day` Anteile per Umbuchung empfangen?
+
+        Mitglieder und zugelassene Antragsteller, die noch nicht eingezahlt haben (z. B. Erben).
+        Bei Antragstellern zählt die Umbuchung wie die Einzahlung; das gleicht der Buchungsservice ab.
+        """
+        if self.status(day) == MEMBER:
+            return
+        if self.admission_date is not None and self.payment_date is None and self.rejection_date is None:
+            return
+        raise DomainError("Empfangen kann nur ein Mitglied oder ein zugelassener Antragsteller.")
+
+    def transfer_all_shares(self, transfer_date: date, today: date) -> None:
+        """Hält fest, dass die Person alle Anteile übertragen hat; ab dem Folgetag ist sie ausgeschieden.
+
+        Die Umbuchung selbst macht der Buchungsservice; er ruft das nur auf, wenn danach keine
+        Anteile mehr auf dem Konto sind. Laufende Kündigungen werden damit gegenstandslos.
+        """
+        if transfer_date > today:
+            raise DomainError("Das Datum darf nicht in der Zukunft liegen.")
+        if self.transfer_date is not None:
+            raise DomainError("Die Übertragung aller Anteile ist bereits erfasst.")
+        self.ensure_can_give_shares(transfer_date)
+        self._record("member.all-shares-transferred", transfer_date=transfer_date.isoformat())
+
+    def revoke_transfer(self) -> None:
+        """Nimmt das Ausscheiden durch Übertragung zurück, weil ein Storno wieder Anteile gebracht hat."""
+        if self.transfer_date is None:
+            raise DomainError("Es ist keine Übertragung aller Anteile erfasst.")
+        self._record("member.transfer-revoked")
+
     def _ensure_notice_possible(self, notice_date: date, exit_date: date, today: date) -> None:
         """Gemeinsame Prüfungen für Kündigung und Teilkündigung.
 
@@ -374,6 +430,8 @@ class Member(Aggregate):
             raise DomainError("Die Mitgliedschaft ist bereits gekündigt.")
         if self.donation_date is not None:
             raise DomainError("Die Person ist mit Spende des Anteils ausgeschieden.")
+        if self.transfer_date is not None:
+            raise DomainError("Die Person hat alle Anteile übertragen und ist ausgeschieden.")
         if self.status(notice_date) != MEMBER:
             raise DomainError("Kündigen kann nur, wer am Tag des Eingangs Mitglied ist.")
         if (exit_date.month, exit_date.day) != (12, 31):
@@ -509,6 +567,14 @@ class Member(Aggregate):
     @on("member.donation-revoked")
     def _donation_revoked(self, event: Event) -> None:
         self.donation_date = None
+
+    @on("member.all-shares-transferred")
+    def _all_shares_transferred(self, event: Event) -> None:
+        self.transfer_date = date.fromisoformat(event.data["transfer_date"])
+
+    @on("member.transfer-revoked")
+    def _transfer_revoked(self, event: Event) -> None:
+        self.transfer_date = None
 
     @on("member.name-changed")
     def _name_changed(self, event: Event) -> None:

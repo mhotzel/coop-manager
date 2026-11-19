@@ -29,6 +29,7 @@ from .domain import (
     REVERSAL,
     SHARE_DONATION,
     SUBSCRIPTION,
+    TRANSFER,
     Booking,
     Ledger,
 )
@@ -47,6 +48,9 @@ class BookingResult:
 
 # Bucht auf dem geladenen Hauptbuch: (Mitglied, Hauptbuch, Kontonummer, Anteilspreis) → Buchung
 BookAction = Callable[[Member, Ledger, int, int], Booking]
+# Wie BookAction, aber zwischen zwei Mitgliedskonten: (Mitglied Soll, Mitglied Haben, Hauptbuch,
+# Anteilspreis) → Buchung und ggf. Warnung
+TransferAction = Callable[[Member, Member, Ledger, int], tuple[Booking, str | None]]
 
 
 def subscribe(
@@ -118,6 +122,8 @@ def reverse(db: Database, booking_id: str, reason: str, today: date, actor: str)
     original = get_ledger(db).booking(booking_id)
     if original is None:
         raise NotFoundError("Die Buchung gibt es nicht.")
+    if original.kind == TRANSFER:
+        return _reverse_transfer(db, original, reason, today, actor)
     account_number = member_account_of(original)
 
     def book(member: Member, ledger: Ledger, account: int, share_price: int) -> Booking:
@@ -129,6 +135,86 @@ def reverse(db: Database, booking_id: str, reason: str, today: date, actor: str)
     # Ausscheiden passen gezeichnete und gehaltene Anteile nicht mehr zusammen; ein Abgleich würde
     # dann fälschlich den Geldeingang zurücknehmen.
     return _book(db, account_number, today, actor, book, reconcile=original.kind in (SUBSCRIPTION, REFUND))
+
+
+def transfer(
+    db: Database,
+    account_number: int,
+    target_account_number: int,
+    shares: int,
+    value_date: date,
+    today: date,
+    actor: str,
+    text: str | None = None,
+) -> BookingResult:
+    """Umbuchung von Anteilen auf ein anderes Mitgliedskonto, z. B. auf Erben (siehe Plan: Umbuchung).
+
+    Soll abgebendes Konto an Haben empfangendes Konto, Betrag = Anteile × Preis. Ist der Empfänger
+    ein zugelassener Antragsteller, zählt die Umbuchung wie seine Einzahlung und wird abgeglichen;
+    passt sie, ist er Mitglied. Gibt der Abgebende alle Anteile ab, scheidet er am Folgetag aus.
+    Ein offener Anspruch aus einer früheren Teilkündigung bleibt beim Abgebenden.
+    """
+    _ensure_shares(shares)
+
+    def book(source: Member, target: Member, ledger: Ledger, share_price: int) -> tuple[Booking, str | None]:
+        if target.subject == source.subject:
+            raise DomainError("Abgebendes und empfangendes Konto müssen verschieden sein.")
+        source.ensure_can_give_shares(value_date)
+        target.ensure_can_receive_shares(value_date)
+        last_exit = ledger.last_exit_date(account_number)
+        held = ledger.shares(account_number)
+        if held == 0 and last_exit is not None:
+            raise DomainError(
+                f"Das Ausscheiden zum {last_exit:%d.%m.%Y} ist bereits gebucht. Für eine Umbuchung "
+                "zuerst die Ausscheidensbuchung stornieren."
+            )
+        if last_exit is not None and value_date <= last_exit:
+            raise DomainError(f"Das Datum muss nach dem gebuchten Ausscheiden zum {last_exit:%d.%m.%Y} liegen.")
+        if shares > held:
+            raise DomainError(f"Auf dem Konto sind nur {held} Anteile.")
+        # Anteile aus laufenden Teilkündigungen müssen zum 31.12. noch da sein; wer alles abgibt,
+        # scheidet ohnehin vorher aus.
+        free = held - source.partially_noticed_shares(ledger.booked_exit_dates(account_number))
+        if shares != held and shares > free:
+            raise DomainError(f"Höchstens {free} Anteile sind nicht teilgekündigt und können umgebucht werden.")
+        booking = ledger.post_booking(
+            TRANSFER,
+            account_number,
+            target_account_number,
+            shares * share_price,
+            shares,
+            text or "Umbuchung",
+            value_date,
+            today,
+        )
+        if shares == held:
+            source.transfer_all_shares(value_date, today)
+        warning = None
+        if target.payment_date is None:  # Antragsteller: die Umbuchung ist seine Einzahlung
+            warning = _reconcile(target, ledger, target_account_number, booking, today)
+        return booking, warning
+
+    return _book_between(db, account_number, target_account_number, actor, book)
+
+
+def _reverse_transfer(db: Database, original: Booking, reason: str, today: date, actor: str) -> BookingResult:
+    """Storno einer Umbuchung: Gegenbuchung zwischen denselben zwei Mitgliedskonten.
+
+    Bekommt der Abgebende so wieder Anteile, entfällt sein Ausscheiden durch Übertragung. Ist der
+    Empfänger durch diese Umbuchung Mitglied geworden (Geldeingang = ihre Wertstellung), wird bei
+    ihm abgeglichen; dann ist er wieder Antragsteller, mit Warnung.
+    """
+
+    def book(source: Member, target: Member, ledger: Ledger, share_price: int) -> tuple[Booking, str | None]:
+        booking = ledger.reverse(original.id, f"Storno zu „{original.text}“: {reason.strip()}", today)
+        if source.transfer_date is not None and ledger.shares(original.debit) > 0:
+            source.revoke_transfer()
+        warning = None
+        if target.payment_date == original.value_date:
+            warning = _reconcile(target, ledger, original.credit, booking, today)
+        return booking, warning
+
+    return _book_between(db, original.debit, original.credit, actor, book)
 
 
 def donate(
@@ -246,8 +332,8 @@ def _reduce_claim(
 def member_account_of(booking: Booking) -> int:
     """Das Mitgliedskonto einer Buchung: die Seite, die nicht das Genossenschaftskonto ist.
 
-    Eintritt, Rückzahlung und ihr Storno berühren genau ein Mitgliedskonto, die Gegenseite ist das
-    Genossenschaftskonto. Die Umbuchung zwischen zwei Mitgliedskonten kommt erst in 5h.
+    Die meisten Buchungen berühren genau ein Mitgliedskonto, die Gegenseite ist das
+    Genossenschaftskonto. Bei der Umbuchung und ihrem Storno ist es das Sollkonto.
     """
     return booking.credit if booking.debit == COOPERATIVE_ACCOUNT_NUMBER else booking.debit
 
@@ -302,6 +388,50 @@ def _book(
         )
         return BookingResult(booking, warning)
     raise AssertionError("unreachable")  # die Schleife endet immer mit return oder raise
+
+
+def _book_between(
+    db: Database, debit_account: int, credit_account: int, actor: str, book: TransferAction
+) -> BookingResult:
+    """Wie `_book`, aber für eine Buchung zwischen zwei Mitgliedskonten (Umbuchung und ihr Storno).
+
+    Hauptbuch und beide Mitglieder werden zusammen gespeichert, alles oder nichts.
+    """
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        ledger = get_ledger(db)
+        members: list[Member] = []
+        for number in (debit_account, credit_account):
+            account = ledger.accounts.get(number)
+            if account is None:
+                raise NotFoundError(f"Das Konto {number} gibt es nicht.")
+            if account.kind != MEMBER_ACCOUNT or account.member_id is None:
+                raise DomainError(f"Konto {number} ist kein Mitgliedskonto.")
+            members.append(get_member(db, account.member_id))
+        share_price = get_system_settings(db).share_price
+        if share_price is None:
+            raise DomainError("Es ist noch kein Anteilspreis festgelegt.")
+        source, target = members
+        booking, warning = book(source, target, ledger, share_price)
+        try:
+            db.save_all([ledger, source, target], actor)
+        except ConcurrencyError:
+            log.warning("booking conflict", extra={"account": debit_account, "attempt": attempt})
+            if attempt == MAX_ATTEMPTS:
+                raise
+            continue
+        log.info(
+            "booking posted",
+            extra={
+                "kind": booking.kind,
+                "account": debit_account,
+                "target": credit_account,
+                "shares": booking.shares,
+                "warning": warning is not None,
+                "actor": actor,
+            },
+        )
+        return BookingResult(booking, warning)
+    raise AssertionError("unreachable")
 
 
 def _reconcile(member: Member, ledger: Ledger, account: int, booking: Booking, today: date) -> str | None:

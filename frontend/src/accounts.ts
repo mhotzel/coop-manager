@@ -136,6 +136,22 @@ export function writeOff(command: Omit<ClaimBooking, 'amount'>): Promise<Booking
   return api<BookingResponse>('/api/accounts/write-off', { method: 'POST', body: command })
 }
 
+// --- Umbuchung auf ein anderes Mitgliedskonto ---
+
+// Muss zu ShareTransfer im Backend passen. Den Betrag rechnet der Server (Anteile × Preis).
+export interface ShareTransfer {
+  account_number: number // abgebendes Konto
+  target_account_number: number // empfangendes Konto
+  shares: number
+  value_date: string
+  text: string | null // null = Standardtext „Umbuchung“
+}
+
+// Antwortet mit dem abgebenden Konto.
+export function transfer(command: ShareTransfer): Promise<BookingResponse> {
+  return api<BookingResponse>('/api/accounts/transfer', { method: 'POST', body: command })
+}
+
 // --- Ausscheiden mit Spende des Anteils ---
 
 // Muss zu ShareDonation im Backend passen. Ohne Anteile und Betrag: gespendet wird immer das ganze

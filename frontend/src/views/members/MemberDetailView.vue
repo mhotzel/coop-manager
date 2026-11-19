@@ -280,7 +280,12 @@ function generateLines(): void {
               <dt>Anteil gespendet am</dt>
               <dd>{{ formatDate(member.donation_date) }}</dd>
             </template>
-            <!-- Wirksames Ausscheiden: nach einem Tod der 31.12. des Todesjahres, bei einer Spende ihr Tag. -->
+            <template v-if="member.transfer_date !== null">
+              <dt>Alle Anteile übertragen am</dt>
+              <dd>{{ formatDate(member.transfer_date) }}</dd>
+            </template>
+            <!-- Wirksames Ausscheiden: nach einem Tod der 31.12. des Todesjahres, bei Spende oder
+                 Übertragung aller Anteile deren Tag. -->
             <template v-if="member.exit_date !== null">
               <dt>Ausscheiden zum</dt>
               <dd>{{ formatDate(member.exit_date) }}</dd>

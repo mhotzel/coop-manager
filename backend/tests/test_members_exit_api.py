@@ -382,3 +382,24 @@ def test_readonly_may_not_donate(client, register, login, member_id):
     response = client.post("/api/accounts/donate", json={"account_number": 1, "value_date": "2026-11-15"})
 
     assert response.status_code == 403
+
+
+def test_transfer_over_api(client, member_id):
+    heir_id = client.post("/api/members/apply", json=APPLICATION).json()["id"]  # Konto 2
+    client.post("/api/members/admit", json={"member_id": heir_id, "decision_date": "2026-11-12"})
+    body = {"account_number": 1, "target_account_number": 2, "shares": 3, "value_date": "2026-11-15"}
+
+    response = client.post("/api/accounts/transfer", json=body)
+
+    assert response.status_code == 200
+    account = response.json()["account"]
+    assert (account["number"], account["shares"], account["bookings"][-1]["kind"]) == (1, 0, "transfer")
+    source = client.get(f"/api/members/{member_id}").json()
+    assert (source["transfer_date"], source["exit_date"], source["status"]) == ("2026-11-15", "2026-11-15", "exited")
+    assert client.get(f"/api/members/{heir_id}").json()["status"] == "member"
+
+
+def test_transfer_to_unknown_account_is_404(client, member_id):
+    body = {"account_number": 1, "target_account_number": 42, "shares": 1, "value_date": "2026-11-15"}
+
+    assert client.post("/api/accounts/transfer", json=body).status_code == 404

@@ -2343,3 +2343,73 @@ dem Sterbedatum, Ausschlüsse mit dem Beschluss des Vorstands.
 
 **Warum:** Matthias will für jedes Geschäftsjahr einen Überblick über alle Vorgänge. Umgesetzt wird
 es zusammen mit den anderen Reports in Schritt 6.
+
+## 2026-11-19 – Schritt 5h, Teil 3a: Umbuchung zwischen Mitgliedskonten (Backend)
+
+**Was:**
+
+- `members/status.py`: `MembershipDates.transfer_date`; `effective_exit_date()` nimmt es als
+  weiteren Termin, wie die Spende den Tag selbst.
+- `members/domain.py`: `ensure_can_give_shares()` (Mitglied, gekündigt, verstorben, Verstorbene
+  auch nach dem 31.12.), `ensure_can_receive_shares()` (Mitglied oder zugelassener Antragsteller
+  ohne Einzahlung), `transfer_all_shares()` mit Event `member.all-shares-transferred` und
+  `revoke_transfer()` mit `member.transfer-revoked`. Nach der Übertragung keine Kündigung mehr,
+  `has_partial_notice()` ist danach falsch.
+- `accounts/bookings.py`: Vorgang `transfer()`. Neu ist `_book_between()`: wie `_book`, aber mit
+  zwei Mitgliedern, gespeichert werden Hauptbuch und beide Mitglieder zusammen. `reverse()` leitet
+  das Storno einer Umbuchung an `_reverse_transfer()` weiter.
+- `accounts/api.py`, `schemas.py`: `POST /api/accounts/transfer` mit
+  `{account_number, target_account_number, shares, value_date, text}`; Antwort mit dem abgebenden Konto.
+- `members/projections.py`, `members/schemas.py`: Spalte bzw. Feld `transfer_date`.
+- Tests: neu `test_transfer.py` (15 Tests), zwei API-Tests in `test_members_exit_api.py`;
+  468 grün, ruff und pyright sauber.
+- `Plan.md`: neuer Abschnitt „Umbuchung“, Erben bestätigt, Schritt 5h-3 aufgeteilt in a und b.
+
+**Wichtig für die Entwicklungsdatenbank:** Die Projektion `members` hat wieder eine neue Spalte,
+also vor dem nächsten Start `backend/data/projections.sqlite` löschen.
+
+**Warum so:**
+
+- **Erbe über den normalen Eintritt:** Der Erbe stellt einen Antrag über die geerbten Anteile und
+  wird zugelassen. Die Umbuchung ersetzt nur seine Einzahlung, deshalb läuft derselbe Abgleich
+  (`_reconcile`) wie beim Eintritt. Es gibt keinen Sonderweg „Erbe“.
+- **Ausscheiden, wenn nichts mehr da ist:** Wer alle Anteile abgibt, scheidet aus, wie bei der
+  Spende über `effective_exit_date`. Beim Storno entscheidet der Kontostand: Sind wieder Anteile da,
+  entfällt das Ausscheiden.
+- **Abgleich beim Storno nur, wenn die Umbuchung den Empfänger zum Mitglied gemacht hat:** Erkannt
+  daran, dass sein Geldeingang die Wertstellung der Umbuchung hat. Ein Mitglied, das nur Anteile
+  dazubekommen hat, bleibt so sicher Mitglied.
+- **Eigene Funktion `_book_between()` statt `_book` umzubauen:** `_book` bleibt für alle Buchungen
+  mit nur einem Mitglied unverändert und leicht zu lesen.
+- **Ausscheiden schon gebucht → erst stornieren:** So braucht die App keine zweite Art der
+  Umbuchung für den Anspruch.
+
+## 2026-11-19 – Schritt 5h, Teil 3b: Umbuchung in der Buchungsmaske
+
+**Was:**
+
+- `frontend/src/accounts.ts`: `transfer()` und Interface `ShareTransfer` für `POST /api/accounts/transfer`.
+- `views/accounts/BookingForm.vue`: Buchungsart „Umbuchung“, angeboten, solange das Konto Anteile
+  hat. Feld „Auf Konto“: Nach der Eingabe (Ereignis `@change`, also beim Verlassen des Feldes)
+  lädt die Maske Zielkonto und Inhaber und zeigt „Name (Status)“ darunter; eigenes Konto,
+  Genossenschaftskonto und unbekannte Nummern ergeben einen Hinweis. Anteile und Betrag wie beim
+  Eintritt. Vor dem Buchen eine Rückfrage, bei allen Anteilen mit dem Satz „das Mitglied scheidet
+  damit aus“.
+- `members.ts`: Feld `transfer_date` und Hilfsfunktion `displayName()`; die Kontoansicht nutzt sie
+  jetzt auch statt ihrer eigenen Berechnung.
+- `MemberDetailView.vue`: Zeile „Alle Anteile übertragen am“.
+- **Fehler aus 5j-2 behoben:** Der Hinweistext der Spende zeigte die Zahl der Anteile nicht. Im
+  Template ist `shares` die gleichnamige computed-Variable der Eingabe, nicht die Prop; richtig ist
+  `props.shares`.
+- Geprüft mit `npm run type-check`.
+
+**Warum so:**
+
+- **Inhaber anzeigen statt nur Nummer:** Eine Umbuchung auf das falsche Konto wäre ärgerlich (Storno
+  nötig). Name und Status zeigen sofort, ob das richtige Konto gemeint ist und ob es ein
+  Antragsteller (Erbe) oder ein Mitglied ist.
+- **Prüfungen doppelt, aber verbindlich nur im Backend:** Eigenes Konto und Genossenschaftskonto
+  meldet die Maske schon vorher, damit man nicht erst beim Buchen davon erfährt. Ob abgeben und
+  empfangen erlaubt ist, entscheidet das Backend.
+- **Namensgleichheit Prop/computed:** In `<script setup>` gewinnt im Template die Variable aus dem
+  Skript vor der Prop gleichen Namens. Deshalb `props.shares` ausdrücklich schreiben.
