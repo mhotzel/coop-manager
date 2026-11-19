@@ -9,6 +9,7 @@ const referenceDate = ref(todayIso())
 // Die Liste ist ein einfacher Link: Der Browser lädt die Datei mit dem Session-Cookie herunter.
 // Ein GET braucht kein CSRF-Token, deshalb geht es ohne api().
 const gengUrl = computed(() => `/api/reports/members-geng?reference_date=${referenceDate.value}`)
+const assemblyUrl = computed(() => `/api/reports/members-assembly?reference_date=${referenceDate.value}`)
 </script>
 
 <template>
@@ -26,6 +27,12 @@ const gengUrl = computed(() => `/api/reports/members-geng?reference_date=${refer
           <a v-if="referenceDate" :href="gengUrl" download>Mitgliederliste nach GenG</a>
           <span v-else>Mitgliederliste nach GenG</span>
           – Nr., Name, Anschrift, Eintritt, Betrag und Anteile (Excel)
+        </li>
+        <li>
+          <a v-if="referenceDate" :href="assemblyUrl" download>Liste zur Generalversammlung</a>
+          <span v-else>Liste zur Generalversammlung</span>
+          – stimmberechtigte Mitglieder nach Namen, mit Spalten für Vertretung und Unterschrift (Stichtag =
+          Tag der Versammlung)
         </li>
       </ul>
     </div>

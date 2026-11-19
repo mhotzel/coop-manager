@@ -23,6 +23,16 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 def members_geng(reference_date: date, db: Db, user: Reader) -> Response:
     """Mitgliederliste nach GenG zum Stichtag, z. B. `?reference_date=2026-12-31`."""
     content = excel.members_geng(services.members_geng(db, reference_date), reference_date)
-    filename = f"Mitgliederliste-GenG-{reference_date.isoformat()}.xlsx"
+    return _xlsx(content, f"Mitgliederliste-GenG-{reference_date.isoformat()}.xlsx")
+
+
+@router.get("/members-assembly")
+def members_assembly(reference_date: date, db: Db, user: Reader) -> Response:
+    """Liste zur Generalversammlung zum Stichtag (Tag der Versammlung)."""
+    content = excel.members_assembly(services.members_assembly(db, reference_date), reference_date)
+    return _xlsx(content, f"Generalversammlung-{reference_date.isoformat()}.xlsx")
+
+
+def _xlsx(content: bytes, filename: str) -> Response:
     # attachment: Der Browser speichert die Datei, statt sie anzuzeigen.
     return Response(content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{filename}"'})

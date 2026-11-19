@@ -18,6 +18,9 @@ from ..system_settings.services import get_system_settings
 
 # Wer eingetreten und zum Stichtag noch nicht ausgeschieden ist (siehe Plan: Reports).
 LISTED_STATUSES = {MEMBER, NOTICE_GIVEN, DECEASED, EXPELLED}
+# Wer an der Generalversammlung abstimmen darf: Gekündigte bis zum Ausscheiden, für Verstorbene
+# die Erben. Ausgeschlossene nicht mehr ab dem Beschluss (§ 68 GenG; siehe Plan).
+VOTING_STATUSES = {MEMBER, NOTICE_GIVEN, DECEASED}
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,15 @@ class GengRow:
     entry_date: date
     amount: int  # Anteile × Anteilspreis in Cent
     shares: int
+
+
+@dataclass(frozen=True)
+class AssemblyRow:
+    """Eine Zeile der Liste zur Generalversammlung; „Vertreten durch“ und Unterschrift von Hand."""
+
+    member_number: int
+    name: str
+    address: str
 
 
 def shares_on(ledger: Ledger, number: int, day: date) -> int:
@@ -51,32 +63,61 @@ def shares_on(ledger: Ledger, number: int, day: date) -> int:
 
 
 def members_geng(db: Database, day: date) -> list[GengRow]:
-    """Mitgliederliste nach GenG zum Stichtag, nach Mitgliedsnummer.
+    """Mitgliederliste nach GenG zum Stichtag, nach Mitgliedsnummer."""
+    share_price = get_system_settings(db).share_price or 0
+    return [
+        GengRow(
+            member_number=member.member_number,
+            name=list_name(member.person_type, member.name),
+            address=one_line_address(member),
+            entry_date=entry_date,
+            amount=shares * share_price,
+            shares=shares,
+        )
+        for member, entry_date, shares in _holders(db, day, LISTED_STATUSES)
+    ]
 
-    Ohne Anteile steht niemand in der Liste, etwa am Tag einer Spende des Anteils (siehe Plan).
+
+def members_assembly(db: Database, day: date) -> list[AssemblyRow]:
+    """Liste zur Generalversammlung: wer zum Stichtag abstimmen darf, nach Namen sortiert.
+
+    Am Eingang sucht man nach dem Namen, deshalb alphabetisch statt nach Nummer.
+    """
+    rows = [
+        AssemblyRow(
+            member_number=member.member_number,
+            name=list_name(member.person_type, member.name),
+            address=one_line_address(member),
+        )
+        for member, _, _ in _holders(db, day, VOTING_STATUSES)
+    ]
+    return sorted(rows, key=lambda row: sort_key(row.name))
+
+
+def _holders(db: Database, day: date, statuses: set[str]) -> list[tuple[Member, date, int]]:
+    """Wer zum Stichtag einen der Status hat und Anteile hält: Mitglied, Eintrittsdatum, Anteile.
+
+    Ohne Anteile steht niemand in einer Liste, etwa am Tag einer Spende des Anteils (siehe Plan).
     """
     ledger = get_ledger(db)
-    share_price = get_system_settings(db).share_price or 0
-    rows: list[GengRow] = []
+    holders: list[tuple[Member, date, int]] = []
     for member in all_members(db):
         entry_date = member.entry_date()
         account = ledger.account_of(member.subject)
-        if member.status(day) not in LISTED_STATUSES or entry_date is None or account is None:
+        if member.status(day) not in statuses or entry_date is None or account is None:
             continue
         shares = shares_on(ledger, account.number, day)
-        if shares <= 0:
-            continue
-        rows.append(
-            GengRow(
-                member_number=member.member_number,
-                name=list_name(member.person_type, member.name),
-                address=one_line_address(member),
-                entry_date=entry_date,
-                amount=shares * share_price,
-                shares=shares,
-            )
-        )
-    return rows
+        if shares > 0:
+            holders.append((member, entry_date, shares))
+    return holders
+
+
+def sort_key(name: str) -> str:
+    """Sortierschlüssel wie im Telefonbuch (DIN 5007): „Ä“ wie „A“, „ß“ wie „ss“, ohne Groß/klein.
+
+    Pythons `sorted` vergleicht sonst Zeichencodes, und „Ä“ landete hinter „Z“.
+    """
+    return name.casefold().replace("ä", "a").replace("ö", "o").replace("ü", "u")
 
 
 def one_line_address(member: Member) -> str:

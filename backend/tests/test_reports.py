@@ -1,4 +1,4 @@
-"""Mitgliederliste nach GenG zum Stichtag (Schritt 6a)."""
+"""Reports zum Stichtag: Mitgliederliste nach GenG (6a), Liste zur Generalversammlung (6c)."""
 
 from datetime import date
 from io import BytesIO
@@ -11,7 +11,7 @@ from coop_manager.accounts.services import get_ledger, open_cooperative_account
 from coop_manager.db import Database
 from coop_manager.members import services
 from coop_manager.members.values import NATURAL_PERSON, Address, PersonName
-from coop_manager.reports.services import GengRow, members_geng
+from coop_manager.reports.services import AssemblyRow, GengRow, members_assembly, members_geng, sort_key
 from coop_manager.system_settings.services import change_share_price
 from coop_manager.users.domain import ACCOUNTING_READONLY, ADMIN
 
@@ -157,3 +157,76 @@ def test_admin_may_not_download(client, setup, register, login):
     response = client.get("/api/reports/members-geng", params={"reference_date": "2026-12-31"})
 
     assert response.status_code == 403
+
+
+# --- Liste zur Generalversammlung (6c) ---
+
+
+def names(db: Database, day: date = YEAR_END) -> list[str]:
+    return [row.name for row in members_assembly(db, day)]
+
+
+def test_assembly_row(db, setup):
+    member(db)
+
+    assert members_assembly(db, YEAR_END) == [
+        AssemblyRow(member_number=1, name="Muster, Erika", address="Hauptstraße 1, 12345 Musterstadt")
+    ]
+
+
+def test_assembly_sorted_by_name(db, setup):
+    member(db, "Zabel")
+    member(db, "Ölmann")
+    member(db, "Adler")
+
+    assert names(db) == ["Adler, Erika", "Ölmann, Erika", "Zabel, Erika"]
+
+
+def test_assembly_with_notice_and_deceased(db, setup):
+    services.give_notice(db, member(db, "Kündig"), date(2026, 11, 20), YEAR_END, TODAY, actor="test")
+    services.record_death(db, member(db, "Verstorben"), date(2026, 11, 25), TODAY, actor="test")
+
+    assert names(db) == ["Kündig, Erika", "Verstorben, Erika"]
+
+
+def test_assembly_without_expelled(db, setup):
+    member_id = member(db)
+    services.expel(db, member_id, date(2026, 11, 25), TODAY, actor="test")
+
+    assert names(db, date(2026, 11, 24)) == ["Muster, Erika"]
+    assert names(db, date(2026, 11, 25)) == []
+    # In der GenG-Liste stehen Ausgeschlossene bis zum Ausscheiden weiter.
+    assert shares(db, date(2026, 11, 25)) == [3]
+
+
+def test_assembly_without_applicant(db, setup):
+    applicant(db)
+
+    assert names(db) == []
+
+
+def test_sort_key():
+    assert sorted(["Zabel", "Äpfel", "abel", "Strauß", "Strausberg"], key=sort_key) == [
+        "abel",
+        "Äpfel",
+        "Strausberg",
+        "Strauß",
+        "Zabel",
+    ]
+
+
+def test_assembly_download(client, db, setup, register, login):
+    member(db)
+    register("rita", ACCOUNTING_READONLY)
+    login("rita")
+
+    response = client.get("/api/reports/members-assembly", params={"reference_date": "2027-05-20"})
+
+    assert response.status_code == 200
+    assert "Generalversammlung-2027-05-20.xlsx" in response.headers["content-disposition"]
+    sheet = load_workbook(BytesIO(response.content)).active
+    assert sheet is not None
+    assert sheet["A2"].value == "Stichtag: 20.05.2027"
+    assert [cell.value for cell in sheet[4]] == ["Nr.", "Mitglied", "Adresse", "Vertreten durch", "Unterschrift"]
+    assert [cell.value for cell in sheet[5]][:3] == [1, "Muster, Erika", "Hauptstraße 1, 12345 Musterstadt"]
+    assert sheet.page_setup.orientation == "landscape"

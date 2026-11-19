@@ -591,6 +591,13 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Mitgliederliste nach GenG** (6a): Nr., Name („Nachname, Vornamen“ bzw. Firma), Anschrift
   einzeilig („Straße Hausnummer, PLZ Ort“), Eintritt, Betrag, Anteile; nach Mitgliedsnummer.
   Herunterladen dürfen beide Buchhaltungsrollen.
+- **Liste zur Generalversammlung** (6c, Stand 2026-11-19): Nr., Mitglied, Adresse (einzeilig),
+  Vertreten durch, Unterschrift. Stichtag = Tag der Versammlung. Darin steht, wer abstimmen darf:
+  Status „Mitglied“, „gekündigt“ (bis zum Ausscheiden) und „verstorben“ (für die Erben), mit
+  Anteilen. **Ausgeschlossene nicht**, sie dürfen ab dem Beschluss nicht mehr teilnehmen (§ 68 GenG).
+  **Nach Namen sortiert** (DIN 5007: „Ä“ wie „A“, „ß“ wie „ss“), weil man am Eingang nach dem Namen
+  sucht. „Vertreten durch“ bleibt leer und wird von Hand ausgefüllt. Druck: A4 quer, eine
+  Seitenbreite, Gitterlinien, Kopfzeile auf jeder Seite, höhere Zeilen für die Unterschrift.
 
 ### Auswertung der Vorgänge eines Geschäftsjahres (Schritt 6)
 

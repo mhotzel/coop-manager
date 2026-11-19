@@ -2540,3 +2540,26 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
 - **Nachteil:** Ist die Session abgelaufen, speichert der Browser die Fehlermeldung als Datei,
   statt zur Anmeldung zu wechseln. Das nehmen wir hin, solange es nicht stört.
 - **`computed` für die Adresse:** Ändert sich der Stichtag, baut Vue den Link von selbst neu.
+
+## 2026-11-19 – Schritt 6c: Liste zur Generalversammlung
+
+**Was:**
+
+- `reports/services.py`: `members_assembly()` mit `AssemblyRow`. Die Auswahl „Status passt und
+  Anteile > 0“ steckt jetzt in `_holders()` und wird von beiden Listen genutzt. `sort_key()`
+  sortiert Namen wie im Telefonbuch.
+- `reports/excel.py` umgebaut: `_new_sheet()` legt Titel, Stichtag und Kopfzeile an, `_append()`
+  hängt eine Zeile mit Zahlenformaten an. Dazu für die GV-Liste die Druckeinstellungen
+  (`page_setup`, `print_options.gridLines`, `print_title_rows`).
+- `reports/api.py`: `GET /api/reports/members-assembly?reference_date=…`.
+- `ReportsView.vue`: zweiter Link.
+- Tests in `tests/test_reports.py`; geprüft mit `uv run pytest`, `ruff`, `pyright`, `npm run type-check`.
+
+**Warum so:**
+
+- **Gemeinsames Grundgerüst erst jetzt:** Bei einer Liste lohnte es nicht, bei zweien wiederholte
+  sich der Aufbau. Weitere Listen (Seriendruck) brauchen nur noch ihre Spaltentabelle.
+- **Sortierung:** `sorted()` vergleicht Zeichencodes, „Ä“ (Code 196) käme hinter „Z“ (90).
+  `casefold()` macht klein und aus „ß“ schon „ss“, die Umlaute ersetzen wir selbst.
+- **Gitterlinien statt Rahmen:** `print_options.gridLines` druckt die Kästchen mit einer Zeile Code,
+  Rahmen müsste man für jede Zelle einzeln setzen.
