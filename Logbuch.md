@@ -3017,3 +3017,125 @@ Resolver; so sieht man den Stand ohne Zwischenspeicher.
 
 Nebenbei: `mitglieder.dorfladen-schlichten.de` gibt es bei Strato ebenfalls, nur mit einem
 MX-Eintrag (`smtpin.rzone.de`), ohne Bezug zur App.
+
+## 2026-11-21 – NAS: Zertifikat geprüft, Projektordner mit eigenen Rechten
+
+**Was:**
+
+- Schritt 3 in `DEPLOYMENT.md`: Matthias hat im DSM das Let's-Encrypt-Zertifikat für
+  `mitgliederdb.dorfladen-schlichten.de` abgerufen. Per `ssh` geprüft: richtiger Name, gültig bis
+  19.02.2027, nicht Standardzertifikat, noch keinem Dienst zugeordnet (das kommt mit dem Reverse
+  Proxy).
+- Schritt 4: `/volume1/IT-Systeme/Docker/coop-manager` angelegt, mit `synoacltool` je ein Eintrag
+  für `chef`, `administrators` und `IT-Admin` gesetzt, Vererbung abgeschaltet
+  (`-del-archive … is_inherit`), danach `data/` angelegt.
+
+**Gesehen:**
+
+- Ein neuer Ordner erbt erst die Rechte der Freigabe `IT-Systeme`, darunter `Aufsichtsrat` und
+  `group::` (`level:2` = von zwei Ebenen darüber geerbt).
+- Mit `-add` kommen eigene Einträge dazu (`level:0` = direkt am Ordner gesetzt), die geerbten
+  bleiben zunächst stehen.
+- Erst `-del-archive … is_inherit` kappt die Vererbung; übrig sind die drei eigenen Einträge.
+- `data/` erbt genau diese (`level:1` = vom Ordner direkt darüber). Alles, was später darin
+  entsteht (`.env`, SQLite-Dateien), bekommt dieselben Rechte.
+- Die Unix-Rechte zeigen weiter `rwxrwxrwx+`; bei einer Synology-Freigabe mit ACL zählt die ACL.
+
+**Warum vor `.env` und `data/`:** Dateien erben die Rechte beim Anlegen. Hätte es `.env` schon
+gegeben, hätte sie die alten, offenen Rechte behalten.
+
+## 2026-11-21 – NAS: .env angelegt
+
+**Was:** Schritt 5 in `DEPLOYMENT.md`: `.env` im Projektordner auf dem NAS angelegt, mit dem
+Inhalt aus der Anleitung. Ausgeführt als ein kleines Skript über `ssh … 'sh -s' <<'REMOTE'`.
+
+**Wie das Secret entsteht:** Im Heredoc `<<EOF` (ohne Anführungszeichen) ersetzt die Shell
+`$(python3 -c "import secrets; …")` beim Schreiben der Datei, und zwar auf dem NAS, weil das ganze
+Skript dort läuft. Das äußere `<<'REMOTE'` mit Anführungszeichen sorgt dafür, dass der eigene
+Rechner nichts davon auswertet. Das Secret steht so nur in der Datei auf dem NAS, nicht im
+Terminal und nicht auf dem Entwicklungsrechner. `test ! -e` verhindert, dass eine vorhandene
+`.env` überschrieben wird.
+
+**Geprüft:** alle Zeilen außer dem Secret angezeigt; per `grep -c` nur gezählt, dass genau eine
+Zeile `CM_SECRET_KEY=` mit 64 Hex-Zeichen da ist; die Datei hat die drei eingeschränkten
+ACL-Einträge geerbt (`level:1`).
+
+## 2026-11-21 – NAS: erster Bau mit deploy.sh
+
+**Was:** Schritt 7 in `DEPLOYMENT.md`: `./deploy.sh` vom Entwicklungsrechner aus. Übertragung per
+`tar` über `ssh`, Bau auf dem NAS in gut 2 Minuten (mit dem Herunterladen der Grundlagen-Images
+für Node und Python), danach Start des Containers `coop-manager-app-1` im Netz
+`coop-manager_default`.
+
+**Geprüft, auf dem NAS:**
+
+```sh
+$DK inspect -f '{{.State.Health.Status}}' coop-manager-app-1   # healthy, nach ~30 s
+$DK inspect -f '{{.RestartCount}}' coop-manager-app-1          # 0
+$DK logs --tail 10 coop-manager-app-1                          # „app started“, data_dir /data
+curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/healthz   # 200
+```
+
+`/` und `/members/5` liefern die Vue-App, `/api/me` 401, `/docs` die Vue-App (Doku aus).
+`eventstore.sqlite` und `projections.sqlite` in `data/` haben die eingeschränkten ACL-Einträge
+geerbt. `purchase-prices` blieb `healthy`.
+
+**Gelernt:** Die Ausgabe von `deploy.sh` nicht durch `tail` leiten: `tail` zeigt erst am Ende etwas,
+während des Baus sieht man dann nicht, in welcher Stufe er steckt. Und „health: starting“ direkt
+nach dem Start ist normal, die erste Prüfung läuft nach 30 s (`--interval=30s` im Dockerfile).
+
+## 2026-11-21 – NAS: Reverse Proxy vertrauen, Fallstrick mit sed -i und ACL
+
+**Was:** Schritt 8 in `DEPLOYMENT.md`. Gateway des Netzes `coop-manager_default` ausgelesen
+(`172.19.0.1`; `purchase-prices` hat `172.18.0.1`), per `sed -i` in `.env` bei
+`CM_TRUSTED_PROXIES` eingetragen, Container mit `docker compose up -d --force-recreate` neu erzeugt.
+
+**Vorher/nachher**, mit `curl -H 'X-Forwarded-Proto: https' -H 'X-Forwarded-For: 203.0.113.5'`:
+
+| | HSTS-Header | Absender im Log |
+|---|---|---|
+| vorher | keiner | `172.19.0.1` (Gateway) |
+| nachher | `max-age=31536000; includeSubDomains` | `203.0.113.5` |
+
+Damit glaubt die App den `X-Forwarded-*`-Headern, die von der Gateway-Adresse kommen, und nur
+diesen. `203.0.113.5` ist eine für Dokumentation reservierte Adresse.
+
+**Fallstrick:** `sed -i` schreibt eine neue Datei und benennt sie auf den alten Namen um. Die neue
+Datei hatte **keine ACL** mehr: `ls -l` zeigte `rwxrwxrwx` ohne `+`, `synoacltool -get` meldete
+„It's Linux mode“. Die `.env` mit dem Secret war damit etwa zwei Minuten lang für alle Benutzer des
+NAS lesbar. Behoben mit `synoacltool -enforce-inherit .env`, danach wieder die drei Einträge mit
+`level:1`. In `DEPLOYMENT.md` stehen jetzt der Befehl in Schritt 8, ein Warnhinweis und ein
+Fehlerbild. Lehre: Nach jeder Änderung einer Datei im Projektordner mit `ls -l` auf das `+` achten.
+
+## 2026-11-21 – NAS: Secret neu erzeugt
+
+**Was:** Weil die `.env` kurz ohne ACL war, hat Matthias entschieden, `CM_SECRET_KEY` neu zu
+erzeugen. Jetzt kostet das nichts, es gibt noch keine Benutzer und keine Sessions; später würde ein
+Wechsel alle abmelden.
+
+**Wie, ohne die ACL wieder zu verlieren:** Der neue Inhalt entsteht in einer Shell-Variablen
+(`sed` ohne `-i`, nur Ausgabe) und wird mit `printf … > .env` in die **bestehende** Datei
+geschrieben. `>` kürzt die Datei und schreibt hinein, sie bleibt dieselbe Datei (gleiche Inode-Nummer
+vorher und nachher, `ls -i`) und behält damit ihre ACL. `sed -i` dagegen legt eine neue Datei an.
+
+**Geprüft, ohne das Secret anzuzeigen:** Prüfsumme der Secret-Zeile vorher und nachher verschieden,
+genau eine Zeile mit 64 Hex-Zeichen, übrige Zeilen unverändert, `ls -l` mit `+`, drei ACL-Einträge
+mit `level:1`. Container neu erzeugt: `/healthz` ok, HSTS-Header da, keine Warnung „CM_SECRET_KEY
+not set“ im Log.
+
+## 2026-11-21 – NAS: Reverse Proxy und Prüfung von außen
+
+**Was:** Schritt 9 hat Matthias im DSM eingerichtet (Reverse Proxy `mitgliederdb.…:443` →
+`localhost:8001`, Zertifikat dem Dienst zugeordnet). Schritt 10 von außen über das Internet geprüft.
+
+**Geprüft:**
+
+- nginx-Konfiguration auf dem NAS (`awk '/mitgliederdb…/,/^}/' …ReverseProxy.conf`):
+  `proxy_pass http://localhost:8001`, `X-Forwarded-For` und `X-Forwarded-Proto` werden gesetzt.
+- Zertifikat (`openssl s_client`): `CN=mitgliederdb.dorfladen-schlichten.de`, Let's Encrypt.
+- `curl` von außen: Startseite `HTTP/2 200` mit HSTS und CSP; `/members/5` 200 (SPA-Fallback),
+  `/healthz` 200, `/api/me` 401, `/docs` und `/openapi.json` liefern die Vue-App (Doku aus).
+- Container-Log: Absender ist die öffentliche IP des prüfenden Rechners, nicht das Gateway. Die
+  ganze Kette Internet → DSM-nginx → Docker → App reicht die echte Adresse und `https` durch.
+- `http://` (ohne s) zeigt die Standardseite der Web Station, wie bei `ek.`; die App ist darüber
+  nicht erreichbar. `DEPLOYMENT.md` sagte dazu „404“, das ist korrigiert.

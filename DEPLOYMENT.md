@@ -71,6 +71,13 @@ Systemsteuerung → Sicherheit → **Zertifikat** → Hinzufügen → „Neues Z
 
 Das DSM erneuert das Zertifikat selbst. Zugewiesen wird es in Schritt 9.
 
+**Erledigt 2026-11-21:** Zertifikat `mitgliederdb.dorfladen-schlichten.de` von Let's Encrypt, nicht
+Standard. Auf dem NAS prüfen (Ordnername je Zertifikat zufällig):
+
+```sh
+sudo sh -c 'for f in /usr/syno/etc/certificate/_archive/*/cert.pem; do openssl x509 -in $f -noout -subject -enddate; done'
+```
+
 ## 4. Projektordner mit eingeschränkten Rechten
 
 Die Freigabe `IT-Systeme` vererbt Vollzugriff auch an die Gruppen `Aufsichtsrat` und `users`.
@@ -90,6 +97,14 @@ mkdir -p $D/data
 ```
 
 `ls -l` zeigt weiterhin `rwxrwxrwx+`. Maßgeblich ist die ACL (`+`), nicht die Unix-Rechte.
+
+**Erledigt 2026-11-21.** Vorher erbte der neue Ordner von der Freigabe auch `Aufsichtsrat` und die
+leere Gruppe `group::` (alle), jeweils mit `level:2`. Danach stehen nur noch die drei Einträge mit
+`level:0` da, genau wie bei `purchase-prices`. `data/` erbt sie (`level:1`):
+
+```sh
+sudo /usr/syno/bin/synoacltool -get $D/data     # drei Einträge mit level:1
+```
 
 ## 5. `.env` auf dem NAS
 
@@ -119,6 +134,14 @@ EOF
 - `CM_BIND_ADDRESS` muss `127.0.0.1` bleiben: Docker umgeht die Firewall des DSM, mit `0.0.0.0`
   wäre die App ohne HTTPS im ganzen Netz erreichbar.
 - `CM_API_DOCS=false`: Im Betrieb gibt es keine API-Dokumentation unter `/docs`.
+
+**Erledigt 2026-11-21.** Prüfen, ohne das Secret anzuzeigen:
+
+```sh
+grep -v '^CM_SECRET_KEY=' $D/.env                                  # alle anderen Zeilen
+grep -c '^CM_SECRET_KEY=[0-9a-f]\{64\}$' $D/.env                    # 1
+sudo /usr/syno/bin/synoacltool -get $D/.env                          # drei Einträge mit level:1
+```
 
 ## 6. Daten
 
@@ -157,6 +180,10 @@ $DK logs --tail 20 coop-manager-app-1                            # keine Fehler
 curl -s http://127.0.0.1:8001/healthz                            # {"status":"ok"}
 ```
 
+**Erledigt 2026-11-21:** Der erste Bau dauerte gut 2 Minuten. Nach etwa 30 s meldete der
+Container `healthy`, ohne Neustart. `/` und `/members/5` liefern die Vue-App, `/api/me` 401,
+`/docs` ebenfalls die Vue-App (Doku aus). `purchase-prices` lief daneben unverändert weiter.
+
 ## 8. Reverse Proxy vertrauen
 
 Anfragen des DSM-Proxys kommen vom **Gateway des Compose-Netzes**:
@@ -165,14 +192,30 @@ Anfragen des DSM-Proxys kommen vom **Gateway des Compose-Netzes**:
 $DK network inspect coop-manager_default -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}'   # z. B. 172.19.0.1
 ```
 
-Diese Adresse in `$D/.env` bei `CM_TRUSTED_PROXIES=` eintragen und den Container neu erzeugen:
+Diese Adresse in `$D/.env` bei `CM_TRUSTED_PROXIES=` eintragen, die ACL der Datei wiederherstellen
+und den Container neu erzeugen:
 
 ```sh
+sed -i 's/^CM_TRUSTED_PROXIES=.*/CM_TRUSTED_PROXIES=172.19.0.1/' $D/.env
+sudo /usr/syno/bin/synoacltool -enforce-inherit $D/.env    # sed -i hat die ACL entfernt, siehe unten
+sudo /usr/syno/bin/synoacltool -get $D/.env                # drei Einträge mit level:1
 cd $D && $DK compose up -d --force-recreate
 curl -s -D - -o /dev/null -H "X-Forwarded-Proto: https" -H "X-Forwarded-For: 203.0.113.5" \
     http://127.0.0.1:8001/ | grep -i strict-transport     # HSTS-Header = Proxy wird vertraut
 $DK logs --tail 1 coop-manager-app-1                       # beginnt mit 203.0.113.5
 ```
+
+> **Achtung bei `.env` und anderen Dateien im Projektordner:** `sed -i` (und manche Editoren)
+> schreiben eine neue Datei und ersetzen die alte. Die neue Datei hat dann **keine ACL** mehr, sondern
+> `rwxrwxrwx` ohne `+`, ist also für alle lesbar. Nach jeder solchen Änderung
+> `synoacltool -enforce-inherit <datei>` ausführen und mit `ls -l` prüfen, dass das `+` wieder da ist.
+>
+> Wer eine Datei ändern will, ohne die ACL zu verlieren, schreibt in die bestehende Datei, z. B.
+> `C=$(sed 's/alt/neu/' $D/.env) && printf '%s\n' "$C" > $D/.env`. `>` behält die Datei (gleiche
+> Inode, `ls -i`) und damit ihre ACL.
+
+**Erledigt 2026-11-21:** Gateway `172.19.0.1` (bei `purchase-prices` `172.18.0.1`). Vorher kein
+HSTS-Header und im Log die Gateway-Adresse, nachher HSTS und `203.0.113.5` im Log.
 
 ## 9. Reverse Proxy im DSM
 
@@ -189,7 +232,8 @@ Systemsteuerung → **Anmeldeportal** → Erweitert → **Reverse Proxy** → Er
 Danach Systemsteuerung → Sicherheit → Zertifikat → **Einstellungen**: beim Dienst
 `mitgliederdb.dorfladen-schlichten.de` das gleichnamige Zertifikat auswählen.
 
-Die erzeugte nginx-Konfiguration lässt sich auf dem NAS prüfen:
+**Erledigt 2026-11-21.** Die erzeugte nginx-Konfiguration lässt sich auf dem NAS prüfen
+(`proxy_pass http://localhost:8001`, `X-Forwarded-For` und `X-Forwarded-Proto` gesetzt):
 
 ```sh
 sudo awk '/mitgliederdb.dorfladen-schlichten.de/,/^}/' /etc/nginx/sites-enabled/server.ReverseProxy.conf
@@ -214,8 +258,13 @@ Im Container-Log (`$DK logs --tail 5 coop-manager-app-1`) muss die öffentliche 
 Rechners stehen, nicht die Gateway-Adresse. Daran sieht man, dass die App dem Proxy vertraut und
 damit erkennt, dass die Anfrage über HTTPS kam.
 
-`http://mitgliederdb.dorfladen-schlichten.de` liefert 404 und leitet nicht um. Den Link deshalb
-immer mit `https://` weitergeben.
+`http://mitgliederdb.dorfladen-schlichten.de` leitet nicht um, sondern zeigt die Standardseite der
+Synology Web Station („Hello! Welcome to Synology Web Station!“), wie bei `ek.` auch. Die App ist
+darüber nicht erreichbar. Den Link deshalb immer mit `https://` weitergeben.
+
+**Erledigt 2026-11-21:** Zertifikat `CN=mitgliederdb.dorfladen-schlichten.de` von Let's Encrypt,
+`HTTP/2 200` mit HSTS und CSP, `/members/5` 200, `/api/me` 401, `/docs` und `/openapi.json` die
+Vue-App. Im Container-Log steht die öffentliche IP des prüfenden Rechners.
 
 ## 11. Ersteinrichtung
 
@@ -291,6 +340,7 @@ anpassen.
 | Container `unhealthy`, `ModuleNotFoundError` oder `Permission denied` beim Start | Aus einer Freigabe mit ACL kommt der Code als `0700 root` ins Image, der Container-Benutzer kann ihn nicht lesen | `COPY --chmod=755` im Dockerfile (ist drin) |
 | Container kann nicht in `/data` schreiben | `CM_UID`/`CM_GID` passen nicht zum Besitzer von `data/` | Werte aus `id` in die `.env` |
 | Anmeldung klappt, aber die nächste Anfrage meldet „nicht angemeldet“ | Seite über `http://` aufgerufen, der Browser schickt das `Secure`-Cookie nicht mit | Über `https://` aufrufen. Nur ohne HTTPS (LAN-Test) `CM_SESSION_COOKIE_SECURE=false` |
+| `.env` zeigt in `ls -l` kein `+`, `synoacltool -get` meldet „It's Linux mode“ | Datei mit `sed -i` oder einem Editor ersetzt, die ACL ist dabei verloren gegangen; die Datei ist für alle lesbar | `sudo /usr/syno/bin/synoacltool -enforce-inherit $D/.env` |
 | Kein HSTS-Header, im Log steht die Gateway-Adresse | `CM_TRUSTED_PROXIES` passt nicht zum Gateway | Schritt 8 wiederholen |
 | `sudo: docker: command not found` | `sudo` sucht nicht in `/usr/local/bin` | Vollen Pfad `/usr/local/bin/docker` nehmen |
 | `Bind for 127.0.0.1:8001 failed: port is already allocated` | Ein anderer Container belegt den Port | Freien Port in `CM_PORT` und im Reverse Proxy eintragen |
