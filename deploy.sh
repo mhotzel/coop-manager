@@ -3,7 +3,8 @@
 # data/ und .env auf dem Ziel bleiben unberührt. Aufruf: ./deploy.sh
 set -eu
 
-HOST=${CM_DEPLOY_HOST:-chef@ds218-dls}
+# Über Tailscale, damit es auch von außerhalb des Ladennetzes klappt.
+HOST=${CM_DEPLOY_HOST:-chef@ds218-dls-tail}
 DIR=${CM_DEPLOY_DIR:-/volume1/IT-Systeme/Docker/coop-manager}
 # Synology: Der Benutzer ist nicht in der Gruppe docker, und sudo sucht nicht in /usr/local/bin.
 DOCKER=${CM_DEPLOY_DOCKER:-sudo /usr/local/bin/docker}

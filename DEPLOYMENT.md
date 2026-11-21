@@ -13,7 +13,7 @@ Encrypt) → `http://localhost:8001` → Container `coop-manager-app-1` (uvicorn
 | | |
 |---|---|
 | NAS | Synology DS218, DSM 7.4, ARM64, Container Manager (Docker 24, Compose v2.20) |
-| Zugang | `ssh chef@ds218-dls`, `sudo` ohne Kennwort |
+| Zugang | `ssh chef@ds218-dls-tail` (über Tailscale, auch von außerhalb des Ladennetzes), `sudo` ohne Kennwort |
 | Projektordner | `/volume1/IT-Systeme/Docker/coop-manager` (darin `.env` und `data/`) |
 | Container läuft als | `chef`, uid 1029, gid 100 (`users`) |
 | Port | `127.0.0.1:8001` (8000 belegt `purchase-prices`) |
@@ -38,7 +38,7 @@ Für `purchase-prices` ist das alles schon eingerichtet, hier nur zur Kontrolle:
 - uid und gid von `chef`, sie kommen in die `.env`:
 
   ```sh
-  ssh chef@ds218-dls id        # uid=1029(chef) gid=100(users) …
+  ssh chef@ds218-dls-tail id       # uid=1029(chef) gid=100(users) …
   ```
 
 ## 2. DNS bei Strato
@@ -128,7 +128,7 @@ Sicherung (`coop-manager backup`, siehe Schritt 12), nie die laufende Datenbank:
 
 ```sh
 tar -C <ordner mit der Sicherung> -c eventstore.sqlite \
-    | ssh chef@ds218-dls "tar -C /volume1/IT-Systeme/Docker/coop-manager/data -x"
+    | ssh chef@ds218-dls-tail "tar -C /volume1/IT-Systeme/Docker/coop-manager/data -x"
 ```
 
 `projections.sqlite` ist nicht nötig, die App baut die Projektionen beim Start neu auf.

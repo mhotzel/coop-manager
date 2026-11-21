@@ -2984,3 +2984,15 @@ tragen dabei echte Werte in `DEPLOYMENT.md` nach.
 - **Eigene ACL auf dem Projektordner:** `data/` enthält Mitgliederdaten; die Freigabe
   `IT-Systeme` würde sonst auch `Aufsichtsrat` und `users` Zugriff geben.
 - **Leer starten:** Die Entwicklungsdaten sind erfunden, die echten Daten kommen mit der Migration.
+
+## 2026-11-21 – NAS über Tailscale ansprechen
+
+**Was:** Erreichbarkeit des NAS geprüft, nur lesend, per `ssh chef@ds218-dls-tail`: Tailscale
+(100.65.237.75), `sudo` ohne Kennwort, ARM64, Docker 24.0.2 und Compose v2.20.1, Port 8001 frei,
+Projektordner und DNS-Eintrag `mitglieder.` gibt es noch nicht (kommen in der Einrichtung).
+`ds218-dls` allein lässt sich von außerhalb des Ladennetzes nicht auflösen. Deshalb nehmen
+`deploy.sh` (Standard für `CM_DEPLOY_HOST`) und die `ssh`-Befehle in `DEPLOYMENT.md` jetzt
+`chef@ds218-dls-tail`.
+
+**Warum:** Über Tailscale klappt der Zugang von überall, im Ladennetz ebenso wie unterwegs. Wer es
+anders braucht, setzt `CM_DEPLOY_HOST`.
