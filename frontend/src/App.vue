@@ -14,15 +14,14 @@ interface Health {
 }
 
 // Ein Eintrag im Menü: Ziel (Route mit Name und ggf. Parametern) und die Rollen, die ihn sehen.
-// Einträge ohne Ziel sind Platzhalter für Seiten, die erst noch entstehen.
 interface MenuEntry {
   title: string
-  to?: RouteLocationRaw
+  to: RouteLocationRaw
   roles: string[]
   hint?: string // Tooltip beim Überfahren, z. B. der ausgeschriebene Titel
 }
 
-// Die Fachseiten (Mitglieder, Konten, Jahresende, Ansprüche, Reports) sehen beide Buchhaltungsrollen.
+// Die Fachseiten (Mitglieder, Genossenschaftskonto, Jahresende, Ansprüche, Reports) sehen beide Buchhaltungsrollen.
 const ACCOUNTING_ROLES = [ACCOUNTING, ACCOUNTING_READONLY]
 
 const menuEntries: MenuEntry[] = [
@@ -34,7 +33,6 @@ const menuEntries: MenuEntry[] = [
     to: { name: 'account', params: { number: COOPERATIVE_ACCOUNT_NUMBER } },
     roles: ACCOUNTING_ROLES,
   },
-  { title: 'Konten', roles: ACCOUNTING_ROLES },
   { title: 'Jahresende', to: { name: 'year-end' }, roles: ACCOUNTING_ROLES },
   { title: 'Ansprüche', hint: 'Offene Ansprüche', to: { name: 'claims' }, roles: ACCOUNTING_ROLES },
   { title: 'Reports', to: { name: 'reports' }, roles: ACCOUNTING_ROLES },
@@ -117,8 +115,7 @@ onUnmounted(() => {
         <ul>
           <li v-for="entry in visibleEntries" :key="entry.title">
             <!-- active-class: style.css markiert den aktiven Eintrag mit der Klasse „active“. -->
-            <RouterLink v-if="entry.to" :to="entry.to" :title="entry.hint" active-class="active">{{ entry.title }}</RouterLink>
-            <a v-else>{{ entry.title }}</a>
+            <RouterLink :to="entry.to" :title="entry.hint" active-class="active">{{ entry.title }}</RouterLink>
           </li>
         </ul>
       </details>

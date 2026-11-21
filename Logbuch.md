@@ -2744,3 +2744,23 @@ sed -i -E "s/(h[123]\('[0-9.]+)  /\1 /" handbuch.js
 
 **Warum:** Wunsch von Matthias, ein Leerzeichen ist die übliche Schreibweise. Das Inhaltsverzeichnis
 übernimmt die Überschriften und ist damit ebenfalls angepasst, sobald Word die Felder aktualisiert.
+
+## 2026-11-21 – Menüeintrag „Konten“ entfernt
+
+**Was:** In `frontend/src/App.vue` ist der Menüeintrag „Konten“ gelöscht. Er war seit dem
+Layout-Commit `3cdca44` ein Platzhalter ohne eigene Seite; ein einzelnes Konto erreicht man über
+Mitglied → Konto, das Genossenschaftskonto über „Gen.-Kto“. Damit entfällt auch die
+Platzhalter-Technik:
+
+- `to?: RouteLocationRaw` ist jetzt `to: RouteLocationRaw`, das Ziel ist also Pflicht.
+- Im Template ist `v-if="entry.to"` am `RouterLink` weg und das `<a v-else>` für Einträge ohne Ziel
+  gelöscht.
+- Kommentare angepasst (Fachseiten nennen „Genossenschaftskonto“ statt „Konten“, Satz über
+  Platzhalter gestrichen).
+
+Geprüft mit `npm run type-check` (ohne Fehler). Das Benutzerhandbuch nennt „Konten“ nur allgemein,
+nicht als Menüpunkt, und bleibt unverändert.
+
+**Warum:** Ein Menüpunkt, der nichts tut, verwirrt. Ohne Platzhalter ist der Code einfacher, und
+das Pflichtfeld `to` lässt TypeScript melden, wenn bei einem neuen Eintrag das Ziel fehlt: Ein
+optionales Feld (`?`) darf fehlen, ein Pflichtfeld nicht.
