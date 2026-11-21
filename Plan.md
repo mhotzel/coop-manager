@@ -94,7 +94,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 7a: Access-Datei analysieren, Einzelfälle mit Matthias entscheiden (erledigt 2026-11-21)
    - 7b: Migrationsevents und Aufbau des Skripts (erledigt 2026-11-21)
    - 7c: Migrationsskript als CLI-Befehl, Tests mit erfundenen Daten
-     - Teil 1: `Member.migrate` und Historie mit `valid_from`
+     - Teil 1: `Member.migrate` und Historie mit `valid_from` (erledigt 2026-11-21)
      - Teil 2: `source.py` und `plan.py`
      - Teil 3: `run.py`, `check.py`, CLI-Befehl `migrate`
    - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile

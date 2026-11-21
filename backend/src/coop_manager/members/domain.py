@@ -1,7 +1,7 @@
 import unicodedata
 import uuid
 from collections.abc import Collection
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date
 from typing import Self
 
@@ -53,6 +53,23 @@ class AdditionalSubscription:
     id: str
     shares: int
     decision_date: date  # Zulassung durch den Vorstand
+
+
+@dataclass(frozen=True)
+class PersonData:
+    """Alle Personendaten, die sich mit der Zeit ändern können; eine Version aus dem Altsystem.
+
+    Nur für die Migration (siehe Plan): `Member.migrate` legt mit der ältesten Version an,
+    `Member.migrate_version` übernimmt jede spätere.
+    """
+
+    name: PersonName
+    address: Address
+    contact: Contact = field(default_factory=Contact)
+    address_lines: tuple[str, ...] = ("",) * ADDRESS_LINE_COUNT
+    salutation: str = ""  # abweichende Briefanrede, leer = erzeugen
+    no_mail: bool = False
+    notes: str = ""
 
 
 # Gründe für ein Ausscheiden zum 31.12.; die Texte macht das Frontend.
@@ -136,6 +153,73 @@ class Member(Aggregate):
             shares_subscribed=shares_subscribed,
         )
         return member
+
+    @classmethod
+    def migrate(
+        cls,
+        member_number: int,
+        person_type: str,
+        data: PersonData,
+        application_date: date,
+        shares_subscribed: int,
+    ) -> Self:
+        """Legt eine Person aus dem Altsystem an; nur für die Migration (siehe Plan).
+
+        Wie `apply`, aber mit den übernommenen Adresszeilen statt erzeugter, und die Anschrift darf
+        fehlen. Briefanrede, „keine Post“ und Hinweise folgen als eigene Events, weil
+        `member.applied` dafür keine Felder hat. Zulassung, Zahlung, Tod usw. erfasst die Migration
+        danach mit den normalen Methoden.
+        """
+        validate_person_type(person_type)
+        data = _clean_person_data(person_type, data)
+        if member_number < 1:
+            raise DomainError("Die Mitgliedsnummer muss positiv sein.")
+        if shares_subscribed < 1:
+            raise DomainError("Es muss mindestens ein Anteil gezeichnet werden.")
+        member = cls(f"member-{uuid.uuid7()}")
+        member._record(
+            "member.applied",
+            member_number=member_number,
+            person_type=person_type,
+            name=asdict(data.name),
+            address=asdict(data.address),
+            contact=asdict(data.contact),
+            address_lines=list(data.address_lines),
+            application_date=application_date.isoformat(),
+            shares_subscribed=shares_subscribed,
+        )
+        member._record_changes(data)
+        return member
+
+    def migrate_version(self, data: PersonData, valid_from: date) -> None:
+        """Übernimmt eine spätere Version der Personendaten aus der Historie des Altsystems.
+
+        Für jeden geänderten Teil entsteht das normale Änderungsevent, zusätzlich mit `valid_from`:
+        dem Tag, ab dem die Version im Altsystem galt. Ist nichts geändert, entsteht kein Event.
+        """
+        self._record_changes(_clean_person_data(self.person_type, data), valid_from)
+
+    def _record_changes(self, data: PersonData, valid_from: date | None = None) -> None:
+        """Schreibt für jeden Teil von `data`, der vom aktuellen Stand abweicht, sein Änderungsevent.
+
+        `data` ist schon bereinigt und geprüft. Mit `valid_from` bekommt jedes Event das Feld
+        zusätzlich; die Handler lesen es nicht, die spätere Ansicht „Verlauf“ schon (siehe Plan).
+        """
+        extra = {} if valid_from is None else {"valid_from": valid_from.isoformat()}
+        if data.name != self.name:
+            self._record("member.name-changed", name=asdict(data.name), **extra)
+        if data.address != self.address:
+            self._record("member.address-changed", address=asdict(data.address), **extra)
+        if data.contact != self.contact:
+            self._record("member.contact-changed", contact=asdict(data.contact), **extra)
+        if data.address_lines != self.address_lines:
+            self._record("member.address-lines-changed", address_lines=list(data.address_lines), **extra)
+        if data.salutation != self.salutation:
+            self._record("member.salutation-changed", salutation=data.salutation, **extra)
+        if data.no_mail != self.no_mail:
+            self._record("member.mail-preference-changed", no_mail=data.no_mail, **extra)
+        if data.notes != self.notes:
+            self._record("member.notes-changed", notes=data.notes, **extra)
 
     def status(self, day: date) -> str | None:
         """Der Status am Tag `day` (siehe status.py)."""
@@ -529,9 +613,7 @@ class Member(Aggregate):
 
     def change_salutation(self, salutation: str) -> None:
         """Abweichende Briefanrede; leer = wieder aus den Personendaten erzeugen."""
-        salutation = clean(salutation)
-        if len(salutation) > 100:
-            raise DomainError("Die Briefanrede hat höchstens 100 Zeichen.")
+        salutation = _clean_salutation(salutation)
         if salutation != self.salutation:
             self._record("member.salutation-changed", salutation=salutation)
 
@@ -542,9 +624,7 @@ class Member(Aggregate):
 
     def change_notes(self, notes: str) -> None:
         """Hinweise sind mehrzeilig; nur Leerraum am Anfang und Ende fällt weg."""
-        notes = unicodedata.normalize("NFC", notes).strip()
-        if len(notes) > 5000:
-            raise DomainError("Die Hinweise haben höchstens 5000 Zeichen.")
+        notes = _clean_notes(notes)
         if notes != self.notes:
             self._record("member.notes-changed", notes=notes)
 
@@ -667,6 +747,42 @@ class Member(Aggregate):
     @on("member.notes-changed")
     def _notes_changed(self, event: Event) -> None:
         self.notes = event.data["notes"]
+
+
+def _clean_salutation(salutation: str) -> str:
+    """Bereinigte Briefanrede; höchstens 100 Zeichen."""
+    salutation = clean(salutation)
+    if len(salutation) > 100:
+        raise DomainError("Die Briefanrede hat höchstens 100 Zeichen.")
+    return salutation
+
+
+def _clean_notes(notes: str) -> str:
+    """Hinweise sind mehrzeilig; nur Leerraum am Anfang und Ende fällt weg. Höchstens 5000 Zeichen."""
+    notes = unicodedata.normalize("NFC", notes).strip()
+    if len(notes) > 5000:
+        raise DomainError("Die Hinweise haben höchstens 5000 Zeichen.")
+    return notes
+
+
+def _clean_person_data(person_type: str, data: PersonData) -> PersonData:
+    """Bereinigt und prüft eine Version der Personendaten wie die einzelnen Änderungen.
+
+    Einzige Ausnahme für die Migration: Die Anschrift darf fehlen (`required=False`).
+    """
+    name, address, contact = data.name.cleaned(), data.address.cleaned(), data.contact.cleaned()
+    validate_name(person_type, name)
+    validate_address(address, required=False)
+    validate_contact(contact)
+    return PersonData(
+        name=name,
+        address=address,
+        contact=contact,
+        address_lines=clean_address_lines(data.address_lines),
+        salutation=_clean_salutation(data.salutation),
+        no_mail=data.no_mail,
+        notes=_clean_notes(data.notes),
+    )
 
 
 def _notice(kind: str, event: Event) -> Notice:

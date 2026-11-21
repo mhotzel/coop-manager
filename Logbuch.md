@@ -3253,3 +3253,36 @@ geprüft mit `python3 -I -c "import tomllib; tomllib.load(open('Altdaten/migrati
 
 **Aufbau:** Modul `migration/` mit `source.py`, `plan.py` (reine Funktionen), `run.py`,
 `check.py` und CLI-Befehl `migrate` mit `--dry-run`. Umsetzung in drei Teilen (7c).
+
+## 2026-11-21 – Migration 7c, Teil 1: Mitglied aus dem Altsystem anlegen
+
+**Was:**
+
+- `members/values.py`: `validate_address(address, required=True)`. Mit `required=False` (nur
+  Migration) dürfen Straße, Postleitzahl und Ort fehlen; Längen und eine vorhandene deutsche
+  Postleitzahl werden trotzdem geprüft.
+- `members/domain.py`: Wertobjekt `PersonData` (Name, Anschrift, Kontakt, Adresszeilen,
+  Briefanrede, „keine Post“, Hinweise), `Member.migrate` (legt an wie `apply`, aber mit den
+  übernommenen Adresszeilen) und `member.migrate_version(data, valid_from)` für die Historie.
+  Beide nutzen `_record_changes`, das für jeden geänderten Teil das normale Änderungsevent
+  schreibt, bei der Historie mit dem zusätzlichen Feld `valid_from`. Die Prüfungen von Briefanrede
+  und Hinweisen sind in `_clean_salutation` und `_clean_notes` gewandert, damit sie nur einmal
+  im Code stehen.
+- `tests/test_members_migration.py`: 12 Tests mit erfundenen Daten, darunter das Zusammenspiel mit
+  den normalen Methoden (`admit` und `record_payment` am alten Eintritt ergeben genau dieses
+  Eintrittsdatum) und die Projektion (migrierte Historie, Liste zeigt den aktuellen Stand, alle
+  Events mit Akteur `migration`).
+- `TECHNIK.md`: Absatz zur Migration bei den Events.
+
+**Warum keine eigenen Methoden für Zulassung, Tod usw.:** Die normalen Methoden prüfen gegen
+„heute“ (kein Datum in der Zukunft) und gegen den Status am fachlichen Datum. Altfälle liegen in
+der Vergangenheit und haben einen passenden Status, also funktionieren sie unverändert. Nur das
+Anlegen (übernommene Adresszeilen, fehlende Anschrift) und die Historie (`valid_from`) brauchten
+etwas Neues.
+
+**Python-Detail:** Ruff (`RUF009`) bemängelte `contact: Contact = Contact()` als Standardwert einer
+Dataclass. Ein solcher Aufruf läuft einmal beim Laden des Moduls, alle Objekte teilen sich dann
+dasselbe Objekt. Bei unveränderlichen Objekten ist das harmlos, bei Listen wäre es ein typischer
+Fehler. `field(default_factory=Contact)` erzeugt für jedes Objekt ein eigenes.
+
+**Geprüft:** `uv run pytest` (548 Tests), `ruff check`, `ruff format --check`, `pyright`.

@@ -137,6 +137,14 @@ Ein Event wird nie geändert oder gelöscht. Fehler werden mit einem Gegen-Event
 (z. B. `member.death-revoked`) bzw. bei Buchungen mit einem Storno (`booking.posted` der Art
 `reversal`, das auf die ursprüngliche Buchung verweist).
 
+**Migration aus dem Altsystem** (Schritt 7, siehe `Plan.md`): Sie schreibt dieselben Events wie
+die App, erkennbar am Akteur `migration`. Neu sind nur zwei Methoden am Mitglied:
+`Member.migrate` legt eine Person mit den übernommenen Adresszeilen an (die Anschrift darf
+fehlen) und schreibt Briefanrede, „keine Post“ und Hinweise als eigene Änderungsevents;
+`member.migrate_version` übernimmt eine spätere Version der Personendaten (`PersonData`) aus der
+Historie. Deren Änderungsevents tragen zusätzlich das Feld `valid_from` (ab wann die Version im
+Altsystem galt). Die Handler lesen es nicht; es ist für eine spätere Ansicht „Verlauf“ gedacht.
+
 ### Mehrere Aggregate zusammen speichern
 
 Manche Vorgänge ändern mehrere Streams. `Database.save_all([…], actor)` speichert sie in **einer**

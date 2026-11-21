@@ -118,9 +118,13 @@ def validate_name(person_type: str, name: PersonName) -> None:
         raise DomainError("Der Firmenname ist Pflicht.")
 
 
-def validate_address(address: Address) -> None:
-    """Prüft Pflichtfelder und Längen; eine deutsche Postleitzahl muss fünf Ziffern haben."""
-    if not (address.street and address.postal_code and address.city):
+def validate_address(address: Address, required: bool = True) -> None:
+    """Prüft Pflichtfelder und Längen; eine deutsche Postleitzahl muss fünf Ziffern haben.
+
+    `required=False` nur für die Migration: Dann dürfen Straße, Postleitzahl und Ort fehlen (siehe
+    Plan). Was da ist, wird trotzdem geprüft.
+    """
+    if required and not (address.street and address.postal_code and address.city):
         raise DomainError("Straße, Postleitzahl und Ort sind Pflicht.")
     for label, value, limit in (
         ("Straße", address.street, 100),
@@ -131,7 +135,7 @@ def validate_address(address: Address) -> None:
     ):
         if len(value) > limit:
             raise DomainError(f"{label}: höchstens {limit} Zeichen.")
-    if is_germany(address.country) and not _GERMAN_POSTAL_CODE.fullmatch(address.postal_code):
+    if address.postal_code and is_germany(address.country) and not _GERMAN_POSTAL_CODE.fullmatch(address.postal_code):
         raise DomainError("Eine deutsche Postleitzahl hat fünf Ziffern.")
 
 
