@@ -4,8 +4,8 @@ Diese Anleitung beschreibt, wie die App auf dem NAS `ds218-dls` eingerichtet wir
 sie sich neu aufsetzen oder auf ein anderes Synology-NAS umziehen. Die Entscheidungen dahinter
 stehen in `Plan.md` (Schritt 8). Vorbild ist das Deployment von `purchase-prices` auf demselben NAS.
 
-> **Stand 2026-11-21:** Die Anleitung ist geschrieben, die Einrichtung auf dem NAS steht noch aus.
-> Beim Durchgehen werden echte Werte und neue Fehlerbilder hier nachgetragen.
+> **Stand 2026-11-21:** Die App ist nach dieser Anleitung eingerichtet und läuft. Die Vermerke
+> „Erledigt“ bei den Schritten halten fest, was dabei geprüft wurde.
 
 **Ergebnis:** `https://mitgliederdb.dorfladen-schlichten.de` → Reverse Proxy des DSM (HTTPS, Let's
 Encrypt) → `http://localhost:8001` → Container `coop-manager-app-1` (uvicorn) → `data/` auf dem NAS.
@@ -277,8 +277,19 @@ $DK exec coop-manager-app-1 coop-manager create-cooperative-account
 $DK exec coop-manager-app-1 coop-manager show-settings
 ```
 
+`create-admin` braucht ein echtes Terminal für die verdeckte Kennworteingabe. Vom eigenen Rechner
+aus deshalb mit `ssh -t`:
+
+```sh
+ssh -t chef@ds218-dls-tail sudo /usr/local/bin/docker exec -it coop-manager-app-1 coop-manager create-admin
+```
+
 Danach im Browser als `admin` anmelden und unter **Benutzer** die Benutzer für Buchhaltung und
 Vorstand anlegen.
+
+**Erledigt 2026-11-21:** Admin angelegt (Matthias), Anteilspreis 50,00 €, Genossenschaftskonto 9999
+„Unser Dorfladen Schlichten eG“. Im Event Store stehen danach genau drei Events
+(`user.registered`, `settings.share-price-changed`, `account.opened`).
 
 ## 12. Datensicherung
 
@@ -302,11 +313,26 @@ Einmal mit „Ausführen“ starten und prüfen:
 ls -l --time-style=full-iso $D/data/backup/        # Zeitstempel von eben
 ```
 
+Die Kopie selbst prüfen (nur lesend):
+
+```sh
+sudo python3 -c "
+import sqlite3; c=sqlite3.connect('file:$D/data/backup/eventstore.sqlite?mode=ro', uri=True)
+print(c.execute('pragma journal_mode').fetchone(), c.execute('select count(*) from events').fetchone(),
+      c.execute('pragma integrity_check').fetchone())"     # ('delete',) (Anzahl,) ('ok',)
+```
+
 Ob Hyper Backup den Ordner erfasst, zeigt seine Konfiguration (`backup_volumes`, `backup_filter`):
 
 ```sh
 sudo grep -E "^(name|backup_volumes|backup_folders|backup_filter)=" /var/packages/HyperBackup/etc/synobackup.conf
 ```
+
+**Erledigt 2026-11-21:** Aufgabe `coop-manager Sicherung` (root, täglich 20:00, E-Mail an
+`webmaster@` nur bei Fehler) einmal von Hand ausgeführt. Die Kopie liegt in `data/backup/`, eine
+Datei im Modus `delete`, Integritätsprüfung `ok`, mit der eingeschränkten ACL (`level:3`). Hyper
+Backup („Synology C2“) sichert `/volume1`, ausgenommen ist nur `/photo/`; der Projektordner ist also
+dabei. Die Aufgabe liegt auf dem NAS in `/usr/syno/etc/synoschedule.d/root/14.task`.
 
 ### Wiederherstellen
 

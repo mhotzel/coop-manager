@@ -96,8 +96,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus (erledigt 2026-11-21)
    - 8b: Dockerfile (zwei Stufen) und `compose.yaml`, lokal getestet (erledigt 2026-11-21)
    - 8c: Backup-Befehl für den Event Store (erledigt 2026-11-21)
-   - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md` (Dateien erledigt
-     2026-11-21; Einrichtung auf dem NAS steht noch aus)
+   - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md` (erledigt 2026-11-21,
+     App läuft unter `https://mitgliederdb.dorfladen-schlichten.de`)
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
 
 ## Entscheidungen

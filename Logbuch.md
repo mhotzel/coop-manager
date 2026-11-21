@@ -3139,3 +3139,37 @@ not set“ im Log.
   ganze Kette Internet → DSM-nginx → Docker → App reicht die echte Adresse und `https` durch.
 - `http://` (ohne s) zeigt die Standardseite der Web Station, wie bei `ek.`; die App ist darüber
   nicht erreichbar. `DEPLOYMENT.md` sagte dazu „404“, das ist korrigiert.
+
+## 2026-11-21 – NAS: Ersteinrichtung
+
+**Was:** Schritt 11 in `DEPLOYMENT.md`. Matthias hat den Admin selbst angelegt (Kennwort verdeckt,
+deshalb `ssh -t` für ein echtes Terminal und `docker exec -it`). Danach per `docker exec` im
+laufenden Container: `set-share-price 50`, `create-cooperative-account`, `show-settings`.
+
+**Geprüft:** Im Event Store stehen genau drei Events: `user.registered`,
+`settings.share-price-changed` und `account.opened`. Die SQLite-Dateien in `data/` haben weiter
+die eingeschränkte ACL (`+`).
+
+**Warum `-t` bei `ssh`:** Ohne `-t` gibt `ssh` dem Befehl auf dem NAS kein Terminal. `getpass`
+kann die Eingabe dann nicht verdecken und bricht ab bzw. warnt. `-it` bei `docker exec` reicht das
+Terminal weiter in den Container.
+
+## 2026-11-21 – NAS: tägliche Sicherung, Schritt 8 abgeschlossen
+
+**Was:** Schritt 12 in `DEPLOYMENT.md`. Matthias hat im DSM-Aufgabenplaner die Aufgabe
+`coop-manager Sicherung` angelegt (root, täglich 20:00, E-Mail nur bei Fehler) und einmal von Hand
+ausgeführt.
+
+**Geprüft:**
+
+- `data/backup/eventstore.sqlite` mit Zeitstempel der Ausführung, ACL eingeschränkt (`level:3`,
+  drei Ebenen unter dem Projektordner geerbt).
+- Kopie nur lesend geöffnet (`?mode=ro`): Modus `delete`, Integritätsprüfung `ok`, 4 Events. Das
+  vierte ist ein Benutzer, den Matthias inzwischen in der Oberfläche angelegt hat (`actor` ist die
+  ID des Admins, nicht `cli`).
+- Aufgabe in `/usr/syno/etc/synoschedule.d/root/14.task`: `run hour=20`, `run min=0`,
+  `week=1111111` (alle Tage), Befehl wie geplant.
+- Hyper Backup („Synology C2“) sichert `/volume1` ohne `/photo/`, der Projektordner ist enthalten.
+
+Damit ist Schritt 8 (Container, Backup, Deployment) abgeschlossen. Die App läuft unter
+`https://mitgliederdb.dorfladen-schlichten.de`.
