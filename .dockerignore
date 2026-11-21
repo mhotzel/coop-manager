@@ -1,0 +1,15 @@
+# Was nicht an Docker geschickt wird. Beispieldaten enthält echte Mitgliederdaten.
+Beispieldaten
+.git
+.env
+data
+**/data
+**/.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+backend/tests
+Dokumentation
+.vscode

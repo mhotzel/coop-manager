@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    image: coop-manager
+    restart: unless-stopped
+    # Besitzer von ./data auf dem Host; auf der Synology z. B. 1029:100 (Benutzer chef, Gruppe users).
+    user: "${CM_UID:-1000}:${CM_GID:-1000}"
+    env_file: .env
+    environment:
+      # überschreiben die Werte aus .env, die dort für die Entwicklung gelten
+      CM_DATA_DIR: /data
+      CM_FRONTEND_DIR: /app/frontend
+    volumes:
+      - ./data:/data:Z  # :Z erlaubt den Zugriff unter SELinux (Fedora); anderswo ohne Wirkung
+    ports:
+      # Standard: nur von diesem Rechner erreichbar; HTTPS macht ein Reverse Proxy davor.
+      # 8001, weil auf der Synology purchase-prices schon 8000 belegt.
+      # CM_BIND_ADDRESS=0.0.0.0 in .env öffnet den Port ins Netz (nur zum Testen).
+      - "${CM_BIND_ADDRESS:-127.0.0.1}:${CM_PORT:-8001}:8000"

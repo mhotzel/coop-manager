@@ -94,7 +94,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 8. Container, Backup per Cron, Deployment auf der Synology
    (Stand 2026-11-19: vor der technischen Doku; Doku als Markdown wie `purchase-prices/DEPLOYMENT.md`)
    - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus (erledigt 2026-11-21)
-   - 8b: Dockerfile (zwei Stufen) und `compose.yaml`, lokal getestet
+   - 8b: Dockerfile (zwei Stufen) und `compose.yaml`, lokal getestet (erledigt 2026-11-21)
    - 8c: Backup-Befehl für den Event Store
    - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md`
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
@@ -173,6 +173,13 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   (Entwicklung mit Vite). Eingehängt wird er als Letztes unter `/`, API-Routen haben Vorrang.
   Unbekannte Pfade liefern `index.html` (SPA-Fallback, wegen `createWebHistory`), außer unter
   `/api/`, dort bleibt es beim 404 als JSON. Eigene Cache-Header vorerst nicht.
+- **Container** (Stand 2026-11-21) nach dem Vorbild `purchase-prices`: `Dockerfile` im Hauptordner
+  mit zwei Stufen (Node baut die Vue-App, ins Python-Image kommt nur `dist`), `compose.yaml` mit
+  `./data` als Volume, Benutzer aus `CM_UID`/`CM_GID`. **Ein uvicorn-Prozess**, weil beim Start die
+  Projektionen aufholen; `--no-proxy-headers`, damit allein `CM_TRUSTED_PROXIES` über
+  `X-Forwarded-*` entscheidet. **Port 8001** auf dem Host (`CM_PORT`), weil `purchase-prices` auf der
+  Synology 8000 belegt; standardmäßig nur an `127.0.0.1`, HTTPS macht der Reverse Proxy.
+  `.dockerignore` hält u. a. `Beispieldaten/` und `.env` aus dem Build heraus.
 - **Python über uv:** uv verwaltet das Python selbst (`uv python install`), damit ein Upgrade der
   Distribution die Umgebung nicht bricht.
 - **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_` (eine vorhandene `.env` wird

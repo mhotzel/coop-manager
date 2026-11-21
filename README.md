@@ -29,6 +29,23 @@ Sie löst die bisherige Access-Datenbank ab.
 | [DEV_HINTS.md](DEV_HINTS.md) | Entwicklung: Backend und Frontend starten, ersten Admin anlegen, API von Hand ausprobieren, Prüfungen. |
 | [AGENTS.md](AGENTS.md) | Arbeitsregeln für KI-Assistenten, die an diesem Projekt mitarbeiten. |
 
+## Mit Docker starten
+
+Ein Image enthält Backend und gebaute Oberfläche (`Dockerfile`, zwei Stufen). Die Daten liegen in
+`./data`, die Einstellungen kommen aus `.env` (Vorlage `.env.example`).
+
+```bash
+docker compose build
+docker compose run --rm app coop-manager create-admin          # fragt nach dem Kennwort
+docker compose run --rm app coop-manager set-share-price 50
+docker compose run --rm app coop-manager create-cooperative-account
+docker compose up -d
+docker compose ps                                              # nach etwa 30 s „healthy“
+```
+
+Danach läuft die App unter `http://localhost:8001`. Die Einrichtung auf der Synology beschreibt
+später `DEPLOYMENT.md`.
+
 ## Lizenz
 
 Siehe [LICENSE](LICENSE).

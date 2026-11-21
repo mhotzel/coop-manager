@@ -2846,3 +2846,66 @@ cd ../backend && CM_FRONTEND_DIR=../frontend/dist uv run uvicorn coop_manager.ap
 - **Doku standardmäßig aus:** sicher ab Werk; die strenge CSP sperrt die Swagger-Oberfläche ohnehin.
   Bei abgeschalteter Doku und ausgelieferter Oberfläche landet `/docs` wie jede unbekannte Adresse
   bei `index.html`.
+
+## 2026-11-21 – Schritt 8b: Dockerfile und compose.yaml
+
+**Was:**
+
+- `Dockerfile` im Hauptordner, zwei Stufen:
+  1. `node:24-slim` als Stufe „frontend“: `npm ci`, `npm run build`.
+  2. `python:3.14-slim`: uv, Abhängigkeiten, Code aus `backend/src`, dazu nur `dist` aus Stufe 1
+     nach `/app/frontend`. Benutzer `app` statt root, `CM_DATA_DIR=/data`,
+     `CM_FRONTEND_DIR=/app/frontend`, Healthcheck auf `/healthz`, Start mit
+     `uvicorn coop_manager.app:app --host 0.0.0.0 --port 8000 --no-proxy-headers`.
+- `.dockerignore`: `Beispieldaten`, `.git`, `.env`, `data`, `.venv`, `node_modules`, `dist`, Tests,
+  `Dokumentation` bleiben draußen.
+- `compose.yaml`: `./data:/data:Z`, `user` aus `CM_UID`/`CM_GID`, `env_file: .env`, Port
+  `${CM_BIND_ADDRESS:-127.0.0.1}:${CM_PORT:-8001}:8000`.
+- `.env.example` um `CM_UID`, `CM_GID`, `CM_PORT`, `CM_BIND_ADDRESS` ergänzt, `README.md` um
+  „Mit Docker starten“.
+
+**Ausprobiert:**
+
+```bash
+docker compose build
+docker run --rm coop-manager sh -c 'ls /app /app/frontend; id'   # Inhalt und Benutzer des Images
+mkdir -p data && docker compose up -d
+curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/members/5   # 200, SPA-Fallback
+docker compose run --rm app coop-manager set-share-price 50
+docker compose run --rm app coop-manager create-cooperative-account
+docker compose restart && docker compose ps    # nach ~30 s „healthy“, Daten noch da
+```
+
+Das Image ist 292 MB groß; darin liegen weder Node noch Beispieldaten.
+
+**Docker-Begriffe:**
+
+- **Image:** die fertige, unveränderliche Vorlage (Betriebssystem-Grundlage, Python, unser Code).
+  **Container:** ein laufendes Exemplar davon. Was der Container schreibt, ist beim Löschen weg,
+  außer es liegt in einem Volume.
+- **Schicht (Layer):** Jede Zeile im Dockerfile wie `COPY` oder `RUN` erzeugt eine Schicht. Docker
+  merkt sich jede; ändert sich die Eingabe nicht, nimmt es die gespeicherte. Darum werden erst nur
+  die Lock-Dateien kopiert und die Abhängigkeiten installiert, danach der Code: Eine Codeänderung
+  baut nur die letzten Schichten neu.
+- **Mehrstufiger Build:** `FROM … AS frontend` ist eine Hilfsstufe. Mit `COPY --from=frontend`
+  holt die letzte Stufe nur das Ergebnis heraus; alles andere aus der Hilfsstufe landet nicht im
+  Image.
+- **Volume:** ein Ordner des Hosts im Container, hier `./data` als `/data`. Die SQLite-Dateien
+  überleben so jeden Neubau des Containers. `:Z` sagt SELinux (Fedora), dass der Container den
+  Ordner benutzen darf.
+- **Healthcheck:** Docker ruft alle 30 s `/healthz` auf und zeigt den Zustand in `docker compose ps`
+  („starting“, „healthy“, „unhealthy“).
+- **`docker compose run --rm app …`:** startet einen zweiten, kurzlebigen Container aus demselben
+  Image mit demselben Volume, führt den Befehl aus und löscht ihn danach (`--rm`). So laufen die
+  CLI-Befehle wie `create-admin`.
+
+**Warum so:**
+
+- **Ein Prozess:** Beim Start holen die Projektionen auf; zwei Prozesse würden das gleichzeitig tun.
+- **`--no-proxy-headers`:** uvicorn wertet `X-Forwarded-*` sonst selbst aus (für 127.0.0.1). So
+  entscheidet nur `CM_TRUSTED_PROXIES` in der App, an einer Stelle.
+- **Port 8001:** Auf der Synology belegt `purchase-prices` schon 8000.
+- **`.dockerignore` mit `Beispieldaten`:** Der Build-Kontext wird komplett an Docker geschickt;
+  echte Mitgliederdaten sollen dort nicht einmal vorübergehend landen.
+- **`CM_DATA_DIR` und `CM_FRONTEND_DIR` in `compose.yaml` fest:** Die lokale `.env` enthält Werte
+  für die Entwicklung (`data`, `../frontend/dist`), die im Container falsch wären.
