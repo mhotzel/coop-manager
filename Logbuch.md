@@ -2779,3 +2779,12 @@ mit `npm run type-check`.
 - **Name statt Pfad:** `{ name: 'home' }` bleibt richtig, auch wenn sich der Pfad im Router ändert.
 - **Klasse am Link:** `logo-container` sitzt jetzt am Link selbst. Das CSS greift unverändert, und
   es gibt kein zusätzliches Element.
+
+## 2026-11-21 – Neuer Begrüßungstext auf der Startseite
+
+**Was:** `frontend/src/views/HomeView.vue` zeigt jetzt „Hallo ‹Name›, willkommen in der
+Mitgliederverwaltung.“ statt des Aufbau-Hinweises „hier entsteht die Mitgliederverwaltung …“. Der
+Name kommt wie bisher aus `currentUser?.full_name`; die doppelten geschweiften Klammern `{{ … }}`
+sind Vues Schreibweise, um einen Wert in den Text einzusetzen. Geprüft mit `npm run type-check`.
+
+**Warum:** Die App ist fertig genug für den Betrieb, der Hinweis auf eine Baustelle passt nicht mehr.
