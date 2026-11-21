@@ -90,7 +90,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 6d: Seriendruck-Liste
    - 6e: Warnung, wenn zum Stichtag ein Ausscheiden noch nicht gebucht ist
    - 6f: Auswertung der Vorgänge eines Geschäftsjahres (Stand 2026-11-19), siehe unten
-7. Migration der Altdaten (siehe Abschnitt „Migration der Altdaten“)
+7. Migration der Altdaten (siehe Abschnitt „Migration der Altdaten“, erledigt 2026-11-21)
    - 7a: Access-Datei analysieren, Einzelfälle mit Matthias entscheiden (erledigt 2026-11-21)
    - 7b: Migrationsevents und Aufbau des Skripts (erledigt 2026-11-21)
    - 7c: Migrationsskript als CLI-Befehl, Tests mit erfundenen Daten (erledigt 2026-11-21)
@@ -98,7 +98,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 2: `source.py` und `plan.py` (erledigt 2026-11-21)
      - Teil 3: `run.py`, `check.py`, CLI-Befehl `migrate` (erledigt 2026-11-21)
    - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile (erledigt 2026-11-21)
-   - 7e: Migration auf dem NAS
+   - 7e: Migration auf dem NAS (erledigt 2026-11-21)
 8. Container, Backup per Cron, Deployment auf der Synology
    (Stand 2026-11-19: vor der technischen Doku; Doku als Markdown wie `purchase-prices/DEPLOYMENT.md`)
    - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus (erledigt 2026-11-21)
@@ -847,8 +847,11 @@ Das Datum 1899-12-30 ist der Nullwert von Access und gilt als leer.
   einer Transaktion) und `check.py` (Abgleich Saldo und Anteile je Konto, Prüffälle,
   übersprungene Buchungen). CLI: `coop-manager migrate <csv-ordner> <migration.toml>
   [--dry-run]`; ohne `--dry-run` bricht er ab, wenn es schon Mitglieder gibt.
-- **Produktion (7e, Vorschlag):** lokal auf einer Kopie der NAS-Sicherung migrieren (dort gibt
-  es kein `mdbtools`), prüfen und bei gestopptem Container zurückkopieren.
+- **Produktion (7e, erledigt 2026-11-21):** Die Migration lief mit `docker exec` im laufenden
+  Container auf dem NAS (`coop-manager migrate`, erst `--dry-run`). `mdbtools` braucht es dort
+  nicht, weil `migrate` nur die lokal erzeugten CSV-Dateien und `migration.toml` liest; die lagen
+  nur für den Lauf in `data/import/`. Der frühere Vorschlag (lokal auf einer Kopie migrieren und
+  zurückkopieren) war damit unnötig umständlich. Ablauf in `DEPLOYMENT.md`, Abschnitt 13.
 - Ausnahmen nur für die Migration: manuelle Nummernvergabe, keine Prüfung „Betrag = Anteile ×
   Preis“, Anschrift darf fehlen. Konten, deren Werte nicht zum neuen Buchungsmodell passen, listet
   das Skript als Prüffälle auf.

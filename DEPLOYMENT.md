@@ -344,6 +344,35 @@ dabei. Die Aufgabe liegt auf dem NAS in `/usr/syno/etc/synoschedule.d/root/14.ta
 4. Starten: `$DK compose start`. Die App baut die Projektionen neu auf. Die Login-Sperren gehen
    dabei verloren, das ist unkritisch.
 
+## 13. Migration der Altdaten
+
+Einmalig: Übernahme aus der Access-Datenbank des Altsystems (Schritt 7 im Plan). Die Migration
+läuft **im laufenden Container** mit `coop-manager migrate`; sie schreibt in einer Transaktion und
+bringt die Projektionen selbst auf den neuesten Stand. Kein Stopp, kein Kopieren der Datenbank.
+
+Vorbereitung auf dem eigenen Rechner (`mdbtools`, siehe Logbuch): CSV-Export nach
+`Altdaten/csv/` und die Einzelfälle in `Altdaten/migration.toml` (beides nicht im Repository).
+
+```sh
+./deploy.sh                                               # Stand mit dem Befehl migrate ausrollen
+tar -C Altdaten -c csv/mitglieder.csv csv/mitglieder_hist.csv csv/buchungen.csv migration.toml \
+    | ssh chef@ds218-dls-tail "mkdir -p $D/data/import && tar -C $D/data/import -x --no-same-owner"
+ls -l $D/data/import $D/data/import/csv                   # auf dem NAS: überall „+“ (ACL geerbt)
+$DK exec coop-manager-app-1 coop-manager migrate /data/import/csv /data/import/migration.toml --dry-run
+$DK exec coop-manager-app-1 coop-manager migrate /data/import/csv /data/import/migration.toml
+rm -rf $D/data/import                                     # echte Daten nicht liegen lassen
+```
+
+`migrate` bricht ab, wenn es schon Mitglieder gibt oder das Genossenschaftskonto fehlt, und vor dem
+Speichern, wenn Plan, Aufbau oder Abgleich der Salden etwas melden.
+
+**Erledigt 2026-11-21:** Probelauf und echter Lauf mit denselben Zahlen wie lokal (7d): 287 Personen
+(249 Mitglieder, 11 abgelehnt, 27 ausgeschieden), 288 Buchungen, 1.120 Anteile, 56.000 €;
+1.911 Events mit Akteur `migration`. Danach `healthy`, Saldenliste abgestimmt (Konto 9999
+−56.000 €), 5 Konten mit nicht gebuchtem Ausscheiden (2015, 2016, 2017, 2021, 2023), die die
+Buchhaltung unter „Jahresende“ bucht. Eine Sicherung vorher war nicht nötig, weil in der
+Produktion noch nichts Wichtiges stand. `data/import` ist gelöscht.
+
 ## Updates und Rückfall
 
 ```sh

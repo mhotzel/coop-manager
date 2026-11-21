@@ -3461,3 +3461,27 @@ Summe 1.120 Anteile und 56.000 €, Genossenschaftskonto −56.000 €, „abges
 
 **Geprüft:** `uv run pytest` (594 Tests), `ruff check`, `ruff format --check`, `pyright`;
 `npm run type-check`, `npm run build`.
+
+## 2026-11-21 – Migration 7e: Altdaten in der Produktion
+
+**Was:** Die Migration lief direkt im laufenden Container auf dem NAS statt wie in 7b vorgeschlagen
+lokal auf einer Kopie. Grund: `migrate` liest nur die CSV-Dateien und `migration.toml`, `mdbtools`
+braucht es auf dem NAS nicht. So entfallen Container-Stopp, Kopieren und ACL-Nacharbeit, und es
+läuft genau die ausgerollte Codeversion.
+
+1. `./deploy.sh`: neuer Stand mit `migrate` und Saldenliste; danach `healthy`, `/healthz` ok.
+   Gewartet mit einer `until`-Schleife auf `docker inspect -f '{{.State.Health.Status}}'`.
+2. Keine Sicherung vorher: In der Produktion stand laut Matthias noch nichts Wichtiges.
+3. CSV-Dateien und `migration.toml` per `tar | ssh` nach `data/import/`; die neuen Dateien erben
+   die eingeschränkte ACL des Ordners (`+` in `ls -l`, `synoacltool -get`: chef, IT-Admin).
+4. `docker exec … coop-manager migrate … --dry-run`: dieselben Zahlen wie lokal in 7d.
+5. Nach Matthias' Go der echte Lauf: „Migration gespeichert: 1911 Events.“
+6. Prüfung nur lesend (`sqlite3` mit `?mode=ro`, `account_balances`): 1.911 Events mit Akteur
+   `migration`, 287 Personen in der Mitgliederliste, Saldenliste abgestimmt (1.120 Anteile,
+   56.000 €, Konto 9999 −56.000 €), 5 Konten mit nicht gebuchtem Ausscheiden.
+7. `rm -rf data/import` auf dem NAS.
+
+**Offen für die Buchhaltung:** unter „Jahresende“ das Ausscheiden für 2015, 2016, 2017, 2021 und
+2023 buchen; danach stehen die 650 € als offene Ansprüche unter „Ansprüche“.
+
+**Dokumentiert:** `DEPLOYMENT.md` Abschnitt 13, `Plan.md` (Produktion, 7e erledigt).
