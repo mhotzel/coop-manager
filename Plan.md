@@ -113,7 +113,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 10c: Excel „Saldenliste“ auf der Seite „Reports“ und auf der Seite „Salden“ (erledigt 2026-11-21)
 11. Verlauf der Personendaten (gewünscht 2026-11-21, siehe Abschnitt „Verlauf der Personendaten“)
    - 11a: Backend: `members/history.py`, `GET /api/members/{id}/history`, Tests (erledigt 2026-11-21)
-   - 11b: Frontend: Karte „Verlauf“ auf der Mitgliederseite, Handbuch
+   - 11b: Frontend: Karte „Verlauf“ auf der Mitgliederseite, Handbuch (erledigt 2026-11-21)
 
 ## Entscheidungen
 

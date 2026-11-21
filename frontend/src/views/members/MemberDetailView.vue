@@ -21,6 +21,7 @@ import AddressFields from './AddressFields.vue'
 import ContactFields from './ContactFields.vue'
 import NameFields from './NameFields.vue'
 import AdditionalSharesCard from './AdditionalSharesCard.vue'
+import HistoryCard from './HistoryCard.vue'
 import NoticeCard from './NoticeCard.vue'
 
 // Der Router übergibt :id aus dem Pfad als Prop (siehe props: true in router.ts).
@@ -554,6 +555,8 @@ function generateLines(): void {
           </template>
         </div>
       </div>
+
+      <HistoryCard :member="member" />
     </template>
   </div>
 </template>

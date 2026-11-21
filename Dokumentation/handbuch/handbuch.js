@@ -201,6 +201,16 @@ add(
   ], [1, 3]),
   gap(),
   p('Mit [[Konto anzeigen]] geht es von der Mitgliedsseite zum Konto, mit [[Zur Suche]] zurück zur Suche.'),
+  h2('3.5 Verlauf'),
+  p('Die Karte **Verlauf** unten auf der Mitgliedsseite zeigt nach einem Klick auf [[Verlauf anzeigen]] alle Änderungen an den Personendaten, die neueste zuerst; zuunterst steht der Stand beim Antrag.'),
+  table(['Spalte', 'Bedeutung'], [
+    ['Gültig ab', 'Ab wann die Angabe galt: beim Antrag das Antragsdatum, bei Daten aus dem Altsystem das Datum der dortigen Änderung, sonst der Tag des Speicherns.'],
+    ['Gespeichert', 'Wann die Änderung gespeichert wurde.'],
+    ['Von', 'Wer gespeichert hat. **Migration** steht für die Übernahme aus dem Altsystem.'],
+    ['Was, Vorher, Nachher', 'Welcher Teil sich geändert hat (Name, Anschrift, Kontakt, Adresszeilen, Briefanrede, Keine Post, Hinweise), mit altem und neuem Wert.'],
+  ], [1, 3]),
+  gap(),
+  p('Zulassung, Kündigung, Tod und Buchungen stehen nicht im Verlauf, sondern auf der Mitgliedsseite bzw. auf dem Konto.'),
 )
 
 // 4 Konto und Buchungen

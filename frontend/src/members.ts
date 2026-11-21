@@ -345,3 +345,30 @@ export function changeMailPreference(memberId: string, noMail: boolean): Promise
 export function changeNotes(memberId: string, notes: string): Promise<MemberDetail> {
   return api<MemberDetail>('/api/members/change-notes', { method: 'POST', body: { member_id: memberId, notes } })
 }
+
+// --- Verlauf der Personendaten ---
+
+// Muss zu HistoryEntry im Backend passen (members/history.py).
+export interface HistoryEntry {
+  recorded_at: string // Zeitpunkt des Speicherns, ISO mit Zeitzone (UTC)
+  valid_from: string | null // ab wann gültig; null = ab dem Tag des Speicherns
+  actor: string // Name des Benutzers, „Migration“ oder „Kommandozeile“
+  part: string // z. B. „Anschrift“
+  before: string
+  after: string
+}
+
+export function getHistory(memberId: string): Promise<HistoryEntry[]> {
+  return api<HistoryEntry[]>(`/api/members/${encodeURIComponent(memberId)}/history`)
+}
+
+// Zeitpunkt in Ortszeit, z. B. „21.11.2026, 14:55“; Date rechnet die UTC-Zeit selbst um.
+export function formatDateTime(isoDateTime: string): string {
+  return new Date(isoDateTime).toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}

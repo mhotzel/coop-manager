@@ -3513,3 +3513,20 @@ ohne Nutzen. Das ist ein schönes Beispiel dafür, dass die Events selbst die Hi
 Kopie der Liste.
 
 **Geprüft:** `uv run pytest` (602 Tests), `ruff check`, `ruff format --check`, `pyright`.
+
+## 2026-11-21 – Verlauf der Personendaten, Teil 2: Karte „Verlauf“ (11b)
+
+**Was:**
+
+- `frontend/src/members.ts`: Schnittstelle `HistoryEntry`, `getHistory(memberId)` und
+  `formatDateTime` (Ortszeit; `new Date(...)` rechnet die UTC-Zeit aus dem Backend selbst um,
+  `toLocaleString('de-DE', …)` schreibt sie deutsch).
+- `frontend/src/views/members/HistoryCard.vue`: eigene Komponente wie `NoticeCard`. Zugeklappt mit
+  „Verlauf anzeigen“; erst beim Aufklappen wird geladen. Sie bekommt das ganze Mitglied als Prop:
+  Nach jedem Speichern liefert die Seite ein neues Objekt, `watch` bemerkt das und lädt den
+  offenen Verlauf neu. Tabelle: Gültig ab, Gespeichert, Von, Was, Vorher, Nachher; mehrzeilige
+  Hinweise mit `white-space: pre-line`.
+- `MemberDetailView.vue`: Karte unten auf der Seite.
+- Benutzerhandbuch: Abschnitt 3.5 „Verlauf“, neu erzeugt.
+
+**Geprüft:** `npm run type-check`, `npm run build`.
