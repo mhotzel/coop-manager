@@ -334,19 +334,21 @@ add(
   ], [1, 3]),
   gap(),
   p('Unter der Tabelle stehen die Summen. Oben zeigt ein **blauer** Hinweis, dass die Summe der Mitgliedskonten zum Genossenschaftskonto passt; ein **roter** Hinweis zeigt eine Differenz. Ein **gelber** Hinweis nennt die Konten mit nicht gebuchtem Ausscheiden; dann zuerst unter [[Jahresende]] buchen.'),
+  p('Der Link **Als Excel herunterladen** liefert dieselbe Liste mit Stichtag und Häkchen als Excel-Datei; sie steht auch unter [[Reports]].'),
   note('Die Liste unter [[Ansprüche]] zeigt nur Konten mit gebuchtem Ausscheiden. Die Saldenliste zeigt alle Konten, auch wenn ein Ausscheiden noch nicht gebucht ist. Deshalb kann die Summe der heutigen Mitglieder kleiner sein als die Summe aller Salden.'),
 )
 
 // 7 Reports
 add(
   h1('7 Reports'),
-  p('Im Menü [[Reports]] gibt es vier Listen als Excel-Datei. Ein Klick auf den Namen lädt die Datei herunter.'),
+  p('Im Menü [[Reports]] gibt es fünf Listen als Excel-Datei. Ein Klick auf den Namen lädt die Datei herunter.'),
   h2('7.1 Listen zum Stichtag'),
-  p('Die ersten drei Listen gelten für einen **Stichtag** (vorbelegt: heute). Es zählen die Buchungen mit Wertstellung bis zum Stichtag und der Status an diesem Tag.'),
+  p('Die ersten vier Listen gelten für einen **Stichtag** (vorbelegt: heute). Es zählen die Buchungen mit Wertstellung bis zum Stichtag und der Status an diesem Tag.'),
   table(['Liste', 'Inhalt'], [
     ['Mitgliederliste nach GenG', 'Alle Mitglieder einschließlich Gekündigter, Verstorbener und Ausgeschlossener bis zu ihrem Ausscheiden: Nr., Name, Anschrift, Eintritt, Betrag und Anteile (§ 30 GenG). Nach Mitgliedsnummer.'],
     ['Liste zur Generalversammlung', 'Alle Stimmberechtigten nach Namen sortiert, mit Spalten für „Vertreten durch“ und die Unterschrift; zum Ausdrucken quer auf A4. Ausgeschlossene fehlen. Stichtag = Tag der Versammlung.'],
     ['Seriendruck-Liste', 'Dieselben Personen wie zur Generalversammlung, ohne „keine Post“, mit Adresszeilen und Briefanrede für die Einladung. Die Spaltennamen entsprechen dem Altsystem, damit die Word-Vorlagen weiter passen.'],
+    ['Saldenliste', 'Alle Mitgliedskonten mit Saldo: Anteile, Saldo, Geschäftsguthaben, Anspruch und Hinweis, darunter Summen und das Genossenschaftskonto mit „abgestimmt“. Wie die Seite [[Salden]] (Abschnitt 6.5).'],
   ], [1.2, 3]),
   gap(),
   note('Ist das Ausscheiden zum letzten 31.12. noch nicht gebucht, erscheint auf der Seite ein gelber Hinweis; GenG-Liste und Liste zur Generalversammlung tragen ihn auch in Zeile 3. Dann zuerst unter [[Jahresende]] buchen.'),

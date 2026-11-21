@@ -12,6 +12,9 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from ..accounts.balances import BalanceList
+from ..accounts.domain import COOPERATIVE_ACCOUNT_NUMBER
+from ..members.status import STATUSES
 from .services import AssemblyRow, EventRow, GengRow, MailingRow
 
 Columns = tuple[tuple[str, int, str], ...]
@@ -69,6 +72,66 @@ EVENT_COLUMNS: Columns = (
     ("Gegenkonto", 12, "0"),
     ("Name Gegenkonto", 35, "@"),
 )
+
+
+BALANCE_COLUMNS: Columns = (
+    ("Nr.", 8, "0"),
+    ("Name", 35, "@"),
+    ("Status", 14, "@"),
+    ("Anteile", 10, "0"),
+    ("Saldo", 14, '#,##0.00 "€"'),
+    ("Geschäftsguthaben", 18, '#,##0.00 "€"'),
+    ("Anspruch", 14, '#,##0.00 "€"'),
+    ("Hinweis", 28, "@"),
+)
+NOT_BOOKED = "Ausscheiden nicht gebucht"
+
+
+def account_balances(result: BalanceList) -> bytes:
+    """Saldenliste als .xlsx: je Mitgliedskonto eine Zeile, darunter Summen und Abstimmung.
+
+    In Zeile 3 steht, was zu prüfen ist: eine Differenz zum Genossenschaftskonto oder Konten mit
+    nicht gebuchtem Ausscheiden (siehe Plan: Saldenliste).
+    """
+    notes = []
+    if not result.balanced:
+        notes.append("Nicht abgestimmt: Summe der Mitgliedskonten und Genossenschaftskonto ergeben nicht 0.")
+    not_booked = sum(1 for e in result.entries if e.exit_not_booked)
+    if not_booked:
+        accounts = "1 Konto" if not_booked == 1 else f"{not_booked} Konten"
+        notes.append(f"{accounts}: {NOT_BOOKED} (Seite Jahresende).")
+    workbook, sheet = _new_sheet("Saldenliste", "Saldenliste der Mitgliedskonten", result.day, notes, BALANCE_COLUMNS)
+    for e in result.entries:
+        values = [
+            e.member_number,
+            e.name,
+            STATUSES.get(e.status or "", ""),
+            e.shares,
+            e.balance / 100,
+            e.share_capital / 100,
+            e.claim / 100,
+            NOT_BOOKED if e.exit_not_booked else "",
+        ]
+        _append(sheet, BALANCE_COLUMNS, values)
+    last_column = get_column_letter(len(BALANCE_COLUMNS))
+    sheet.auto_filter.ref = f"A{HEADER_ROW}:{last_column}{max(sheet.max_row, HEADER_ROW)}"
+
+    totals = [
+        None,
+        "Summe",
+        None,
+        result.total_shares,
+        result.total_balance / 100,
+        result.total_share_capital / 100,
+        result.total_claim / 100,
+        None,
+    ]
+    _append(sheet, BALANCE_COLUMNS, totals)
+    for cell in sheet[sheet.max_row]:
+        cell.font = Font(bold=True)
+    coop = [None, f"Genossenschaftskonto {COOPERATIVE_ACCOUNT_NUMBER}", None, None, result.cooperative_balance / 100]
+    _append(sheet, BALANCE_COLUMNS, [*coop, None, None, "abgestimmt" if result.balanced else "NICHT abgestimmt"])
+    return _save(workbook)
 
 
 def members_geng(rows: list[GengRow], day: date, warnings: list[str]) -> bytes:

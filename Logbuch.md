@@ -3437,3 +3437,27 @@ Genossenschaft. Neuer Schritt 10 und Abschnitt „Saldenliste“ in `Plan.md`.
   Jahresabschluss (9.4); neu erzeugt mit `npm run build` in `Dokumentation/handbuch`.
 
 **Geprüft:** `npm run type-check`, `npm run build`. Ansicht im Probelauf-Bestand durch Matthias.
+
+## 2026-11-21 – Saldenliste, Teil 3: Excel (10c)
+
+**Was:**
+
+- `reports/excel.py`: `account_balances(result)` mit `BALANCE_COLUMNS` (Nr., Name, Status,
+  Anteile, Saldo, Geschäftsguthaben, Anspruch, Hinweis), aufgebaut wie die anderen Listen
+  (`_new_sheet`: Titel, Stichtag, Hinweiszeile 3, Kopfzeile in Zeile 4, fixiert). Zeile 3 nennt
+  eine Differenz zum Genossenschaftskonto oder die Zahl der Konten mit nicht gebuchtem
+  Ausscheiden. Autofilter auf der Kopfzeile; darunter fett die Summenzeile und das
+  Genossenschaftskonto mit „abgestimmt“ bzw. „NICHT abgestimmt“.
+- `reports/api.py`: `GET /api/reports/account-balances?reference_date=…&include_zero=…`; die
+  Daten kommen aus `accounts/balances.py` (10a), es wird nichts doppelt gerechnet.
+- Frontend: Link „Saldenliste“ auf der Seite „Reports“ (Stichtag der Seite) und „Als Excel
+  herunterladen“ auf der Seite „Salden“ (Stichtag und Häkchen der Seite).
+- Tests in `tests/test_reports.py` (2): Aufbau mit Summen und Abstimmung; Hinweis bei nicht
+  gebuchtem Ausscheiden.
+- Benutzerhandbuch: 6.5 und 7.1 ergänzt, neu erzeugt.
+
+**Gegenprobe am Probelauf-Bestand** (31.12.2025): Zeile 3 „5 Konten: Ausscheiden nicht gebucht“,
+Summe 1.120 Anteile und 56.000 €, Genossenschaftskonto −56.000 €, „abgestimmt“.
+
+**Geprüft:** `uv run pytest` (594 Tests), `ruff check`, `ruff format --check`, `pyright`;
+`npm run type-check`, `npm run build`.

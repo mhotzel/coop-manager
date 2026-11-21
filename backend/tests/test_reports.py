@@ -483,3 +483,56 @@ def test_events_download(client, db, setup, register, login):
     assert row[:3] == ["Eintritt", 1, "Muster, Erika"]
     assert row[4:] == [3, 150, 9999, "Musterladen eG"]
     assert sheet.auto_filter.ref == "A4:H5"
+
+
+# --- Saldenliste als Excel (10c) ---
+
+BALANCE_HEADERS = ["Nr.", "Name", "Status", "Anteile", "Saldo", "Geschäftsguthaben", "Anspruch", "Hinweis"]
+
+
+def balance_sheet(client, day: str):
+    response = client.get("/api/reports/account-balances", params={"reference_date": day})
+    assert response.status_code == 200
+    assert f"Saldenliste-{day}.xlsx" in response.headers["content-disposition"]
+    sheet = load_workbook(BytesIO(response.content)).active
+    assert sheet is not None
+    return sheet
+
+
+def test_balance_list_download(client, db, setup, register, login):
+    member(db, "Muster")
+    member(db, "Beispiel")
+    register("rita", ACCOUNTING_READONLY)
+    login("rita")
+
+    sheet = balance_sheet(client, "2026-12-31")
+
+    assert sheet["A1"].value == "Saldenliste der Mitgliedskonten"
+    assert sheet["A2"].value == "Stichtag: 31.12.2026"
+    assert sheet["A3"].value is None  # abgestimmt, nichts zu prüfen
+    assert [cell.value for cell in sheet[4]] == BALANCE_HEADERS
+    assert [cell.value for cell in sheet[5]] == [1, "Muster, Erika", "Mitglied", 3, 150, 150, 0, None]
+    assert [cell.value for cell in sheet[7]] == [None, "Summe", None, 6, 300, 300, 0, None]
+    coop_row = [cell.value for cell in sheet[8]]
+    assert coop_row[1:] == ["Genossenschaftskonto 9999", None, None, -300, None, None, "abgestimmt"]
+
+
+def test_balance_list_shows_exit_not_booked(client, db, setup, register, login):
+    member_id = member(db)
+    services.give_notice(db, member_id, date(2026, 11, 20), YEAR_END, TODAY, actor="test")
+    register("rita", ACCOUNTING_READONLY)
+    login("rita")
+
+    sheet = balance_sheet(client, "2027-01-15")
+
+    assert sheet["A3"].value == "1 Konto: Ausscheiden nicht gebucht (Seite Jahresende)."
+    assert [cell.value for cell in sheet[5]] == [
+        1,
+        "Muster, Erika",
+        "ausgeschieden",
+        3,
+        150,
+        150,
+        0,
+        "Ausscheiden nicht gebucht",
+    ]

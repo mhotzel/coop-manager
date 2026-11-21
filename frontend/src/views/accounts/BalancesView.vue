@@ -11,6 +11,11 @@ const includeZero = ref(false)
 const result = ref<BalanceList | null>(null) // null: noch nicht geladen
 const error = ref('')
 
+// Dieselbe Liste als Excel-Datei; ein einfacher Link wie auf der Seite „Reports“ (GET mit Session-Cookie).
+const excelUrl = computed(
+  () => `/api/reports/account-balances?reference_date=${day.value}&include_zero=${includeZero.value}`,
+)
+
 // Wie viele Konten zum Stichtag ausgeschieden sind, aber noch Anteile haben (Seite „Jahresende“).
 const notBooked = computed(() => (result.value?.entries ?? []).filter((e) => e.exit_not_booked).length)
 
@@ -45,6 +50,7 @@ watch(
           <input v-model="includeZero" type="checkbox" />
           auch Konten mit Saldo 0
         </label>
+        <a v-if="day" :href="excelUrl" download>Als Excel herunterladen</a>
       </div>
 
       <div v-if="error" class="status-box error"><p>{{ error }}</p></div>

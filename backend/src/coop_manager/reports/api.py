@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
 
+from ..accounts import balances
 from ..accounts.schemas import YEAR_MAX, YEAR_MIN
 from ..db import Database, get_db
 from ..users.access import require_role
@@ -49,6 +50,13 @@ def members_mailing(reference_date: date, db: Db, user: Reader) -> Response:
     """Seriendruck-Liste zum Stichtag, z. B. für die Einladung zur Generalversammlung."""
     content = excel.members_mailing(services.members_mailing(db, reference_date), reference_date)
     return _xlsx(content, f"Seriendruck-{reference_date.isoformat()}.xlsx")
+
+
+@router.get("/account-balances")
+def account_balances(reference_date: date, db: Db, user: Reader, include_zero: bool = False) -> Response:
+    """Saldenliste zum Stichtag; ohne `include_zero` nur Konten mit Saldo ≠ 0."""
+    content = excel.account_balances(balances.account_balances(db, reference_date, include_zero))
+    return _xlsx(content, f"Saldenliste-{reference_date.isoformat()}.xlsx")
 
 
 @router.get("/fiscal-year-events")

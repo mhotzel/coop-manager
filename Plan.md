@@ -110,7 +110,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 10. Saldenliste (gewünscht 2026-11-21, siehe Abschnitt „Saldenliste“)
    - 10a: Backend: `accounts/balances.py`, `GET /api/accounts/balances`, Tests (erledigt 2026-11-21)
    - 10b: Frontend: Seite „Salden“ mit Stichtag, Tabelle und Summenzeile, Menüeintrag (erledigt 2026-11-21)
-   - 10c: Excel „Saldenliste“ auf der Seite „Reports“
+   - 10c: Excel „Saldenliste“ auf der Seite „Reports“ und auf der Seite „Salden“ (erledigt 2026-11-21)
 
 ## Entscheidungen
 

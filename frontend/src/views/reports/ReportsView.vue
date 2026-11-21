@@ -14,6 +14,7 @@ const referenceDate = ref(todayIso())
 const gengUrl = computed(() => `/api/reports/members-geng?reference_date=${referenceDate.value}`)
 const assemblyUrl = computed(() => `/api/reports/members-assembly?reference_date=${referenceDate.value}`)
 const mailingUrl = computed(() => `/api/reports/members-mailing?reference_date=${referenceDate.value}`)
+const balancesUrl = computed(() => `/api/reports/account-balances?reference_date=${referenceDate.value}`)
 
 // Geschäftsjahr für die Auswertung der Vorgänge. Vorbelegt mit dem Vorjahr, denn ausgewertet wird
 // meist ein abgeschlossenes Jahr. v-model.number macht aus dem eingegebenen Text eine Zahl.
@@ -75,6 +76,12 @@ watch(
           <a v-if="referenceDate" :href="mailingUrl" download>Seriendruck-Liste</a>
           <span v-else>Seriendruck-Liste</span>
           – Adresszeilen und Briefanrede für die Einladung, ohne „keine Post“ (Feldnamen wie im Altsystem)
+        </li>
+        <li>
+          <a v-if="referenceDate" :href="balancesUrl" download>Saldenliste</a>
+          <span v-else>Saldenliste</span>
+          – Guthaben aller Mitgliedskonten mit Geschäftsguthaben und Anspruch, abgestimmt gegen das
+          Genossenschaftskonto
         </li>
       </ul>
 
