@@ -4,6 +4,7 @@ import argparse
 import getpass
 import sqlite3
 import sys
+from datetime import date
 from pathlib import Path
 
 from .accounts import services as accounts
@@ -12,6 +13,9 @@ from .config import load_settings
 from .core import DomainError
 from .core.money import format_euro, parse_euro
 from .db import EVENTSTORE_DB, Database, backup_event_store, prepare
+from .migration import check, run
+from .migration.plan import make_plan
+from .migration.source import load_decisions, load_legacy
 from .system_settings import services as system_settings
 from .users import services
 from .users.domain import ADMIN
@@ -90,6 +94,48 @@ def backup(target: Path | None) -> None:
     print(f"Event Store mit {count} Events nach {target} gesichert.")
 
 
+def migrate(csv_dir: Path, decisions_path: Path, dry_run: bool) -> None:
+    """Übernimmt die Altdaten (Schritt 7, siehe Plan); mit `dry_run` wird nichts geschrieben.
+
+    Ablauf: Plan rechnen, im Speicher aufbauen, Salden abgleichen, Bericht ausgeben, speichern.
+    Bei Problemen, Fehlern oder Abweichungen bricht der Befehl vor dem Speichern ab.
+    """
+    try:
+        decisions = load_decisions(decisions_path)
+        legacy = load_legacy(csv_dir, decisions.corrections)
+    except (OSError, ValueError, KeyError) as exc:
+        sys.exit(f"Altdaten nicht lesbar: {exc!r}")
+    plan = make_plan(legacy, decisions)
+    if plan.problems:
+        _fail("Probleme im Migrationsplan", plan.problems)
+
+    today = date.today()
+    db = open_db()
+    try:
+        try:
+            built = run.build(db, plan, today)
+        except DomainError as exc:
+            sys.exit(str(exc))
+        if built.errors:
+            _fail("Fehler beim Aufbau", built.errors)
+        differences = check.compare(legacy, built.ledger)
+        if differences:
+            _fail("Abweichungen zwischen Altsystem und App", differences)
+        print("\n".join(check.summary(plan, built, today)))
+        if dry_run:
+            print("Probelauf: nichts geschrieben.")
+            return
+        count = run.save(db, built)
+    finally:
+        db.close()
+    print(f"Migration gespeichert: {count} Events.")
+
+
+def _fail(title: str, items: list[str]) -> None:
+    """Bricht mit einer Liste ab (Ausgabe auf stderr, Rückgabecode 1)."""
+    sys.exit("\n".join([f"{title}:", *(f"  {item}" for item in items)]))
+
+
 def main() -> None:
     """Einstiegspunkt für `coop-manager`: liest den Unterbefehl und führt ihn aus."""
     parser = argparse.ArgumentParser(prog="coop-manager")
@@ -111,6 +157,13 @@ def main() -> None:
         "target", nargs="?", type=Path, help="Zieldatei, Standard: <Datenverzeichnis>/backup/eventstore.sqlite"
     )
 
+    migrate_parser = commands.add_parser("migrate", help="Altdaten aus dem Altsystem übernehmen (einmalig)")
+    migrate_parser.add_argument(
+        "csv_dir", type=Path, help="Ordner mit mitglieder.csv, mitglieder_hist.csv und buchungen.csv"
+    )
+    migrate_parser.add_argument("decisions", type=Path, help="Einzelfälle, z. B. Altdaten/migration.toml")
+    migrate_parser.add_argument("--dry-run", action="store_true", help="Probelauf: alles prüfen, nichts schreiben")
+
     args = parser.parse_args()
     if args.command == "create-admin":
         create_admin(args.username, args.full_name)
@@ -122,3 +175,5 @@ def main() -> None:
         create_cooperative_account()
     elif args.command == "backup":
         backup(args.target)
+    elif args.command == "migrate":
+        migrate(args.csv_dir, args.decisions, args.dry_run)

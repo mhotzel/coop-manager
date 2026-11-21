@@ -93,10 +93,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 7. Migration der Altdaten (siehe Abschnitt „Migration der Altdaten“)
    - 7a: Access-Datei analysieren, Einzelfälle mit Matthias entscheiden (erledigt 2026-11-21)
    - 7b: Migrationsevents und Aufbau des Skripts (erledigt 2026-11-21)
-   - 7c: Migrationsskript als CLI-Befehl, Tests mit erfundenen Daten
+   - 7c: Migrationsskript als CLI-Befehl, Tests mit erfundenen Daten (erledigt 2026-11-21)
      - Teil 1: `Member.migrate` und Historie mit `valid_from` (erledigt 2026-11-21)
      - Teil 2: `source.py` und `plan.py` (erledigt 2026-11-21)
-     - Teil 3: `run.py`, `check.py`, CLI-Befehl `migrate`
+     - Teil 3: `run.py`, `check.py`, CLI-Befehl `migrate` (erledigt 2026-11-21)
    - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile
    - 7e: Migration auf dem NAS
 8. Container, Backup per Cron, Deployment auf der Synology

@@ -3324,3 +3324,40 @@ temporären Ordner außerhalb des Repositorys.
   einem geänderten Feld.
 
 **Geprüft:** `uv run pytest` (572 Tests), `ruff check`, `ruff format --check`, `pyright`.
+
+## 2026-11-21 – Migration 7c, Teil 3: Lauf, Abgleich und Befehl `migrate`
+
+**Was:**
+
+- `migration/run.py`: `build` baut Nummernregister, Hauptbuch und Mitglieder mit den normalen
+  Methoden im Speicher auf: je Person anlegen, Nummer und Konto vergeben, Historie,
+  Zulassung und Zahlung bzw. Rücknahme, Kündigung, Tod; dann die Buchungen (vor „Weitere Anteile“
+  die Zeichnung); zuletzt Spende bzw. Umbuchung aller Anteile. Lehnt eine Methode etwas ab, steht
+  es mit Ort in `errors`. `save` speichert alles mit `db.save_all` in einer Transaktion, Akteur
+  `migration`.
+- `migration/check.py`: `compare` rechnet Saldo und Anteile je Konto aus **allen** alten
+  Buchungen und vergleicht mit dem neuen Hauptbuch. Weil sich die übersprungenen Buchungen je
+  Konto zu null aufheben, zeigt der Abgleich auch, dass beim Überspringen nichts verloren ging.
+  `summary` liefert den Bericht in Zahlen.
+- `cli.py`: Befehl `coop-manager migrate <csv-ordner> <migration.toml> [--dry-run]`. Reihenfolge:
+  Plan, Aufbau, Abgleich, Bericht, Speichern. Bei Problemen, Fehlern oder Abweichungen Abbruch
+  mit Rückgabecode 1 vor dem Speichern.
+- `tests/test_migration_run.py`: 11 Tests von den CSV-Dateien bis in den Event Store, auch
+  über die CLI (Probelauf, Speichern, Abbruch).
+
+**Probelauf in einem Wegwerf-Datenverzeichnis** (`CM_DATA_DIR` im temporären Ordner, danach
+gelöscht) mit den echten Daten: `create-cooperative-account`, dann `migrate … --dry-run`: keine
+Probleme, Fehler oder Abweichungen; 249 Mitglieder, 11 abgelehnt, 27 ausgeschieden, Bestand 1.120
+Anteile und 56.000 € wie im Altsystem. Danach echter Lauf: 1.911 Events mit Akteur `migration`,
+82 davon mit `valid_from`; ein zweiter Aufruf wird abgelehnt („Es gibt schon Mitglieder“).
+
+**Python-Details:**
+
+- Ruff `B023`: Ein `lambda` in einer Schleife merkt sich die Variable, nicht ihren Wert. Wird es
+  erst nach der Schleife aufgerufen, sehen alle Lambdas den letzten Wert, ein klassischer Fehler.
+  Hier wurde es zwar sofort aufgerufen, aber `_attempt(built, ort, funktion, *argumente)` ist
+  ohnehin klarer: Die Argumente werden beim Aufruf übergeben, nichts wird „eingefangen“.
+- `sys.exit("Text")` gibt den Text auf stderr aus und beendet mit Rückgabecode 1; ein `finally`
+  davor läuft trotzdem (hier: Datenbank schließen).
+
+**Geprüft:** `uv run pytest` (583 Tests), `ruff check`, `ruff format --check`, `pyright`.

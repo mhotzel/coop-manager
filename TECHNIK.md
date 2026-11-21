@@ -150,7 +150,13 @@ Das Modul `migration/` ist in Schritte geteilt: `source.py` liest die CSV-Dateie
 `mdb-export` (`LegacyPerson`, `LegacyBooking`) und die Einzelfälle aus `migration.toml`
 (`Decisions`); `plan.py` rechnet daraus mit reinen Funktionen den `MigrationPlan` (je Person ein
 `PersonPlan`, je Buchung ein `BookingPlan`, übersprungene Personen und Buchungen, `problems`).
-Geschrieben wird nichts, solange `problems` nicht leer ist.
+Geschrieben wird nichts, solange `problems` nicht leer ist. `run.py` baut daraus mit den
+normalen Methoden Nummernregister, Hauptbuch und Mitglieder im Speicher auf (`build`, Fehler mit
+Ort in `errors`), `check.py` gleicht Saldo und Anteile je Konto mit allen alten Buchungen ab
+(`compare`) und fasst zusammen (`summary`), `run.save` speichert in einer Transaktion mit dem
+Akteur `migration`. Der Befehl `migrate` (siehe Kommandozeile) ruft das der Reihe nach auf und
+bricht vor dem Speichern ab, sobald es Probleme, Fehler oder Abweichungen gibt; er läuft nur, wenn
+das Genossenschaftskonto da ist und es noch keine Mitglieder gibt.
 
 ### Mehrere Aggregate zusammen speichern
 
@@ -307,6 +313,7 @@ aktuellen Ordner oder darüber wird mitgelesen, echte Umgebungsvariablen gehen v
 | `show-settings` | Anteilspreis anzeigen |
 | `create-cooperative-account` | Konto 9999 der Genossenschaft anlegen (einmalig) |
 | `backup [ziel]` | stimmige Kopie des Event Store, Standard `<CM_DATA_DIR>/backup/eventstore.sqlite` |
+| `migrate <csv-ordner> <migration.toml> [--dry-run]` | Altdaten übernehmen (einmalig, Schritt 7); `--dry-run` prüft nur |
 
 ## Logging
 
