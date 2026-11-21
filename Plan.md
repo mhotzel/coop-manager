@@ -93,7 +93,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
    (Stand 2026-11-19: vor der technischen Doku; Doku als Markdown wie `purchase-prices/DEPLOYMENT.md`)
-   - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus
+   - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus (erledigt 2026-11-21)
    - 8b: Dockerfile (zwei Stufen) und `compose.yaml`, lokal getestet
    - 8c: Backup-Befehl für den Event Store
    - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md`
@@ -166,6 +166,13 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   wenn sie die Swagger-Oberfläche unter `/docs` sperrt; `/docs` und `/redoc` werden im Betrieb
   abgeschaltet. HSTS nur bei HTTPS. `X-Forwarded-*` gilt nur von Adressen aus
   `CM_TRUSTED_PROXIES` (uvicorns `ProxyHeadersMiddleware`).
+- **API-Dokumentation nur auf Wunsch** (Stand 2026-11-21): `/docs`, `/redoc` und `/openapi.json`
+  gibt es nur mit `CM_API_DOCS=true`; Standard ist aus, lokal in der `.env` einschalten.
+- **Die gebaute Vue-App liefert FastAPI selbst aus** (Stand 2026-11-21), ein Server, eine Adresse:
+  `CM_FRONTEND_DIR` zeigt auf den Ordner aus `npm run build`; leer heißt keine Oberfläche
+  (Entwicklung mit Vite). Eingehängt wird er als Letztes unter `/`, API-Routen haben Vorrang.
+  Unbekannte Pfade liefern `index.html` (SPA-Fallback, wegen `createWebHistory`), außer unter
+  `/api/`, dort bleibt es beim 404 als JSON. Eigene Cache-Header vorerst nicht.
 - **Python über uv:** uv verwaltet das Python selbst (`uv python install`), damit ein Upgrade der
   Distribution die Umgebung nicht bricht.
 - **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_` (eine vorhandene `.env` wird

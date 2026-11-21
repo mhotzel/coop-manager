@@ -2802,3 +2802,47 @@ Anteilen schuldet. Eine Fehlzahlung ist Fremdgeld. Eine eigene Buchungsart dafü
 Mitgliederliste nach GenG und Jahresauswertung verkompliziert. Heute lässt die App einen solchen
 Eingang ohnehin nicht zu: Eintritt nur bis zu den gezeichneten Anteilen, Rückzahlung nur vor der
 Mitgliedschaft, Auszahlung höchstens bis zum offenen Anspruch.
+
+## 2026-11-21 – Schritt 8a: FastAPI liefert die Vue-App aus, API-Doku abschaltbar
+
+**Was:**
+
+- `config.py` und `.env.example`: zwei neue Einstellungen.
+  - `CM_FRONTEND_DIR`: Ordner mit der gebauten Vue-App (`frontend/dist` nach `npm run build`).
+    Leer heißt: keine Oberfläche ausliefern, in der Entwicklung macht das weiter Vite.
+  - `CM_API_DOCS`: `true` schaltet `/docs`, `/redoc` und `/openapi.json` ein, Standard `false`.
+- `app.py`:
+  - `FastAPI(docs_url=…, redoc_url=…, openapi_url=…)`: ohne Doku stehen alle drei auf `None`.
+  - Klasse `SpaStaticFiles`, abgeleitet von `StaticFiles`: liefert die angefragte Datei, und wenn
+    es sie nicht gibt, `index.html`. Unter `/api/` bleibt ein 404 ein 404 (JSON).
+  - `app.mount("/", SpaStaticFiles(...))` als Letztes in `create_app`.
+- Tests in `test_app.py` (Startseite, Datei, Fallback, `/api` bleibt 404, `/healthz`, Pfade außerhalb
+  des Ordners, Doku aus/an) und `test_config.py`.
+
+**Ausprobiert:**
+
+```bash
+cd frontend && npm run build
+cd ../backend && CM_FRONTEND_DIR=../frontend/dist uv run uvicorn coop_manager.app:app
+```
+
+`curl` auf `/`, `/members/5` (HTML), `/favicon.ico`, die JS-Datei unter `/assets/` (200),
+`/api/gibtsnicht` (404 JSON), `/healthz` (200 JSON).
+
+**Warum so:**
+
+- **SPA-Fallback:** Der Router nutzt `createWebHistory()`, Adressen sehen aus wie `/members/5`.
+  Lädt man sie neu, fragt der Browser den Server danach; diese Datei gibt es nicht. Der Server
+  liefert deshalb `index.html`, und der Vue Router im Browser zeigt die richtige Seite.
+- **`/api/` ausgenommen:** Sonst bekäme das Frontend bei einer falschen API-Adresse HTML statt
+  einer Fehlermeldung.
+- **Mount zuletzt:** Starlette prüft die Routen der Reihe nach. Was unter `/` eingehängt ist, fängt
+  alles, deshalb kommt es nach den API-Routern.
+- **`StaticFiles` statt eigener Dateizugriff:** Es prüft selbst, dass nur Dateien im Ordner
+  ausgeliefert werden (kein `/../.env`).
+- **Fallstrick:** `StaticFiles` wirft Starlettes `HTTPException`. FastAPIs gleichnamige Klasse ist
+  eine Unterklasse davon, ein `except` mit ihr fängt die von Starlette also nicht. Darum der Import
+  aus `starlette.exceptions`.
+- **Doku standardmäßig aus:** sicher ab Werk; die strenge CSP sperrt die Swagger-Oberfläche ohnehin.
+  Bei abgeschalteter Doku und ausgelieferter Oberfläche landet `/docs` wie jede unbekannte Adresse
+  bei `index.html`.

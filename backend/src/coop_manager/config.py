@@ -18,6 +18,8 @@ class Settings:
     session_timeout: int = 1800
     session_cookie_secure: bool = True
     cooperative_account_name: str = "Unser Dorfladen Schlichten eG"
+    frontend_dir: Path | None = None  # None: keine Oberfläche ausliefern (Entwicklung mit Vite)
+    api_docs: bool = False  # /docs, /redoc und /openapi.json; im Betrieb aus
 
 
 def find_env_file() -> str:
@@ -45,6 +47,8 @@ def load_settings() -> Settings:
         session_timeout=int(env.get("CM_SESSION_TIMEOUT", "1800")),
         session_cookie_secure=_bool(env.get("CM_SESSION_COOKIE_SECURE", "true")),
         cooperative_account_name=env.get("CM_COOPERATIVE_ACCOUNT_NAME", "Unser Dorfladen Schlichten eG"),
+        frontend_dir=_path_or_none(env.get("CM_FRONTEND_DIR", "")),
+        api_docs=_bool(env.get("CM_API_DOCS", "false")),
     )
 
 
@@ -58,6 +62,11 @@ def _read_env_file(path: str) -> dict[str, str]:
 def _list(value: str) -> tuple[str, ...]:
     """Zerlegt eine mit Komma getrennte Liste, leere Einträge fallen weg."""
     return tuple(item.strip() for item in value.split(",") if item.strip())
+
+
+def _path_or_none(value: str) -> Path | None:
+    """Ein leerer Text heißt „nicht gesetzt“."""
+    return Path(value) if value.strip() else None
 
 
 def _bool(value: str) -> bool:

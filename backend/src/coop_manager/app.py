@@ -5,7 +5,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import Response
+from starlette.types import Scope
 
 from .accounts import api as accounts_api
 from .config import Settings, load_settings
@@ -38,8 +42,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 def create_app(settings: Settings | None = None, projectors: Sequence[Projector] = PROJECTORS) -> FastAPI:
     """Baut die FastAPI-App: Einstellungen, Logging, Session, Security-Header, Fehler-Handler, Router."""
-    app = FastAPI(title="coop-manager", lifespan=lifespan)
-    app.state.settings = settings or load_settings()
+    settings = settings or load_settings()
+    # Ohne Doku stehen alle drei auf None und sind damit abgeschaltet.
+    docs = settings.api_docs
+    app = FastAPI(
+        title="coop-manager",
+        lifespan=lifespan,
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
+    )
+    app.state.settings = settings
     init_logging(app.state.settings.log_level)
     app.state.projectors = projectors
     init_session(app, app.state.settings)
@@ -56,7 +69,30 @@ def create_app(settings: Settings | None = None, projectors: Sequence[Projector]
         """Lebenszeichen für Docker und Monitoring."""
         return {"status": "ok"}
 
+    # Zuletzt einhängen: Routen werden der Reihe nach geprüft, /api und /healthz haben so Vorrang.
+    if settings.frontend_dir is not None:
+        app.mount("/", SpaStaticFiles(directory=settings.frontend_dir), name="frontend")
+
     return app
+
+
+class SpaStaticFiles(StaticFiles):
+    """Liefert die gebaute Vue-App aus (SPA = Single Page Application).
+
+    Gibt es die angefragte Datei nicht, kommt `index.html`: Adressen wie `/members/5` kennt nur der
+    Vue Router im Browser, der Server muss beim Neuladen trotzdem die App liefern. Ausnahme `/api/…`:
+    Eine unbekannte API-Adresse bleibt ein 404 als JSON. Vor Pfaden wie `/../.env` schützt
+    `StaticFiles` selbst.
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        """Die Datei zu `path`, sonst `index.html`; unter `api/` bleibt es beim 404."""
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code != 404 or path == "api" or path.startswith("api/"):
+                raise
+            return await super().get_response("index.html", scope)
 
 
 def init_session(app: FastAPI, settings: Settings) -> None:

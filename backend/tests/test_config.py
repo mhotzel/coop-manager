@@ -75,3 +75,21 @@ def test_env_file_is_searched_upwards(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path / "backend")
 
     assert find_env_file() == str(tmp_path / ".env")
+
+
+def test_frontend_dir_and_api_docs_have_defaults(monkeypatch):
+    monkeypatch.delenv("CM_FRONTEND_DIR", raising=False)
+    monkeypatch.delenv("CM_API_DOCS", raising=False)
+
+    settings = load_settings()
+    assert settings.frontend_dir is None
+    assert settings.api_docs is False
+
+
+def test_frontend_dir_and_api_docs_come_from_environment(monkeypatch):
+    monkeypatch.setenv("CM_FRONTEND_DIR", "/app/frontend")
+    monkeypatch.setenv("CM_API_DOCS", "true")
+
+    settings = load_settings()
+    assert settings.frontend_dir == Path("/app/frontend")
+    assert settings.api_docs is True
