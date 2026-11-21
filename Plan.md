@@ -256,6 +256,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 
 - **Antragsteller:** Die Person wird mit Eingang der Beitrittserklärung erfasst, mit Datum und
   Zahl der gezeichneten Anteile.
+- **Keine Höchstzahl an Anteilen je Mitglied** (geklärt 2026-11-21): Die Satzung kennt keine
+  Grenze, die App prüft daher keine.
 - **Zulassung durch den Vorstand (§ 15 GenG)** ist ein eigener Schritt mit Beschlussdatum.
   Mitglied wird die Person erst, wenn Zulassung und Geldeingang vorliegen, in beliebiger
   Reihenfolge. **Eintrittsdatum ist das spätere der beiden Daten.**
@@ -399,8 +401,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   wer wann welchen Wert gesetzt hat. Nicht zu verwechseln mit `config.Settings` (technische
   Konfiguration aus der `.env`). Ohne Event ist der Anteilspreis nicht festgelegt, Buchungen mit
   Betrag sind dann nicht möglich.
-- **Vorerst nur per Kommandozeile:** `coop-manager set-share-price 50,00` und `show-settings`, wie
-  `create-admin`. Die Seite „Einstellungen“ für den Admin kommt später.
+- **Nur per Kommandozeile:** `coop-manager set-share-price 50,00` und `show-settings`, wie
+  `create-admin`. Eine Seite „Einstellungen“ in der Oberfläche gibt es bewusst nicht
+  (Stand 2026-11-21): Der Anteilspreis ändert sich kaum je, die CLI reicht.
 
 ### Mitglieder im Modell (Schritt 4)
 
@@ -935,16 +938,13 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 
 ## Offene Punkte
 
-- **Höchstzahl an Anteilen je Mitglied:** Steht in der Satzung eine Grenze? Bis zur Klärung prüft
-  die App keine.
+- Derzeit keine.
 
 ## Mögliche Weiterentwicklungen
 
 - **Eintrittsgeld** (Satzung 2.3), falls die Generalversammlung eines beschließt: eigene
   Buchungsart ohne Anteile, Zuführung zu den Rücklagen.
 - **Rückvergütung** (Satzung 2.6) über die Mitgliedskonten.
-- **Seite „Einstellungen“ für den Admin**, um den Anteilspreis in der Oberfläche zu ändern (bisher
-  nur per CLI).
 - Mehrere Rollen je Benutzer statt mehrerer Benutzerkonten je Person.
 - Späteste Absendung der Einladung zur GV aus dem GV-Datum berechnen (Satzung 3.1: zwei Wochen
   plus zwei Werktage).

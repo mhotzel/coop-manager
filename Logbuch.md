@@ -3602,3 +3602,11 @@ bis die Auszahlung nach der Satzung zulässig ist.
 
 **Merke:** Vorher war Matthias versehentlich in der Testumgebung, dort gab es die Fälle nicht.
 Bei Fragen zu echten Daten zuerst klären, welche Umgebung gemeint ist.
+
+## 2026-11-21 – Zwei offene Fragen entschieden
+
+**Was:** Zwei Entscheidungen von Matthias in `Plan.md` eingetragen. Es gibt **keine Höchstzahl an
+Anteilen** je Mitglied, die App prüft keine. Der **Anteilspreis** bleibt eine Sache der
+Kommandozeile (`coop-manager set-share-price`), eine Seite „Einstellungen“ ist nicht geplant.
+Damit sind die „Offenen Punkte“ leer, und die Idee steht nicht mehr unter „Mögliche
+Weiterentwicklungen“.
