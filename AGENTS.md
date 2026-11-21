@@ -16,6 +16,6 @@
   Dokumentation und Kommentare für Matthias auf Deutsch.
 - **Vorbild:** Event Store, Projektionen, Backup und Deployment wie im Projekt `purchase-prices`
   (lokal `../purchase-prices`).
-- **Datenschutz:** `Beispieldaten/` enthält echte Mitgliederdaten und ist per `.gitignore`
-  ausgeschlossen. Daraus nichts in das Repository, in Tests oder Fixtures übernehmen; Testdaten
-  sind erfunden.
+- **Datenschutz:** Echte Mitgliederdaten (früher in `Beispieldaten/` und `Altdaten/`, beide per
+  `.gitignore` ausgeschlossen) und Daten aus der Produktion gehören nie in das Repository, in Tests
+  oder Fixtures; Testdaten sind erfunden.

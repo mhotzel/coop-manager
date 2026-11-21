@@ -3610,3 +3610,16 @@ Anteilen** je Mitglied, die App prüft keine. Der **Anteilspreis** bleibt eine S
 Kommandozeile (`coop-manager set-share-price`), eine Seite „Einstellungen“ ist nicht geplant.
 Damit sind die „Offenen Punkte“ leer, und die Idee steht nicht mehr unter „Mögliche
 Weiterentwicklungen“.
+
+## 2026-11-21 – Altdaten und Beispieldaten aus dem Projektordner entfernt
+
+**Was:** Matthias hat die Ordner `Altdaten/` und `Beispieldaten/` gelöscht und ihren Inhalt
+gesondert archiviert. Im Repository waren sie nie (`.gitignore`). `Plan.md` (Migration, „Archiv“)
+und die Datenschutzregel in `AGENTS.md` sind angepasst.
+
+**Warum die Einträge in `.gitignore` und `.dockerignore` bleiben:** Sie kosten nichts. Legt jemand
+die Ordner wieder an, etwa für eine Rückfrage zur Migration, werden sie weiter nicht eingecheckt
+und nicht an Docker geschickt.
+
+**Warum die alten Verweise auf `Altdaten/…` bleiben:** Plan, DEPLOYMENT und Logbuch beschreiben dort,
+wie die Migration lief. Das bleibt als Geschichte richtig.

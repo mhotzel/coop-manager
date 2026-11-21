@@ -877,8 +877,10 @@ Das Datum 1899-12-30 ist der Nullwert von Access und gilt als leer.
   Preis“, Anschrift darf fehlen. Konten, deren Werte nicht zum neuen Buchungsmodell passen, listet
   das Skript als Prüffälle auf.
 - **Ablauf:** wiederholbares Migrationsskript für Probeläufe, automatischer Abgleich der Salden und
-  Anteile je Konto zwischen alt und neu, Umstellung zu einem Stichtag. Access-Datei und
-  Excel-Export bleiben als Archiv erhalten.
+  Anteile je Konto zwischen alt und neu, Umstellung zu einem Stichtag.
+- **Archiv** (Stand 2026-11-21): Nach der Migration sind `Altdaten/` und `Beispieldaten/` aus dem
+  Projektordner gelöscht. Access-Datei, Excel-Export, `migration.toml` und `Entscheidungen.md` hat
+  Matthias gesondert archiviert. Maßgeblich ist seitdem der Event Store der Produktion.
 
 ### Benutzerhandbuch
 
