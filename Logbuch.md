@@ -3173,3 +3173,21 @@ ausgeführt.
 
 Damit ist Schritt 8 (Container, Backup, Deployment) abgeschlossen. Die App läuft unter
 `https://mitgliederdb.dorfladen-schlichten.de`.
+
+## 2026-11-21 – Technische Dokumentation
+
+**Was:** `TECHNIK.md` im Hauptordner, als Markdown wie `DEPLOYMENT.md` (nur die Benutzer-Doku ist
+Word). Inhalt: Überblick mit Bild der Kette Browser → Proxy → Container → SQLite, Verzeichnisse,
+Schichten im Backend (`api` → `services` → `domain`, `projections`), Event Sourcing (Bausteine,
+Streams mit Subject, alle Eventtypen, `save_all` mit Wiederholung bei `ConcurrencyError`,
+Projektionen und Schemaversion, Ablauf beim Start), Datenbanken, API-Regeln mit Übersicht der
+Endpunkte, Sicherheit, Frontend, Konfiguration (`CM_*`), CLI, Logging, Tests und Rezepte für häufige
+Änderungen. `README.md` verweist darauf.
+
+**Wie:** Aus dem Code zusammengetragen, nicht aus dem Gedächtnis: Eventtypen per `grep` auf
+`@on("…")` und `_record("…")`, Routen per `grep` auf `@router`, Security-Header, Rollenprüfung im
+Router und Cookie-Einstellungen direkt in den Dateien nachgesehen.
+
+**Warum eigene Datei statt mehr `Plan.md`:** `Plan.md` hält Entscheidungen und ihre Gründe fest,
+`TECHNIK.md` beschreibt den Ist-Zustand des Codes zum Nachschlagen. Ändert sich der Aufbau, wird
+`TECHNIK.md` angepasst.
