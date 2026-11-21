@@ -84,9 +84,9 @@ onUnmounted(() => {
 
 <template>
   <header>
-    <div class="logo-container">
+    <RouterLink :to="{ name: 'home' }" class="logo-container" title="Zur Startseite">
       <img :src="logoUrl" alt="Unser Dorfladen Schlichten" />
-    </div>
+    </RouterLink>
     <div class="header-title">
       <p>Mitgliederverwaltung</p>
     </div>

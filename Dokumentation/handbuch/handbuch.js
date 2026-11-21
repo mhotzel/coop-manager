@@ -109,7 +109,7 @@ add(
   ], [1, 3]),
   gap(),
   h2('1.3 Aufbau der Oberfläche'),
-  p('Oben stehen das Logo, der angemeldete Benutzer und die Knöpfe [[Kennwort ändern]] und [[Abmelden]]. Links steht das Menü (auf dem Handy hinter „☰ Menü“):'),
+  p('Oben stehen das Logo, der angemeldete Benutzer und die Knöpfe [[Kennwort ändern]] und [[Abmelden]]. Ein Klick auf das Logo führt zur Startseite. Links steht das Menü (auf dem Handy hinter „☰ Menü“):'),
   table(['Menüpunkt', 'Inhalt'], [
     ['[[Mitglieder]]', 'Suche nach Mitgliedern, neuer Antrag, von dort zu Mitglied und Konto.'],
     ['[[Gen.-Kto]]', 'Das Genossenschaftskonto (Nummer 9999), die Gegenseite fast aller Buchungen.'],

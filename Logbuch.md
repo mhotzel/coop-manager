@@ -2764,3 +2764,18 @@ nicht als Menüpunkt, und bleibt unverändert.
 **Warum:** Ein Menüpunkt, der nichts tut, verwirrt. Ohne Platzhalter ist der Code einfacher, und
 das Pflichtfeld `to` lässt TypeScript melden, wenn bei einem neuen Eintrag das Ziel fehlt: Ein
 optionales Feld (`?`) darf fehlen, ein Pflichtfeld nicht.
+
+## 2026-11-21 – Logo führt zur Startseite
+
+**Was:** In `frontend/src/App.vue` ist der Rahmen um das Logo kein `div` mehr, sondern ein
+`RouterLink` auf die Route `home` (Pfad `/`), mit Tooltip „Zur Startseite“. Im Benutzerhandbuch
+(Abschnitt 1.3) steht dazu ein Satz, die Word-Datei ist mit `npm run build` neu erzeugt. Geprüft
+mit `npm run type-check`.
+
+**Warum so:**
+
+- **`RouterLink` statt `<a href="/">`:** Der Link wird im Browser zwar zu `<a href="/">`, beim
+  Klick wechselt Vue Router die Seite aber ohne die App neu zu laden, wie bei den Menüeinträgen.
+- **Name statt Pfad:** `{ name: 'home' }` bleibt richtig, auch wenn sich der Pfad im Router ändert.
+- **Klasse am Link:** `logo-container` sitzt jetzt am Link selbst. Das CSS greift unverändert, und
+  es gibt kein zusätzliches Element.
