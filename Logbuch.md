@@ -3623,3 +3623,12 @@ und nicht an Docker geschickt.
 
 **Warum die alten Verweise auf `Altdaten/…` bleiben:** Plan, DEPLOYMENT und Logbuch beschreiben dort,
 wie die Migration lief. Das bleibt als Geschichte richtig.
+
+## 2026-11-21 – Repository zur Organisation Dorfladen-Schlichten umgezogen
+
+**Was:** Das Repository liegt jetzt unter `github.com/Dorfladen-Schlichten/coop-manager`. Lokal
+umgestellt mit `git remote set-url origin git@github.com:Dorfladen-Schlichten/coop-manager.git`,
+geprüft mit `git remote -v` und `git fetch origin`. `Plan.md` (Versionsverwaltung) angepasst.
+
+**Warum nur das:** `set-url` ändert nur die Adresse, unter der `origin` erreichbar ist; Branches und
+Historie bleiben gleich. `deploy.sh` kopiert die Dateien direkt auf das NAS und braucht GitHub nicht.

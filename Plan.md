@@ -13,7 +13,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 - **Rechtsgrundlage:** Satzung v11 vom 30.06.2015 (geltende Fassung),
   https://www.dorfladen-schlichten.de/wp-content/uploads/2015/10/2015-06-30_Satzung-Dorfladen-Schlichten_v11.pdf,
   dazu das Genossenschaftsgesetz (GenG).
-- **Versionsverwaltung:** privates Repository github.com/mhotzel/coop-manager, Branch `main`.
+- **Versionsverwaltung:** privates Repository github.com/Dorfladen-Schlichten/coop-manager, Branch `main`.
 
 ## Vorgehen
 
