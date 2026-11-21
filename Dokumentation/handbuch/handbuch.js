@@ -90,17 +90,17 @@ const add = (...items) => items.forEach((i) => (Array.isArray(i) ? content.push(
 
 // 1 Einführung
 add(
-  h1('1  Einführung'),
+  h1('1 Einführung'),
   p('Die Mitgliederverwaltung ersetzt die bisherige Access-Datenbank. Sie verwaltet die Mitglieder der Unser Dorfladen Schlichten eG von der Beitrittserklärung bis zur Auszahlung des Auseinandersetzungsguthabens, führt für jedes Mitglied ein Konto mit allen Buchungen und erstellt die Listen, die die Genossenschaft braucht.'),
   p('Dieses Handbuch beschreibt die Arbeit mit der Oberfläche Schritt für Schritt. Wo es auf Regeln aus Satzung und Genossenschaftsgesetz ankommt, stehen sie in Hinweiskästen dabei. Knöpfe und Menüpunkte sind **braun und fett** gesetzt, etwa [[Speichern]].'),
-  h2('1.1  Anmelden und abmelden'),
+  h2('1.1 Anmelden und abmelden'),
   steps([
     'Die Adresse der Mitgliederverwaltung im Browser öffnen.',
     'Benutzername und Kennwort eingeben und anmelden.',
     'Zum Schluss oben rechts auf [[Abmelden]] klicken, besonders an gemeinsam genutzten Rechnern.',
   ]),
   p('Das eigene Kennwort ändert man oben rechts über [[Kennwort ändern]]. Nach mehreren falschen Kennwörtern hintereinander wird der Benutzername für eine Weile gesperrt; danach geht es wieder.'),
-  h2('1.2  Rollen'),
+  h2('1.2 Rollen'),
   p('Jeder Benutzer hat genau eine Rolle. Sie bestimmt, welche Menüpunkte er sieht und was er ändern darf.'),
   table(['Rolle', 'Darf'], [
     ['**Buchhaltung**', 'Alles rund um Mitglieder, Konten und Reports: Anträge erfassen, zulassen, buchen, stornieren, Kündigungen erfassen, Jahresende buchen, Listen herunterladen.'],
@@ -108,7 +108,7 @@ add(
     ['**Admin**', 'Nur die Benutzerverwaltung: Benutzer anlegen, Rollen vergeben, Kennwörter setzen, deaktivieren. Mitglieder und Konten sieht der Admin nicht.'],
   ], [1, 3]),
   gap(),
-  h2('1.3  Aufbau der Oberfläche'),
+  h2('1.3 Aufbau der Oberfläche'),
   p('Oben stehen das Logo, der angemeldete Benutzer und die Knöpfe [[Kennwort ändern]] und [[Abmelden]]. Links steht das Menü (auf dem Handy hinter „☰ Menü“):'),
   table(['Menüpunkt', 'Inhalt'], [
     ['[[Mitglieder]]', 'Suche nach Mitgliedern, neuer Antrag, von dort zu Mitglied und Konto.'],
@@ -124,8 +124,8 @@ add(
 
 // 2 Grundbegriffe
 add(
-  h1('2  Grundbegriffe'),
-  h2('2.1  Status einer Person'),
+  h1('2 Grundbegriffe'),
+  h2('2.1 Status einer Person'),
   p('Jede Person hat zu jedem Tag einen Status. Er ergibt sich aus den erfassten Daten (Antrag, Zulassung, Geldeingang, Kündigung usw.) und wird nicht von Hand gesetzt.'),
   table(['Status', 'Bedeutung'], [
     ['Antragsteller', 'Beitrittserklärung erfasst; Zulassung oder Geldeingang fehlen noch.'],
@@ -138,7 +138,7 @@ add(
   ], [1, 3]),
   gap(),
   p('Neben dem Status kann der Hinweis „teilgekündigt“ stehen: Dann läuft eine Teilkündigung einzelner Anteile, die Person bleibt aber Mitglied.'),
-  h2('2.2  Anteile, Saldo und Anspruch'),
+  h2('2.2 Anteile, Saldo und Anspruch'),
   bullets([
     '**Anteile:** die Geschäftsanteile, die das Mitglied gerade hält.',
     '**Saldo:** was die Genossenschaft dem Mitglied schuldet, in Euro.',
@@ -146,21 +146,21 @@ add(
     '**Offener Anspruch** (Auseinandersetzungsanspruch): Saldo minus Anteile × Anteilspreis. Er entsteht, wenn Anteile ausscheiden; das Geld bleibt bis zur Auszahlung auf dem Konto.',
   ]),
   p('Solange niemand gekündigt hat, gilt Saldo = Anteile × Anteilspreis.'),
-  h2('2.3  Geschäftsjahr und Fristen'),
+  h2('2.3 Geschäftsjahr und Fristen'),
   bullets([
     'Das **Geschäftsjahr** ist das Kalenderjahr.',
     'Die **Kündigungsfrist** beträgt zwei Jahre zum Ende eines Geschäftsjahres (Satzung 6.1). Beispiel: Eingang 15.03.2026, Ausscheiden 31.12.2028. Die App schlägt das Jahr vor; es kann geändert werden.',
     'Bis einschließlich 31.12. zählt eine ausscheidende Person mit ihren Anteilen, **ausgeschieden ist sie ab dem 1.1.**',
   ]),
-  h2('2.4  Wertstellung und Buchungstag'),
+  h2('2.4 Wertstellung und Buchungstag'),
   p('Jede Buchung hat zwei Daten. Die **Wertstellung** ist der Tag, an dem die Buchung fachlich gilt, zum Beispiel der Tag des Geldeingangs auf der Bank. Der **Buchungstag** („Gebucht am“) ist der Tag, an dem sie in der App erfasst wurde. Listen und Salden zu einem Stichtag richten sich immer nach der Wertstellung.'),
   note('Nichts wird gelöscht. Jede Änderung wird mit Benutzer und Zeitpunkt gespeichert. Falsche Buchungen werden storniert, falsch erfasste Vorgänge (Kündigung, Tod, Ausschluss, Zeichnung) zurückgenommen.'),
 )
 
 // 3 Mitglieder
 add(
-  h1('3  Mitglieder'),
-  h2('3.1  Mitglied suchen'),
+  h1('3 Mitglieder'),
+  h2('3.1 Mitglied suchen'),
   steps([
     'Im Menü [[Mitglieder]] wählen.',
     'Einen Suchbegriff eingeben: Name, Ort, Straße, Mitgliedsnummer oder Postleitzahl. Groß- und Kleinschreibung spielt keine Rolle.',
@@ -168,7 +168,7 @@ add(
     'Auf den Namen klicken, um das Mitglied zu öffnen.',
   ]),
   p('Es werden höchstens 50 Treffer angezeigt; bei mehr Treffern die Suche verfeinern.'),
-  h2('3.2  Neuen Antrag erfassen'),
+  h2('3.2 Neuen Antrag erfassen'),
   p('Mit dem Eingang der Beitrittserklärung wird die Person als Antragsteller erfasst. Dabei entstehen Mitgliedsnummer und Konto (beide Nummern sind gleich).'),
   steps([
     'Unter [[Mitglieder]] auf [[Neuer Antrag]] klicken.',
@@ -178,7 +178,7 @@ add(
     'Auf [[Antrag speichern]] klicken. Die App zeigt das neue Mitglied mit seiner Nummer.',
   ]),
   note('Die Adresszeilen für Briefe und die Briefanrede erzeugt die App beim Speichern aus Name und Anschrift. Sie lassen sich danach von Hand anpassen (siehe 3.4).'),
-  h2('3.3  Zulassen, ablehnen, Rücknahme'),
+  h2('3.3 Zulassen, ablehnen, Rücknahme'),
   p('Über die Aufnahme entscheidet der Vorstand (§ 15 GenG). Auf der Seite des Antragstellers stehen dafür Knöpfe bereit:'),
   table(['Knopf', 'Wann', 'Datum'], [
     ['[[Zulassen]]', 'Der Vorstand hat die Aufnahme beschlossen.', 'Tag des Beschlusses'],
@@ -188,7 +188,7 @@ add(
   gap(),
   p('Nach dem Klick fragt die App nach dem Datum; mit [[Bestätigen]] wird es gespeichert. **Mitglied wird die Person erst, wenn Zulassung und Geldeingang vorliegen**, in beliebiger Reihenfolge. Den Geldeingang erfasst die Eintrittsbuchung auf dem Konto (siehe 4.3).'),
   note('Wurde schon eingezahlt und dann abgelehnt, meldet die App, dass das Geld zurückgezahlt werden muss. Das geschieht mit der Buchung „Rückzahlung“.'),
-  h2('3.4  Daten ändern'),
+  h2('3.4 Daten ändern'),
   p('Die Seite eines Mitglieds ist in Karten gegliedert. Jede Karte hat einen Knopf [[Bearbeiten]]; die Änderung wird mit [[Speichern]] übernommen oder mit [[Abbrechen]] verworfen. Alle Änderungen bleiben mit Datum in der Historie erhalten.'),
   table(['Karte', 'Inhalt und Hinweise'], [
     ['Name bzw. Firma', 'Titel, Vornamen, Nachname, Geschlecht bzw. Firma und Ansprechpartner. Die Adresszeilen ändern sich dabei nicht von selbst, bitte danach prüfen.'],
@@ -204,11 +204,11 @@ add(
 
 // 4 Konto und Buchungen
 add(
-  h1('4  Konto und Buchungen'),
-  h2('4.1  Die Kontoansicht'),
+  h1('4 Konto und Buchungen'),
+  h2('4.1 Die Kontoansicht'),
   p('Das Konto zeigt oben Saldo, Anteile, einen offenen Anspruch (falls vorhanden), die gezeichneten Anteile, Geldeingang, Eintritt und den aktuellen Anteilspreis. Darunter folgen die Maske **Neue Buchung** und die Liste aller **Buchungen** mit Wertstellung, Buchungstag, Art, Text, Gegenkonto, Anteilen und Betrag. Ein Klick auf das Gegenkonto öffnet dieses Konto. Mit **Stornierte ausblenden** verschwinden stornierte Buchungen samt Storno aus der Liste.'),
   p('Das Genossenschaftskonto (Menü [[Gen.-Kto]]) zeigt alle Buchungen aus Sicht der Genossenschaft.'),
-  h2('4.2  Eine Buchung erfassen'),
+  h2('4.2 Eine Buchung erfassen'),
   steps([
     'Das Konto des Mitglieds öffnen.',
     'Unter **Neue Buchung** die **Buchungsart** wählen. Angeboten werden nur Arten, die gerade passen (z. B. Auszahlung nur bei offenem Anspruch).',
@@ -217,7 +217,7 @@ add(
     'Optional einen **Buchungstext** eintragen; leer bleibt der Name der Buchungsart.',
     'Auf [[Buchen]] klicken.',
   ]),
-  h2('4.3  Die Buchungsarten'),
+  h2('4.3 Die Buchungsarten'),
   table(['Buchungsart', 'Wofür', 'Anteile / Betrag'], [
     ['Eintritt', 'Geldeingang der Einzahlung aus dem Antrag.', 'Anteile × Preis'],
     ['Weitere Anteile', 'Einzahlung später gezeichneter Anteile (siehe 4.5).', 'Anteile × Preis'],
@@ -231,7 +231,7 @@ add(
     ['Storno', 'Macht eine falsche Buchung rückgängig (siehe 4.8).', 'wie das Original'],
   ], [1.3, 2.7, 1.3]),
   gap(),
-  h2('4.4  Eintritt buchen und Abgleich'),
+  h2('4.4 Eintritt buchen und Abgleich'),
   p('Geht das Geld eines Antragstellers ein, wird es als **Eintritt** gebucht, Wertstellung = Tag des Geldeingangs. Dabei gleicht die App die eingezahlten mit den gezeichneten Anteilen ab:'),
   bullets([
     '**Stimmen sie überein**, ist der Geldeingang erfasst. Liegt auch die Zulassung vor, ist die Person ab dem späteren der beiden Daten Mitglied.',
@@ -239,14 +239,14 @@ add(
     '**Ist es zu viel**, meldet die App das ebenfalls; der Vorgang ist zu klären, notfalls mit einer Rückzahlung.',
   ]),
   note('Eine Einzahlung vor der Zulassung ist möglich und wird ganz normal als Eintritt gebucht. Mitglied wird die Person dann mit der Zulassung.'),
-  h2('4.5  Weitere Anteile'),
+  h2('4.5 Weitere Anteile'),
   p('Ein Mitglied kann später weitere Anteile zeichnen. Das geschieht in zwei Schritten:'),
   steps([
     'Auf der Mitgliedsseite in der Karte **Weitere Anteile** auf [[Weitere Anteile zeichnen]] klicken, Zahl der Anteile und Datum der Zulassung durch den Vorstand eintragen, [[Zeichnung speichern]].',
     'Wenn das Geld eingeht, auf dem Konto die Buchungsart **Weitere Anteile** wählen und buchen. Die Karte zeigt, wie viele Anteile noch nicht eingezahlt sind.',
   ]),
   p('Zeichnen kann nur, wer Mitglied und nicht gekündigt ist. Eine falsch erfasste Zeichnung lässt sich mit [[Zurücknehmen]] entfernen, solange sie nicht eingezahlt ist.'),
-  h2('4.6  Umbuchung'),
+  h2('4.6 Umbuchung'),
   p('Mit einer Umbuchung überträgt ein Mitglied Anteile auf ein anderes Mitgliedskonto (§ 76 GenG), etwa auf Erben oder an Familienangehörige.'),
   steps([
     'Das Konto des **abgebenden** Mitglieds öffnen.',
@@ -257,10 +257,10 @@ add(
     '**Empfangen** können Mitglieder und zugelassene Antragsteller, die noch nicht eingezahlt haben. Beim Antragsteller zählt die Umbuchung wie seine Einzahlung; passen die Anteile, ist er Mitglied.',
     '**Werden alle Anteile übertragen**, scheidet der Abgebende am Tag der Umbuchung aus (ausgeschieden ab dem Folgetag). Laufende Kündigungen werden gegenstandslos.',
   ]),
-  h2('4.7  Spende des Anteils'),
+  h2('4.7 Spende des Anteils'),
   p('Ein Mitglied kann ausscheiden, indem es sein ganzes Guthaben der Genossenschaft spendet, ohne Kündigungsfrist. Buchungsart **Spende Anteil** wählen; die App zeigt an, wie viele Anteile und welcher Saldo gespendet werden. Nach dem Buchen steht das Konto auf 0, und die Person ist ab dem Folgetag ausgeschieden. Es entsteht kein Anspruch.'),
   note('Ob eine Spende ohne Kündigungsfrist im Einzelfall zulässig ist, entscheidet der Vorstand. Die App bildet den Vorgang nur ab.', 'Achtung'),
-  h2('4.8  Storno'),
+  h2('4.8 Storno'),
   steps([
     'In der Buchungsliste bei der falschen Buchung auf [[Stornieren]] klicken.',
     'Den Grund eingeben (Pflicht) und bestätigen.',
@@ -271,18 +271,18 @@ add(
 
 // 5 Ausscheiden
 add(
-  h1('5  Kündigung, Tod, Ausschluss und Ausscheiden'),
-  h2('5.1  Kündigung der Mitgliedschaft'),
+  h1('5 Kündigung, Tod, Ausschluss und Ausscheiden'),
+  h2('5.1 Kündigung der Mitgliedschaft'),
   steps([
     'Auf der Mitgliedsseite in der Karte **Kündigungen** auf [[Mitgliedschaft kündigen]] klicken.',
     'Das Datum des **Eingangs der Kündigung** eintragen. Die App schlägt das Jahr des Ausscheidens nach der Kündigungsfrist vor (zwei Jahre zum Jahresende).',
     'Das Jahr bei Bedarf ändern, etwa nach einer Vereinbarung mit dem Vorstand, und [[Kündigung speichern]].',
   ]),
   p('Der Status wird „gekündigt“. Bis zum 31.12. des Ausscheidensjahres bleibt die Person Mitglied, steht in allen Listen und ist stimmberechtigt.'),
-  h2('5.2  Teilkündigung'),
+  h2('5.2 Teilkündigung'),
   p('Mit [[Teilkündigung]] kündigt ein Mitglied nur einen Teil seiner Anteile (§ 67b GenG). Eingetragen werden Eingang, Ausscheidensjahr und die Zahl der gekündigten Anteile; mindestens ein Anteil muss bleiben. Die Person bleibt Mitglied und erhält den Hinweis „teilgekündigt“.'),
   p('Eine falsch erfasste oder vom Mitglied zurückgezogene Kündigung wird in der Tabelle mit [[Zurücknehmen]] entfernt. Gegenstandslos gewordene Kündigungen (z. B. nach einem Tod) bleiben stehen und sind entsprechend markiert.'),
-  h2('5.3  Tod eines Mitglieds'),
+  h2('5.3 Tod eines Mitglieds'),
   steps([
     'Auf der Mitgliedsseite auf [[Tod erfassen]] klicken, das Sterbedatum eintragen und [[Bestätigen]].',
     'Die App weist darauf hin, die **Adresszeilen auf die Erben umzustellen**, z. B. „An die Erben von …“ mit deren Anschrift. Mit [[Adresszeilen bearbeiten]] geht es direkt dorthin.',
@@ -291,10 +291,10 @@ add(
   p('**Möchte ein Erbe Mitglied werden**, wird er als neue Person mit einem Antrag über die geerbten Anteile erfasst und zugelassen. Danach werden die Anteile vom Konto des Verstorbenen auf sein Konto umgebucht (siehe 4.6). Der Erbe ist damit Mitglied, der Verstorbene scheidet ohne Anspruch aus.'),
   p('**Möchte kein Erbe eintreten**, scheidet der Verstorbene zum 31.12. aus; der Anspruch steht den Erben zu und wird wie bei einer Kündigung ausgezahlt.'),
   p('Ein falsch erfasster Tod (falsches Mitglied oder Datum) wird mit [[Erfassung des Todes zurücknehmen]] korrigiert und gegebenenfalls neu erfasst.'),
-  h2('5.4  Ausschluss'),
+  h2('5.4 Ausschluss'),
   p('Hat der Vorstand den Ausschluss beschlossen (Satzung 6.2 bis 6.4), auf [[Ausschließen]] klicken und das Datum des Beschlusses eintragen. Die Person scheidet zum 31.12. des Beschlussjahres aus und ist ab dem Beschluss nicht mehr stimmberechtigt.'),
   p('Das Mitglied kann binnen sechs Wochen beim Aufsichtsrat Widerspruch einlegen; die App überwacht diese Frist nicht. Gibt der Aufsichtsrat dem Widerspruch statt, wird der Ausschluss mit [[Ausschluss aufheben]] und dem Datum des Aufsichtsratsbeschlusses aufgehoben. Der Ausschluss gilt dann als nie geschehen.'),
-  h2('5.5  Ausscheiden zum Jahresende buchen'),
+  h2('5.5 Ausscheiden zum Jahresende buchen'),
   p('Kündigungen, Teilkündigungen, Todesfälle und Ausschlüsse werden zum 31.12. wirksam. Die gekündigten Anteile verlassen dann den Bestand, und es entsteht der Anspruch auf das Guthaben. Diese Ausscheidensbuchungen werden **einmal im Jahr nach dem 31.12.** gebucht, üblicherweise im Januar.'),
   steps([
     'Im Menü [[Jahresende]] wählen. Vorbelegt ist das Vorjahr.',
@@ -307,28 +307,28 @@ add(
 
 // 6 Auseinandersetzung
 add(
-  h1('6  Auseinandersetzung: Ansprüche auszahlen'),
-  h2('6.1  Offene Ansprüche'),
+  h1('6 Auseinandersetzung: Ansprüche auszahlen'),
+  h2('6.1 Offene Ansprüche'),
   p('Im Menü [[Ansprüche]] stehen alle Konten mit gebuchtem Ausscheiden und offenem Anspruch, das älteste Ausscheiden zuerst, mit Summe. Ein Klick auf den Betrag öffnet das Konto.'),
-  h2('6.2  Auszahlung'),
+  h2('6.2 Auszahlung'),
   steps([
     'Das Konto öffnen und die Buchungsart **Auszahlung** wählen.',
     'Wertstellung (Tag der Überweisung) und Betrag eintragen. Teilbeträge sind möglich, höchstens der offene Anspruch.',
     'Auf [[Buchen]] klicken. Die Überweisung selbst erfolgt wie bisher über die Bank.',
   ]),
   note('Ob ausgezahlt werden darf (Mindestkapital, Satzung 6.6), prüft die App nicht. Das stellt der Vorstand im Einzelfall fest. Eine Auszahlung ist erst nach der Ausscheidensbuchung möglich.'),
-  h2('6.3  Kürzung Verlustvortrag'),
+  h2('6.3 Kürzung Verlustvortrag'),
   p('Wird der Anspruch um anteilige Verluste gekürzt (Satzung 6.5), die Buchungsart **Kürzung Verlustvortrag** mit dem Kürzungsbetrag buchen.'),
-  h2('6.4  Ausbuchung wegen Verjährung'),
+  h2('6.4 Ausbuchung wegen Verjährung'),
   p('Ist ein Anspruch verjährt (Satzung 2.7), bucht **Ausbuchung Verjährung** den ganzen Rest an die Genossenschaft. Die Verjährung überwacht die App nicht; die Liste der offenen Ansprüche mit dem Ausscheidensdatum hilft, sie im Blick zu behalten.'),
   p('Sind Saldo und Anteile 0, ist die Auseinandersetzung abgeschlossen.'),
 )
 
 // 7 Reports
 add(
-  h1('7  Reports'),
+  h1('7 Reports'),
   p('Im Menü [[Reports]] gibt es vier Listen als Excel-Datei. Ein Klick auf den Namen lädt die Datei herunter.'),
-  h2('7.1  Listen zum Stichtag'),
+  h2('7.1 Listen zum Stichtag'),
   p('Die ersten drei Listen gelten für einen **Stichtag** (vorbelegt: heute). Es zählen die Buchungen mit Wertstellung bis zum Stichtag und der Status an diesem Tag.'),
   table(['Liste', 'Inhalt'], [
     ['Mitgliederliste nach GenG', 'Alle Mitglieder einschließlich Gekündigter, Verstorbener und Ausgeschlossener bis zu ihrem Ausscheiden: Nr., Name, Anschrift, Eintritt, Betrag und Anteile (§ 30 GenG). Nach Mitgliedsnummer.'],
@@ -337,7 +337,7 @@ add(
   ], [1.2, 3]),
   gap(),
   note('Ist das Ausscheiden zum letzten 31.12. noch nicht gebucht, erscheint auf der Seite ein gelber Hinweis; GenG-Liste und Liste zur Generalversammlung tragen ihn auch in Zeile 3. Dann zuerst unter [[Jahresende]] buchen.'),
-  h2('7.2  Vorgänge eines Geschäftsjahres'),
+  h2('7.2 Vorgänge eines Geschäftsjahres'),
   p('Unter **Auswertung eines Geschäftsjahres** das Jahr eintragen (vorbelegt: Vorjahr) und **Vorgänge im Geschäftsjahr** herunterladen. Die Liste enthält alle Vorgänge des Jahres in einer Tabelle, mit Filter in der Kopfzeile:'),
   bullets([
     'Kündigungen und Teilkündigungen (Datum des Eingangs), Todesfälle (Sterbedatum) und Ausschlüsse (Beschluss),',
@@ -349,7 +349,7 @@ add(
 
 // 8 Benutzer
 add(
-  h1('8  Benutzerverwaltung (Admin)'),
+  h1('8 Benutzerverwaltung (Admin)'),
   p('Im Menü [[Benutzer]] sieht der Admin alle Benutzer mit Rolle und Status.'),
   bullets([
     '[[Neuer Benutzer]]: Benutzername, Name, Kennwort und Rolle eintragen, [[Anlegen]].',
@@ -361,35 +361,35 @@ add(
 
 // 9 Abläufe
 add(
-  h1('9  Typische Abläufe im Überblick'),
-  h2('9.1  Neues Mitglied'),
+  h1('9 Typische Abläufe im Überblick'),
+  h2('9.1 Neues Mitglied'),
   steps([
     'Beitrittserklärung geht ein: [[Mitglieder]] > [[Neuer Antrag]] erfassen.',
     'Vorstand beschließt: auf der Mitgliedsseite [[Zulassen]] mit Beschlussdatum.',
     'Geld geht ein: auf dem Konto **Eintritt** mit Wertstellung = Geldeingang buchen.',
     'Status prüfen: „Mitglied“. Bei einer gelben Warnung den Betrag klären.',
   ]),
-  h2('9.2  Kündigung bis Auszahlung'),
+  h2('9.2 Kündigung bis Auszahlung'),
   steps([
     'Kündigung geht ein: [[Mitgliedschaft kündigen]] mit Eingangsdatum; Ausscheidensjahr prüfen.',
     'Im Januar nach dem Ausscheidensjahr: [[Jahresende]] > [[Ausscheiden buchen]].',
     'Nach Freigabe durch den Vorstand: [[Ansprüche]] > Konto öffnen > **Auszahlung** buchen.',
   ]),
-  h2('9.3  Todesfall mit Erben, die eintreten'),
+  h2('9.3 Todesfall mit Erben, die eintreten'),
   steps([
     'Beim Verstorbenen [[Tod erfassen]] und die Adresszeilen auf die Erben umstellen.',
     'Den Erben als [[Neuer Antrag]] über die geerbten Anteile erfassen und [[Zulassen]].',
     'Auf dem Konto des Verstorbenen alle Anteile per **Umbuchung** auf das Konto des Erben übertragen.',
     'Prüfen: Der Erbe ist Mitglied, der Verstorbene ist ausgeschieden, sein Konto steht auf 0.',
   ]),
-  h2('9.4  Jahresabschluss im Januar'),
+  h2('9.4 Jahresabschluss im Januar'),
   steps([
     '[[Jahresende]]: Ausscheiden zum 31.12. des Vorjahres buchen.',
     '[[Reports]]: Mitgliederliste nach GenG zum 31.12. herunterladen; die gelbe Warnung darf nicht mehr erscheinen.',
     '[[Reports]]: Vorgänge im Geschäftsjahr für das Vorjahr herunterladen und ablegen.',
     '[[Ansprüche]]: offene Ansprüche prüfen, Auszahlungen und Verjährungen vormerken.',
   ]),
-  h2('9.5  Vor der Generalversammlung'),
+  h2('9.5 Vor der Generalversammlung'),
   steps([
     '[[Reports]]: Seriendruck-Liste zum Tag der Versammlung für die Einladung herunterladen.',
     'Am Tag der Versammlung die Liste zur Generalversammlung mit diesem Stichtag ausdrucken.',

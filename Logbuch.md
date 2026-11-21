@@ -2723,3 +2723,24 @@ Backend-Tests prüfen die Maske nicht; das fällt nur beim Ausprobieren auf.
   `node_modules/` ist per `.gitignore` ausgeschlossen.
 - **Nicht gerendert:** Ohne LibreOffice Writer ließ sich die Datei hier nicht als PDF prüfen;
   die Formatprüfung des docx-Skills lief ohne Fehler. Das Aussehen also in Word prüfen.
+
+## 2026-11-21 – Benutzerhandbuch: ein Leerzeichen nach der Kapitelnummer
+
+**Was:** In `Dokumentation/handbuch/handbuch.js` stehen die 44 Überschriften jetzt mit einem statt
+zwei Leerzeichen nach der Nummer (`1.1 Anmelden und abmelden`). Danach `npm run build` im Ordner
+`Dokumentation/handbuch`, die neue `Benutzerhandbuch.docx` ist erzeugt.
+
+**Wie:** Ein einziger Ersetzungsbefehl, der nur die Aufrufe `h1(…)`, `h2(…)` und `h3(…)` trifft:
+
+```bash
+sed -i -E "s/(h[123]\('[0-9.]+)  /\1 /" handbuch.js
+```
+
+- `-i` ändert die Datei direkt, `-E` schaltet erweiterte reguläre Ausdrücke ein.
+- `(h[123]\('[0-9.]+)` findet Aufruf und Nummer und merkt sie sich als `\1`; die zwei Leerzeichen
+  dahinter werden durch eines ersetzt.
+- Geprüft mit `grep -cE "h[123]\('[0-9.]+  " handbuch.js` (Ergebnis 0) und einem Blick in die
+  erzeugte Datei: `unzip -p Benutzerhandbuch.docx word/document.xml` zeigt den Text der Überschriften.
+
+**Warum:** Wunsch von Matthias, ein Leerzeichen ist die übliche Schreibweise. Das Inhaltsverzeichnis
+übernimmt die Überschriften und ist damit ebenfalls angepasst, sobald Word die Felder aktualisiert.
