@@ -191,7 +191,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   coop-manager backup`.
 - **Betrieb auf der Synology** (Stand 2026-11-21), Anleitung in `DEPLOYMENT.md`: dasselbe NAS
   `ds218-dls` wie `purchase-prices`, Ordner `/volume1/IT-Systeme/Docker/coop-manager` mit eigener
-  ACL (nur `chef`, `administrators`, `IT-Admin`), Adresse `https://mitglieder.dorfladen-schlichten.de`
+  ACL (nur `chef`, `administrators`, `IT-Admin`), Adresse `https://mitgliederdb.dorfladen-schlichten.de`
   (CNAME auf `work.`, Let's Encrypt, DSM-Reverse-Proxy auf `localhost:8001`). Start **leer**, die
   Altdaten kommen mit der Migration. Sicherung täglich 20:00 per DSM-Aufgabenplaner, Hyper Backup
   um 20:30. `deploy.sh` überträgt eine ausdrückliche Dateiliste per `tar` über `ssh`, gebaut wird

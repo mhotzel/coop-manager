@@ -2996,3 +2996,24 @@ Projektordner und DNS-Eintrag `mitglieder.` gibt es noch nicht (kommen in der Ei
 
 **Warum:** Über Tailscale klappt der Zugang von überall, im Ladennetz ebenso wie unterwegs. Wer es
 anders braucht, setzt `CM_DEPLOY_HOST`.
+
+## 2026-11-21 – Subdomain heißt mitgliederdb, DNS eingerichtet
+
+**Was:** Matthias hat bei Strato den CNAME `mitgliederdb` → `work.dorfladen-schlichten.de`
+angelegt (Schritt 2 in `DEPLOYMENT.md`). Die Adresse der App ist damit
+`https://mitgliederdb.dorfladen-schlichten.de`, nicht `mitglieder.` wie zuerst geplant.
+`DEPLOYMENT.md` und `Plan.md` sind angepasst; ältere Logbuch-Einträge bleiben, wie sie waren.
+
+**Geprüft:**
+
+```bash
+dig +noall +answer mitgliederdb.dorfladen-schlichten.de A       # CNAME auf work., A 195.245.19.98
+dig +noall +answer mitgliederdb.dorfladen-schlichten.de AAAA    # nur der CNAME, keine IPv6-Adresse
+dig +noall +answer @shades14.rzone.de mitgliederdb.dorfladen-schlichten.de ANY   # direkt bei Strato
+```
+
+Mit `@nameserver` fragt `dig` direkt beim zuständigen Nameserver von Strato statt beim eigenen
+Resolver; so sieht man den Stand ohne Zwischenspeicher.
+
+Nebenbei: `mitglieder.dorfladen-schlichten.de` gibt es bei Strato ebenfalls, nur mit einem
+MX-Eintrag (`smtpin.rzone.de`), ohne Bezug zur App.

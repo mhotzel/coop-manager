@@ -7,7 +7,7 @@ stehen in `Plan.md` (Schritt 8). Vorbild ist das Deployment von `purchase-prices
 > **Stand 2026-11-21:** Die Anleitung ist geschrieben, die Einrichtung auf dem NAS steht noch aus.
 > Beim Durchgehen werden echte Werte und neue Fehlerbilder hier nachgetragen.
 
-**Ergebnis:** `https://mitglieder.dorfladen-schlichten.de` → Reverse Proxy des DSM (HTTPS, Let's
+**Ergebnis:** `https://mitgliederdb.dorfladen-schlichten.de` → Reverse Proxy des DSM (HTTPS, Let's
 Encrypt) → `http://localhost:8001` → Container `coop-manager-app-1` (uvicorn) → `data/` auf dem NAS.
 
 | | |
@@ -43,28 +43,30 @@ Für `purchase-prices` ist das alles schon eingerichtet, hier nur zur Kontrolle:
 
 ## 2. DNS bei Strato
 
-`mitglieder.dorfladen-schlichten.de` wird ein **CNAME auf `work.dorfladen-schlichten.de`**, wie
+`mitgliederdb.dorfladen-schlichten.de` wird ein **CNAME auf `work.dorfladen-schlichten.de`**, wie
 `ek.` für `purchase-prices`. Die IP von `work.` hält die FritzBox per DynDNS aktuell.
 
 1. Strato-Login → Domains → Domainverwaltung → **`dorfladen-schlichten.de`** (die Hauptdomain) →
    DNS-Verwaltung → CNAME-Record anlegen:
-   - Präfix: `mitglieder`
+   - Präfix: `mitgliederdb`
    - Wert: `work.dorfladen-schlichten.de`
 2. Prüfen, nach ein paar Minuten:
 
    ```sh
-   dig +noall +answer mitglieder.dorfladen-schlichten.de A      # CNAME auf work. und dessen A-Record
-   dig +noall +answer mitglieder.dorfladen-schlichten.de AAAA   # darf KEINE AAAA-Adresse liefern
+   dig +noall +answer mitgliederdb.dorfladen-schlichten.de A      # CNAME auf work. und dessen A-Record
+   dig +noall +answer mitgliederdb.dorfladen-schlichten.de AAAA   # darf KEINE AAAA-Adresse liefern
    ```
 
    Ein AAAA-Eintrag (z. B. auf das Strato-Webhosting) würde Browser mit IPv6 woandershin schicken.
+
+   **Erledigt 2026-11-21:** CNAME auf `work.`, A-Record 195.245.19.98, keine AAAA-Adresse.
 
 ## 3. Zertifikat im DSM
 
 Systemsteuerung → Sicherheit → **Zertifikat** → Hinzufügen → „Neues Zertifikat hinzufügen“ →
 „Zertifikat von Let's Encrypt abrufen“:
 
-- Domainname: `mitglieder.dorfladen-schlichten.de`, dazu eine E-Mail-Adresse, alternativer Name leer
+- Domainname: `mitgliederdb.dorfladen-schlichten.de`, dazu eine E-Mail-Adresse, alternativer Name leer
 - „Als Standardzertifikat festlegen“: **aus**
 
 Das DSM erneuert das Zertifikat selbst. Zugewiesen wird es in Schritt 9.
@@ -179,18 +181,18 @@ Systemsteuerung → **Anmeldeportal** → Erweitert → **Reverse Proxy** → Er
 | Feld | Wert |
 |---|---|
 | Beschreibung | `coop-manager` |
-| Quelle: Protokoll / Hostname / Port | `HTTPS` / `mitglieder.dorfladen-schlichten.de` / `443` |
+| Quelle: Protokoll / Hostname / Port | `HTTPS` / `mitgliederdb.dorfladen-schlichten.de` / `443` |
 | HSTS aktivieren | **aus** (die App setzt HSTS selbst) |
 | Ziel: Protokoll / Hostname / Port | `HTTP` / `localhost` / `8001` |
 | Benutzerdefinierte Kopfzeile | nichts. Das DSM schickt `X-Forwarded-For` und `X-Forwarded-Proto` von sich aus |
 
 Danach Systemsteuerung → Sicherheit → Zertifikat → **Einstellungen**: beim Dienst
-`mitglieder.dorfladen-schlichten.de` das gleichnamige Zertifikat auswählen.
+`mitgliederdb.dorfladen-schlichten.de` das gleichnamige Zertifikat auswählen.
 
 Die erzeugte nginx-Konfiguration lässt sich auf dem NAS prüfen:
 
 ```sh
-sudo awk '/mitglieder.dorfladen-schlichten.de/,/^}/' /etc/nginx/sites-enabled/server.ReverseProxy.conf
+sudo awk '/mitgliederdb.dorfladen-schlichten.de/,/^}/' /etc/nginx/sites-enabled/server.ReverseProxy.conf
 ```
 
 ## 10. Von außen prüfen
@@ -198,10 +200,10 @@ sudo awk '/mitglieder.dorfladen-schlichten.de/,/^}/' /etc/nginx/sites-enabled/se
 Von einem Rechner außerhalb des Ladennetzes:
 
 ```sh
-U=https://mitglieder.dorfladen-schlichten.de
-echo | openssl s_client -connect mitglieder.dorfladen-schlichten.de:443 \
-    -servername mitglieder.dorfladen-schlichten.de 2>/dev/null \
-    | openssl x509 -noout -subject -enddate                          # CN=mitglieder.dorfladen-schlichten.de
+U=https://mitgliederdb.dorfladen-schlichten.de
+echo | openssl s_client -connect mitgliederdb.dorfladen-schlichten.de:443 \
+    -servername mitgliederdb.dorfladen-schlichten.de 2>/dev/null \
+    | openssl x509 -noout -subject -enddate                          # CN=mitgliederdb.dorfladen-schlichten.de
 curl -s -D - -o /dev/null $U/ | grep -i -E "^HTTP|strict"           # 200 und HSTS
 curl -s -o /dev/null -w "%{http_code}\n" $U/api/me                  # 401, nicht angemeldet
 curl -s -o /dev/null -w "%{http_code}\n" $U/docs                    # 200, aber die Vue-App, keine API-Doku
@@ -212,7 +214,7 @@ Im Container-Log (`$DK logs --tail 5 coop-manager-app-1`) muss die öffentliche 
 Rechners stehen, nicht die Gateway-Adresse. Daran sieht man, dass die App dem Proxy vertraut und
 damit erkennt, dass die Anfrage über HTTPS kam.
 
-`http://mitglieder.dorfladen-schlichten.de` liefert 404 und leitet nicht um. Den Link deshalb
+`http://mitgliederdb.dorfladen-schlichten.de` liefert 404 und leitet nicht um. Den Link deshalb
 immer mit `https://` weitergeben.
 
 ## 11. Ersteinrichtung
