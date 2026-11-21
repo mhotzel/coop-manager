@@ -3361,3 +3361,34 @@ Anteile und 56.000 € wie im Altsystem. Danach echter Lauf: 1.911 Events mit Ak
   davor läuft trotzdem (hier: Datenbank schließen).
 
 **Geprüft:** `uv run pytest` (583 Tests), `ruff check`, `ruff format --check`, `pyright`.
+
+## 2026-11-21 – Migration 7d: Probelauf mit den echten Daten
+
+**Was:**
+
+1. CSV-Export dauerhaft nach `Altdaten/csv/` (von Git ausgeschlossen):
+   `for t in mitglieder mitglieder_hist buchungen; do mdb-export -T '%Y-%m-%d %H:%M:%S'
+   Altdaten/DLS-MitgliederDB.accdb $t > Altdaten/csv/$t.csv; done`
+2. Eigenes Datenverzeichnis `Altdaten/probelauf/`, vorbereitet wie die Ersteinrichtung auf dem
+   NAS. Echte Umgebungsvariablen gehen vor `.env`, deshalb reicht `export CM_DATA_DIR=…` für
+   `set-share-price 50`, `create-cooperative-account`, `migrate … --dry-run` und `migrate …`.
+   `.env` und `backend/data` bleiben unberührt.
+3. Matthias hat dort einen Admin und einen Benutzer „Buchhaltung“ angelegt und die App mit
+   `CM_DATA_DIR=$PWD/Altdaten/probelauf ./dev.sh` gestartet.
+
+**Ergebnis:** keine Probleme, Fehler oder Abweichungen; 1.911 Events. Ein Vergleichsskript
+(außerhalb des Repositorys, `members_geng` der App gegen
+`Beispieldaten/20261025_DLS_Mitgliederliste-GenG.xlsx`) zum Stichtag 31.12.2025: Bei 249
+Mitgliedern stimmen Name, Eintrittsdatum, Anteile und Betrag genau überein. Es fehlen nur die
+5 offenen Fälle (13 Anteile), die das Altsystem noch führte.
+
+**Frage von Matthias: Warum 55.350 € statt 56.000 €?** Im Hauptbuch stehen weiter 56.000 € und
+1.120 Anteile auf den Mitgliedskonten. Die Summe auf der Seite zählt aber nur Personen, die heute
+Mitglied sind, und die App berechnet den Status aus den Daten: Wer 2015 gestorben ist, ist seit dem
+31.12.2015 ausgeschieden, auch wenn das Ausscheiden noch nicht gebucht ist. Die Differenz von 650 €
+sind genau die 13 Anteile der 5 offenen Fälle (Tod 2015, 2016, 2017, 2021; Kündigung mit
+Ausscheiden 31.12.2023). Mit der Buchung auf der Seite „Jahresende“ werden die Anteile ausgebucht;
+die 650 € bleiben als offene Auseinandersetzungsansprüche auf den Konten, bis der Vorstand
+über Auszahlung oder Ausbuchung wegen Verjährung entscheidet. So in 7a (Fall 4) beschlossen.
+
+**Wiederholen:** `Altdaten/probelauf/` löschen und mit Schritt 2 neu beginnen.

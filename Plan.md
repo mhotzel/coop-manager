@@ -97,7 +97,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
      - Teil 1: `Member.migrate` und Historie mit `valid_from` (erledigt 2026-11-21)
      - Teil 2: `source.py` und `plan.py` (erledigt 2026-11-21)
      - Teil 3: `run.py`, `check.py`, CLI-Befehl `migrate` (erledigt 2026-11-21)
-   - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile
+   - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile (erledigt 2026-11-21)
    - 7e: Migration auf dem NAS
 8. Container, Backup per Cron, Deployment auf der Synology
    (Stand 2026-11-19: vor der technischen Doku; Doku als Markdown wie `purchase-prices/DEPLOYMENT.md`)
