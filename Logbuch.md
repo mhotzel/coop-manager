@@ -3632,3 +3632,13 @@ geprüft mit `git remote -v` und `git fetch origin`. `Plan.md` (Versionsverwaltu
 
 **Warum nur das:** `set-url` ändert nur die Adresse, unter der `origin` erreichbar ist; Branches und
 Historie bleiben gleich. `deploy.sh` kopiert die Dateien direkt auf das NAS und braucht GitHub nicht.
+
+## 2026-11-21 – Favicon „DLS“ aus purchase-prices übernommen
+
+**Was:** `frontend/public/favicon.ico` war noch das Vue-Standardicon aus `create-vue`. Ersetzt durch
+das Icon aus purchase-prices (`src/purchase_prices/static/favicon.ico`, weißes „DLS“ auf grünem
+Grund, 32×32). `index.html` bleibt unverändert, der Verweis `/favicon.ico` passt weiter.
+
+**Warum so:** Dateien unter `frontend/public` kopiert Vite beim Build unverändert nach `dist/` und
+liefert sie unter ihrem Namen aus. So reicht es, die Datei auszutauschen. Beide Anwendungen des
+Dorfladens sehen im Browser-Tab gleich aus.
