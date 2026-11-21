@@ -3530,3 +3530,7 @@ Kopie der Liste.
 - Benutzerhandbuch: Abschnitt 3.5 „Verlauf“, neu erzeugt.
 
 **Geprüft:** `npm run type-check`, `npm run build`.
+
+**Nachtrag (Wunsch von Matthias):** Die Karte „Verlauf“ steht jetzt außerhalb von `card-center`
+(max. 600 px) und nutzt die ganze Breite. Vue 3 erlaubt mehrere Elemente auf oberster Ebene eines
+Templates; die Karte steht deshalb einfach nach dem schmalen `div`, mit `v-if="member"`.

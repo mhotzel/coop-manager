@@ -555,10 +555,11 @@ function generateLines(): void {
           </template>
         </div>
       </div>
-
-      <HistoryCard :member="member" />
     </template>
   </div>
+
+  <!-- Außerhalb von card-center: Der Verlauf ist eine breite Tabelle und nutzt die ganze Breite. -->
+  <HistoryCard v-if="member" :member="member" />
 </template>
 
 <style scoped>
