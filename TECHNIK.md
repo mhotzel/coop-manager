@@ -45,6 +45,7 @@ backend/
     accounts/                 Hauptbuch, Konten, Buchungsvorgänge, Ausscheiden, Ansprüche
     reports/                  Listen zum Stichtag und Jahresauswertung als Excel
     system_settings/          Anteilspreis
+    migration/                Übernahme der Altdaten aus der Access-Datenbank (Schritt 7)
   tests/                      pytest, je Modul und Schicht
 frontend/
   src/main.ts, App.vue        Start, Layout mit Kopfzeile und Menü
@@ -144,6 +145,12 @@ fehlen) und schreibt Briefanrede, „keine Post“ und Hinweise als eigene Ände
 `member.migrate_version` übernimmt eine spätere Version der Personendaten (`PersonData`) aus der
 Historie. Deren Änderungsevents tragen zusätzlich das Feld `valid_from` (ab wann die Version im
 Altsystem galt). Die Handler lesen es nicht; es ist für eine spätere Ansicht „Verlauf“ gedacht.
+
+Das Modul `migration/` ist in Schritte geteilt: `source.py` liest die CSV-Dateien aus
+`mdb-export` (`LegacyPerson`, `LegacyBooking`) und die Einzelfälle aus `migration.toml`
+(`Decisions`); `plan.py` rechnet daraus mit reinen Funktionen den `MigrationPlan` (je Person ein
+`PersonPlan`, je Buchung ein `BookingPlan`, übersprungene Personen und Buchungen, `problems`).
+Geschrieben wird nichts, solange `problems` nicht leer ist.
 
 ### Mehrere Aggregate zusammen speichern
 

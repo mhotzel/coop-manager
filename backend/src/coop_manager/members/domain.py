@@ -191,11 +191,13 @@ class Member(Aggregate):
         member._record_changes(data)
         return member
 
-    def migrate_version(self, data: PersonData, valid_from: date) -> None:
+    def migrate_version(self, data: PersonData, valid_from: date | None) -> None:
         """Übernimmt eine spätere Version der Personendaten aus der Historie des Altsystems.
 
         Für jeden geänderten Teil entsteht das normale Änderungsevent, zusätzlich mit `valid_from`:
-        dem Tag, ab dem die Version im Altsystem galt. Ist nichts geändert, entsteht kein Event.
+        dem Tag, ab dem die Version im Altsystem galt. `None`, wenn das Datum nicht bekannt ist
+        (aktueller Stand nach der letzten Version); dann fehlt das Feld. Ist nichts geändert,
+        entsteht kein Event.
         """
         self._record_changes(_clean_person_data(self.person_type, data), valid_from)
 

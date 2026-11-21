@@ -3286,3 +3286,41 @@ dasselbe Objekt. Bei unveränderlichen Objekten ist das harmlos, bei Listen wär
 Fehler. `field(default_factory=Contact)` erzeugt für jedes Objekt ein eigenes.
 
 **Geprüft:** `uv run pytest` (548 Tests), `ruff check`, `ruff format --check`, `pyright`.
+
+## 2026-11-21 – Migration 7c, Teil 2: Altdaten einlesen und Migrationsplan rechnen
+
+**Was:**
+
+- `migration/source.py`: `load_decisions` liest `migration.toml` mit `tomllib` in `Decisions`;
+  `load_legacy` liest die drei CSV-Dateien aus `mdb-export` mit dem Modul `csv` in Dataclasses
+  (`LegacyPerson`, `LegacyBooking`). Datum per `datetime.fromisoformat` (liest „2014-11-01
+  00:00:00“ aus dem Export und „2026-05-18“ aus einer Korrektur), 1899-12-30 wird leer, Beträge
+  über `Decimal` in Cent (kein `float`, siehe `core/money.py`). Korrekturen gelten auch für die
+  Historie.
+- `migration/plan.py`: `make_plan` geht die Buchungen in der Reihenfolge Datum, alte ID durch,
+  ordnet jeder eine Buchungsart zu und führt dabei den Bestand je Konto mit. Daraus ergeben sich
+  erste Einzahlung, weitere Anteile, Spende und Umbuchung aller Anteile. Danach entsteht je
+  Person ein `PersonPlan` mit Versionen, Daten und Notizen. Was nicht passt, kommt in `problems`.
+- `members/domain.py`: `migrate_version` nimmt jetzt auch `valid_from=None` (aktueller Stand nach
+  der letzten Version, Datum unbekannt).
+- Tests: `test_migration_source.py` (6, schreibt CSV- und TOML-Dateien in `tmp_path`) und
+  `test_migration_plan.py` (18, eine Regel je Test, dazu ein Durchlauf eines kleinen Plans mit den
+  Methoden am Mitglied im Speicher).
+
+**Probelauf auf den echten Daten** (nur gerechnet, nichts geschrieben, Ausgabe nur Zahlen):
+287 Personen (276 Mitglieder, 11 abgelehnt), 288 Buchungen (264 Eintritt, 16 Umbuchung, 6 Spende,
+2 weitere Anteile), 17 übersprungen, 57 Versionen der Historie, **0 Probleme**. Aufgerufen mit
+`uv run python -` und einem kurzen Skript über die Standardeingabe; die CSV-Dateien lagen im
+temporären Ordner außerhalb des Repositorys.
+
+**Python-Details:**
+
+- `sorted(..., key=lambda b: (b.day, b.id))`: Tupel werden Stelle für Stelle verglichen, also
+  erst nach Datum, bei gleichem Datum nach ID.
+- `if (plan := _booking(...)) is not None`: Der „Walross-Operator“ `:=` weist innerhalb eines
+  Ausdrucks zu; so lässt sich in einer List Comprehension aufrufen und filtern, ohne doppelt zu
+  rechnen.
+- `dataclasses.replace(obj, notes=...)`: Kopie eines unveränderlichen (`frozen`) Objekts mit
+  einem geänderten Feld.
+
+**Geprüft:** `uv run pytest` (572 Tests), `ruff check`, `ruff format --check`, `pyright`.

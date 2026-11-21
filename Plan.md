@@ -95,7 +95,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 7b: Migrationsevents und Aufbau des Skripts (erledigt 2026-11-21)
    - 7c: Migrationsskript als CLI-Befehl, Tests mit erfundenen Daten
      - Teil 1: `Member.migrate` und Historie mit `valid_from` (erledigt 2026-11-21)
-     - Teil 2: `source.py` und `plan.py`
+     - Teil 2: `source.py` und `plan.py` (erledigt 2026-11-21)
      - Teil 3: `run.py`, `check.py`, CLI-Befehl `migrate`
    - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile
    - 7e: Migration auf dem NAS
@@ -813,8 +813,13 @@ Das Datum 1899-12-30 ist der Nullwert von Access und gilt als leer.
   die spätere Ansicht „Verlauf“ zeigt `valid_from`, wo vorhanden, sonst die Eventzeit.
 - **Einzelfälle** liest das Skript aus `Altdaten/migration.toml` (TOML, `tomllib`, nicht im
   Repository): nicht übernommene Personen, „abgelehnte“ Personen, übersprungene Buchungen mit
-  Grund und Korrekturen einzelner Felder (überschreiben die Spalten des Altsystems). Tests nutzen
-  eine eigene, erfundene Datei.
+  Grund und Korrekturen einzelner Felder (überschreiben die Spalten des Altsystems, im aktuellen
+  Stand und in allen Versionen der Historie, Stand 2026-11-21). Tests nutzen eigene, erfundene
+  Daten.
+- **Der Plan ist streng** (7c Teil 2): Jede Person und jede Buchung wird zugeordnet oder steht in
+  `migration.toml` als übersprungen; alles andere ist ein Problem, und dann wird nichts
+  geschrieben. Eine Spende muss alle Anteile umfassen. Eine Kündigung wird nur übernommen, wenn
+  die Person am Eingangstag noch Mitglied war, sonst kommt sie als Notiz in die Hinweise.
 - **Aufbau:** Modul `migration/` mit `source.py` (liest die CSV-Dateien aus `mdb-export`),
   `plan.py` (reine Funktionen, die ganze Fachlogik), `run.py` (schreibt mit Akteur `migration` in
   einer Transaktion) und `check.py` (Abgleich Saldo und Anteile je Konto, Prüffälle,
