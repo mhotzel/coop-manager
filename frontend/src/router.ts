@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { ACCOUNTING, ACCOUNTING_READONLY, ADMIN, currentUser } from './auth'
 import AccountView from './views/accounts/AccountView.vue'
+import BalancesView from './views/accounts/BalancesView.vue'
 import OpenClaimsView from './views/accounts/OpenClaimsView.vue'
 import YearEndView from './views/accounts/YearEndView.vue'
 import HomeView from './views/HomeView.vue'
@@ -55,6 +56,7 @@ export const router = createRouter({
     },
     { path: '/year-end', name: 'year-end', component: YearEndView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
     { path: '/claims', name: 'claims', component: OpenClaimsView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
+    { path: '/balances', name: 'balances', component: BalancesView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
     { path: '/reports', name: 'reports', component: ReportsView, meta: { roles: [ACCOUNTING, ACCOUNTING_READONLY] } },
     { path: '/users', name: 'users', component: UserListView, meta: { roles: [ADMIN] } },
     // Anders als in FastAPI egal, ob vor oder nach /users/:id: Feste Pfade gewinnen immer.

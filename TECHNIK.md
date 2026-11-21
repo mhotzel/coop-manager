@@ -277,7 +277,7 @@ http://localhost:8000/docs, im Betrieb ist sie abgeschaltet.
   Pydantic-Schemas des Backends passen müssen (jeweils mit Hinweis auf die Backend-Datei), und die
   Funktionen für die Aufrufe.
 - **`views/`:** eine Komponente je Seite (Suche, Antrag, Mitglied, Konto, Jahresende, Ansprüche,
-  Reports, Benutzer) und wiederverwendbare Teile (`NameFields`, `AddressFields`, `BookingForm`, …).
+  Salden, Reports, Benutzer) und wiederverwendbare Teile (`NameFields`, `AddressFields`, `BookingForm`, …).
 - **Geld in der Oberfläche:** Anzeige und Eingabe in Euro mit deutscher Schreibweise, an das Backend
   gehen ganze Cent bzw. Anteile.
 

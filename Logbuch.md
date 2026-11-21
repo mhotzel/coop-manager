@@ -3419,3 +3419,21 @@ Genossenschaft. Neuer Schritt 10 und Abschnitt „Saldenliste“ in `Plan.md`.
 −56.000 €, abgestimmt; „Ausscheiden nicht gebucht“ genau bei den 5 offenen Fällen.
 
 **Geprüft:** `uv run pytest` (592 Tests), `ruff check`, `ruff format --check`, `pyright`.
+
+## 2026-11-21 – Saldenliste, Teil 2: Seite „Salden“ (10b)
+
+**Was:**
+
+- `frontend/src/accounts.ts`: Schnittstellen `BalanceEntry` und `BalanceList` (passend zu den
+  Dataclasses in `accounts/balances.py`) und `getBalances(day, includeZero)`. Die Abfrage baut
+  `URLSearchParams` zusammen; es kodiert die Werte richtig und spart das Zusammenkleben von Text.
+- `frontend/src/views/accounts/BalancesView.vue`: Stichtag und Häkchen „auch Konten mit Saldo 0“.
+  `watch([day, includeZero], …, { immediate: true })` lädt beim Öffnen und bei jeder Änderung neu;
+  ein Array beobachtet mehrere Werte zugleich. Darunter die Abstimmung (blau: passt, rot:
+  Differenz), ein gelber Hinweis auf Konten mit nicht gebuchtem Ausscheiden mit Link zu
+  „Jahresende“, die Tabelle und die Summenzeile mit den Summen aus dem Backend.
+- `router.ts`: Route `/balances` für beide Buchhaltungsrollen; `App.vue`: Menüeintrag „Salden“.
+- Benutzerhandbuch: Menüübersicht, neuer Abschnitt 6.5 „Salden aller Konten“ und ein Schritt im
+  Jahresabschluss (9.4); neu erzeugt mit `npm run build` in `Dokumentation/handbuch`.
+
+**Geprüft:** `npm run type-check`, `npm run build`. Ansicht im Probelauf-Bestand durch Matthias.

@@ -115,6 +115,7 @@ add(
     ['[[Gen.-Kto]]', 'Das Genossenschaftskonto (Nummer 9999), die Gegenseite fast aller Buchungen.'],
     ['[[Jahresende]]', 'Ausscheiden zum 31.12. buchen.'],
     ['[[Ansprüche]]', 'Liste der offenen Auseinandersetzungsansprüche.'],
+    ['[[Salden]]', 'Saldenliste: Guthaben aller Mitgliedskonten zu einem Stichtag, abgestimmt gegen das Genossenschaftskonto.'],
     ['[[Reports]]', 'Listen als Excel-Datei: Mitgliederliste nach GenG, Generalversammlung, Seriendruck, Vorgänge eines Geschäftsjahres.'],
     ['[[Benutzer]]', 'Benutzerverwaltung (nur Admin).'],
   ], [1, 3]),
@@ -323,6 +324,17 @@ add(
   h2('6.4 Ausbuchung wegen Verjährung'),
   p('Ist ein Anspruch verjährt (Satzung 2.7), bucht **Ausbuchung Verjährung** den ganzen Rest an die Genossenschaft. Die Verjährung überwacht die App nicht; die Liste der offenen Ansprüche mit dem Ausscheidensdatum hilft, sie im Blick zu behalten.'),
   p('Sind Saldo und Anteile 0, ist die Auseinandersetzung abgeschlossen.'),
+  h2('6.5 Salden aller Konten'),
+  p('Im Menü [[Salden]] steht für einen **Stichtag** (vorbelegt: heute) jedes Mitgliedskonto mit seinem Guthaben gegenüber der Genossenschaft, nach Mitgliedsnummer. Mit dem Häkchen **auch Konten mit Saldo 0** erscheinen auch leere Konten.'),
+  table(['Spalte', 'Bedeutung'], [
+    ['Saldo', 'Das ganze Guthaben des Kontos, also der Anspruch gegen die Genossenschaft. Ein Klick öffnet das Konto.'],
+    ['Geschäftsguthaben', 'Anteile × Anteilspreis.'],
+    ['Anspruch', 'Der Rest: Saldo − Geschäftsguthaben, nach dem Ausscheiden der offene Auseinandersetzungsanspruch.'],
+    ['Hinweis', '**Ausscheiden nicht gebucht**: Die Person ist zum Stichtag ausgeschieden (z. B. Tod oder Kündigung in einem früheren Jahr), hat aber noch Anteile.'],
+  ], [1, 3]),
+  gap(),
+  p('Unter der Tabelle stehen die Summen. Oben zeigt ein **blauer** Hinweis, dass die Summe der Mitgliedskonten zum Genossenschaftskonto passt; ein **roter** Hinweis zeigt eine Differenz. Ein **gelber** Hinweis nennt die Konten mit nicht gebuchtem Ausscheiden; dann zuerst unter [[Jahresende]] buchen.'),
+  note('Die Liste unter [[Ansprüche]] zeigt nur Konten mit gebuchtem Ausscheiden. Die Saldenliste zeigt alle Konten, auch wenn ein Ausscheiden noch nicht gebucht ist. Deshalb kann die Summe der heutigen Mitglieder kleiner sein als die Summe aller Salden.'),
 )
 
 // 7 Reports
@@ -389,6 +401,7 @@ add(
     '[[Reports]]: Mitgliederliste nach GenG zum 31.12. herunterladen; die gelbe Warnung darf nicht mehr erscheinen.',
     '[[Reports]]: Vorgänge im Geschäftsjahr für das Vorjahr herunterladen und ablegen.',
     '[[Ansprüche]]: offene Ansprüche prüfen, Auszahlungen und Verjährungen vormerken.',
+    '[[Salden]] zum 31.12.: Die Liste ist abgestimmt, kein Konto hat den Hinweis „Ausscheiden nicht gebucht“. Die Summe des Geschäftsguthabens geht in den Jahresabschluss.',
   ]),
   h2('9.5 Vor der Generalversammlung'),
   steps([

@@ -254,3 +254,37 @@ export interface ClaimEntry {
 export function getClaims(): Promise<ClaimEntry[]> {
   return api<ClaimEntry[]>('/api/accounts/claims')
 }
+
+// --- Saldenliste ---
+
+// Muss zu BalanceEntry im Backend passen (accounts/balances.py). Beträge in Cent.
+export interface BalanceEntry {
+  member_id: string
+  member_number: number
+  account_number: number
+  name: string
+  status: string | null // zum Stichtag
+  shares: number
+  balance: number // Saldo: das ganze Guthaben gegenüber der Genossenschaft
+  share_capital: number // davon Geschäftsguthaben: Anteile × Anteilspreis
+  claim: number // davon Auseinandersetzungsanspruch: Saldo − Geschäftsguthaben
+  exit_not_booked: boolean // ausgeschieden, aber noch Anteile: auf der Seite „Jahresende“ buchen
+}
+
+// Muss zu BalanceList im Backend passen; die Summen gehen über alle Konten.
+export interface BalanceList {
+  day: string
+  entries: BalanceEntry[]
+  total_shares: number
+  total_balance: number
+  total_share_capital: number
+  total_claim: number
+  cooperative_balance: number // Saldo des Genossenschaftskontos, normalerweise −total_balance
+  balanced: boolean
+}
+
+// URLSearchParams setzt die Abfrage zusammen und kodiert die Werte richtig, z. B. „?day=…&include_zero=true“.
+export function getBalances(day: string, includeZero: boolean): Promise<BalanceList> {
+  const query = new URLSearchParams({ day, include_zero: String(includeZero) })
+  return api<BalanceList>(`/api/accounts/balances?${query}`)
+}

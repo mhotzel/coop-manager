@@ -21,7 +21,7 @@ interface MenuEntry {
   hint?: string // Tooltip beim Überfahren, z. B. der ausgeschriebene Titel
 }
 
-// Die Fachseiten (Mitglieder, Genossenschaftskonto, Jahresende, Ansprüche, Reports) sehen beide Buchhaltungsrollen.
+// Die Fachseiten (Mitglieder, Genossenschaftskonto, Jahresende, Ansprüche, Salden, Reports) sehen beide Buchhaltungsrollen.
 const ACCOUNTING_ROLES = [ACCOUNTING, ACCOUNTING_READONLY]
 
 const menuEntries: MenuEntry[] = [
@@ -35,6 +35,7 @@ const menuEntries: MenuEntry[] = [
   },
   { title: 'Jahresende', to: { name: 'year-end' }, roles: ACCOUNTING_ROLES },
   { title: 'Ansprüche', hint: 'Offene Ansprüche', to: { name: 'claims' }, roles: ACCOUNTING_ROLES },
+  { title: 'Salden', hint: 'Salden aller Konten', to: { name: 'balances' }, roles: ACCOUNTING_ROLES },
   { title: 'Reports', to: { name: 'reports' }, roles: ACCOUNTING_ROLES },
   { title: 'Benutzer', to: { name: 'users' }, roles: [ADMIN] },
 ]
