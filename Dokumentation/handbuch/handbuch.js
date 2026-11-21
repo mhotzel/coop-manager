@@ -230,6 +230,7 @@ add(
     ['Ausscheiden', 'Wird nicht hier, sondern auf der Seite **Jahresende** gebucht (siehe 5.5).', 'nur Anteile'],
     ['Storno', 'Macht eine falsche Buchung rückgängig (siehe 4.8).', 'wie das Original'],
   ], [1.3, 2.7, 1.3]),
+  note('Fehlzahlungen ohne Bezug zu Anteilen, etwa eine Überweisung nach dem Ausscheiden, werden nicht in der Mitgliederverwaltung gebucht. Sie werden in der Finanzbuchhaltung zurücküberwiesen.'),
   gap(),
   h2('4.4 Eintritt buchen und Abgleich'),
   p('Geht das Geld eines Antragstellers ein, wird es als **Eintritt** gebucht, Wertstellung = Tag des Geldeingangs. Dabei gleicht die App die eingezahlten mit den gezeichneten Anteilen ab:'),

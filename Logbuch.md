@@ -2788,3 +2788,17 @@ Name kommt wie bisher aus `currentUser?.full_name`; die doppelten geschweiften K
 sind Vues Schreibweise, um einen Wert in den Text einzusetzen. Geprüft mit `npm run type-check`.
 
 **Warum:** Die App ist fertig genug für den Betrieb, der Hinweis auf eine Baustelle passt nicht mehr.
+
+## 2026-11-21 – Entscheidung: Fehlzahlungen nach dem Ausscheiden
+
+**Was:** Offene Frage geklärt: Überweist jemand nach dem Ausscheiden noch Geld (z. B. ein
+weiterlaufender Dauerauftrag), wird das nicht in der Mitgliederverwaltung gebucht, sondern in der
+Finanzbuchhaltung zurücküberwiesen. Festgehalten in `Plan.md` (Abschnitt zu Einzahlung und
+Rückzahlung) und als Hinweis im Benutzerhandbuch unter 4.3 „Die Buchungsarten“; Word-Datei mit
+`npm run build` neu erzeugt. Am Code ändert sich nichts.
+
+**Warum:** Die App führt nur Geschäftsguthaben, also was die Genossenschaft dem Mitglied aus
+Anteilen schuldet. Eine Fehlzahlung ist Fremdgeld. Eine eigene Buchungsart dafür hätte Saldo,
+Mitgliederliste nach GenG und Jahresauswertung verkompliziert. Heute lässt die App einen solchen
+Eingang ohnehin nicht zu: Eintritt nur bis zu den gezeichneten Anteilen, Rückzahlung nur vor der
+Mitgliedschaft, Auszahlung höchstens bis zum offenen Anspruch.

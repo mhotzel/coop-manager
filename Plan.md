@@ -222,6 +222,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Mitgliedschaft kommt nicht zustande.
 - **Rückzahlung** bei Ablehnung oder ungeklärter Zahlung ist eine eigene Buchungsart:
   Soll Mitgliedskonto, Haben Pseudokonto.
+- **Fehlzahlungen ohne Bezug zu Anteilen** (Stand 2026-11-21), auch nach dem Ausscheiden (z. B. ein
+  weiterlaufender Dauerauftrag), werden nicht in der Mitgliederverwaltung gebucht, sondern in der
+  Finanzbuchhaltung zurücküberwiesen. Die App führt nur Geschäftsguthaben; Fremdgeld auf dem
+  Mitgliedskonto würde Saldo und Reports verfälschen. Es gibt dafür keine eigene Buchungsart.
 - **Mitglieds- und Kontonummer werden bei der Erfassung des Antrags vergeben** (höchste Nummer + 1).
   Lücken durch abgelehnte Anträge sind zulässig. Für die Migration der Altdaten ist eine manuelle
   Vergabe möglich (nicht in der Oberfläche); die App prüft dabei die Eindeutigkeit.
