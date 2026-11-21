@@ -3191,3 +3191,41 @@ Router und Cookie-Einstellungen direkt in den Dateien nachgesehen.
 **Warum eigene Datei statt mehr `Plan.md`:** `Plan.md` hält Entscheidungen und ihre Gründe fest,
 `TECHNIK.md` beschreibt den Ist-Zustand des Codes zum Nachschlagen. Ändert sich der Aufbau, wird
 `TECHNIK.md` angepasst.
+
+## 2026-11-21 – Migration 7a: Altdaten analysiert
+
+**Was:** Die Access-Datei des Altsystems liegt in `Altdaten/DLS-MitgliederDB.accdb`. `Altdaten/`
+steht wie `Beispieldaten/` in `.gitignore`. Analysiert, mit Matthias jeden Sonderfall
+entschieden und die Regeln in `Plan.md` („Migration der Altdaten“) festgehalten. Die
+Einzelfälle mit Nummern stehen nur lokal in `Altdaten/Entscheidungen.md`.
+
+**Werkzeug `mdbtools`** (`sudo dnf install mdbtools`) liest Access-Dateien ohne Microsoft Access:
+
+- `mdb-ver datei.accdb`: Format (hier `ACE12`, Access 2007 und neuer)
+- `mdb-tables -1 datei.accdb`: Tabellen, eine je Zeile
+- `mdb-count datei.accdb tabelle`: Zeilen einer Tabelle
+- `mdb-schema datei.accdb postgres`: Spalten und Typen als SQL
+- `mdb-queries datei.accdb abfrage`: SQL einer gespeicherten Abfrage
+- `mdb-export -T '%Y-%m-%d %H:%M:%S' datei.accdb tabelle > tabelle.csv`: Tabelle als CSV. Ohne
+  `-T` kommen Datumswerte im US-Format (`mm/dd/yy`); `-D` gilt nur für reine Datumsfelder, Access
+  speichert aber alles als Zeitstempel.
+
+**Excel-Export für die Durchsicht:** die drei CSV-Dateien mit einem kleinen Python-Skript und
+`openpyxl` in `Altdaten/DLS-MitgliederDB-Export.xlsx` (ein Blatt je Tabelle, echte Datumswerte im
+Format `JJJJ-MM-TT`, Filter, fixierte Kopfzeile). Ausgeführt mit
+`uv run --no-project --with openpyxl python -I skript.py`: `--with` holt `openpyxl` nur für diesen
+Aufruf, ohne es dem Projekt hinzuzufügen.
+
+**Warum außerhalb des Repositorys:** CSV-Dateien und Hilfsskripte lagen in einem temporären
+Ordner, ausgegeben wurden in der Analyse nur Zählungen und Muster. Echte Daten gehören nicht ins
+Repository (`AGENTS.md`), auch nicht als Nummern mit Angaben wie „verstorben“; deshalb trennt
+`Plan.md` die Regeln von der lokalen Liste der Einzelfälle.
+
+**Ergebnis in Zahlen:** 309 Personen, davon 287 übernommen; 392 Historienzeilen, 44 Personen mit
+echten Änderungen; 305 Buchungen, 1.120 Anteile, 56.000 €, jeder Saldo = Anteile × 50 €.
+
+**Entscheidungen (Kurzform):** nur Personen mit Eintritt oder Buchung; nie Mitglied Gewordene
+als „abgelehnt“; alter Eintritt bleibt; Ausscheiden aus Spende bzw. Umbuchung; Tod und Kündigung
+ohne Ausscheiden über „Jahresende“ nachbuchen; Selbstbuchungen, Testbuchung und Widerrufe
+entfallen; `kdnr`, Geburtsdatum, Bankdaten, weitere Telefonnummern entfallen; Historie als eigene
+Events; Akteur `migration`. Neue Idee: Ansicht „Verlauf“ an der Mitgliederseite.

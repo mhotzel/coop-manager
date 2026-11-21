@@ -90,7 +90,12 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 6d: Seriendruck-Liste
    - 6e: Warnung, wenn zum Stichtag ein Ausscheiden noch nicht gebucht ist
    - 6f: Auswertung der Vorgänge eines Geschäftsjahres (Stand 2026-11-19), siehe unten
-7. Migration der Altdaten (falls gewünscht, offen)
+7. Migration der Altdaten (siehe Abschnitt „Migration der Altdaten“)
+   - 7a: Access-Datei analysieren, Einzelfälle mit Matthias entscheiden (erledigt 2026-11-21)
+   - 7b: Migrationsevents und Aufbau des Skripts
+   - 7c: Migrationsskript als CLI-Befehl, Tests mit erfundenen Daten
+   - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile
+   - 7e: Migration auf dem NAS
 8. Container, Backup per Cron, Deployment auf der Synology
    (Stand 2026-11-19: vor der technischen Doku; Doku als Markdown wie `purchase-prices/DEPLOYMENT.md`)
    - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus (erledigt 2026-11-21)
@@ -695,20 +700,97 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 ### Migration der Altdaten (Schritt 7)
 
 - **Altsystem:** Access-Datenbank mit eigener VBA-Logik. Die Excel-Listen in `Beispieldaten/`
-  sind Reports daraus, nicht der vollständige Bestand. Quelle der Migration ist die Access-Datei
-  selbst (gelesen mit `mdbtools`) oder ein Export jeder einzelnen Tabelle.
-- **Übernommen werden alle Personen einschließlich Ausgetretener, die komplette Historie der
-  Personendaten und alle Buchungen.**
-- **Eigene Migrationsevents** (z. B. `member.migrated`, `member.migrated-change` je
-  Historienzeile mit Gültig-von, `booking.migrated`). Die Daten werden übernommen, wie sie im
-  Altsystem stehen; Eintritts-, Kündigungs-, Austritts- und Sterbedatum kommen direkt aus den
-  Feldern, fehlende Angaben wie das Zulassungsdatum werden aus dem Eintrittsdatum abgeleitet.
-- Akteur `migration`, Eventzeit = Zeitpunkt der Migration, das fachliche Datum steht in den Daten.
+  sind Reports daraus, nicht der vollständige Bestand.
+- **Quelle** (Stand 2026-11-21): `Altdaten/DLS-MitgliederDB.accdb`, gelesen mit `mdbtools`.
+  `Altdaten/` ist wie `Beispieldaten/` per `.gitignore` ausgeschlossen. Drei Tabellen:
+  `mitglieder` (aktueller Stand je Person, Schlüssel `persnr`, 9999 = Genossenschaftskonto),
+  `mitglieder_hist` (Schnappschüsse der Personendaten mit `last_update`) und `buchungen`
+  (Soll-Konto an Haben-Konto, Anteile, Betrag, Datum, Text). Die gespeicherten Abfragen des
+  Altsystems werden nicht gebraucht.
+- **Einzelfälle:** Die Entscheidungen zu einzelnen Personen und Buchungen (mit Nummern) stehen
+  in `Altdaten/Entscheidungen.md`, nicht im Repository, weil sie aus echten Daten stammen. Hier
+  stehen nur die Regeln.
+- **Analyse am 2026-11-21** mit Matthias, Ergebnis: Alle Salden sind Anteile × 50 €, kein Konto
+  ist negativ. Die Entscheidungen im Einzelnen:
+
+**Personen**
+
+- **Übernommen werden Personen mit Eintritt oder mit mindestens einer Buchung**, einschließlich
+  Ausgetretener. Nicht übernommen werden reine Kontakte ohne Eintritt und Buchung (Vereine,
+  Interessenten), Platzhalter- und Testdatensätze sowie das Genossenschaftskonto als Person.
+- **„Abgelehnt“ (Rücknahme)** werden Personen, die nie Mitglied wurden: Einzahlung als Spende
+  vereinnahmt (2014/15), Beitritt widerrufen mangels Geldeingang, Eintritt ohne jede Buchung. Das
+  gilt auch, wenn das Altsystem ein Eintrittsdatum hat. Der Text der zugehörigen Buchungen kommt
+  mit Datum und Betrag in die Hinweise.
+- **Eintrittsdatum:** Der Eintritt aus dem Altsystem bleibt unverändert, auch wenn das Geld erst
+  später einging (meist das Datum der Beitrittserklärung). Antrags-, Zulassungs- und
+  Eintrittsdatum werden darauf gesetzt; die Einzahlung behält ihr Buchungsdatum. Die Regel „das
+  spätere von Zulassung und Geldeingang“ gilt nur für neue Beitritte. Kein Fall überschreitet eine
+  Jahresgrenze, Bestände zum 31.12. ändern sich dadurch nicht.
+- **Ausscheiden durch Spende oder Umbuchung aller Anteile** ergibt sich wie in der App aus der
+  Buchung (Tag der Buchung). Ein abweichendes oder fehlendes Austrittsdatum im Altsystem spielt
+  keine Rolle; ein abweichendes kommt in die Hinweise.
+- **Tod und Kündigung ohne gebuchtes Ausscheiden:** Sterbe- und Kündigungsdatum werden übernommen.
+  Die Migration erfindet keine Ausscheidensbuchungen; das Ausscheiden zum jeweiligen 31.12. wird
+  danach über die Seite „Jahresende“ gebucht. Danach stehen diese Konten mit ihrem Guthaben in der
+  Liste der offenen Ansprüche. Mitglieder und Anteile sinken dadurch gegenüber den Listen des
+  Altsystems, das kein automatisches Ausscheiden kannte.
+- **Offensichtliche Fehler werden bei der Migration korrigiert** (Datum im falschen Feld, falsches
+  Geschlecht); die Fälle stehen in `Altdaten/Entscheidungen.md`.
+
+**Felder**
+
+| Altsystem | App |
+|---|---|
+| `persnr` | Mitgliedsnummer (manuell vergeben) |
+| `firma` | Firmenname; gefüllt = juristische Person, Name = Ansprechpartner |
+| `geschlecht`, `titel`, `vorname`, `name` | Name |
+| `strasse`, `hausnr`, `plz`, `ort`, `land` | Anschrift (darf bei der Migration fehlen) |
+| `telefon1`, `email` | Kontakt; ungültige E-Mail-Adressen entfallen ohne Notiz |
+| `adrzeile1`–`adrzeile6` | Adresszeilen, wie sie sind (Abweichungen zeigt die App als Hinweis) |
+| `briefanrede` | abweichende Briefanrede, nur wenn sie von der erzeugten abweicht; leer = erzeugt |
+| `keinepost`, `hinweise` | keine Post, Hinweise |
+| `eintritt`, `kündigung`, `verstorben` | Daten der Mitgliedschaft (siehe oben) |
+| `austritt` | entfällt, das Ausscheiden ergibt sich aus Buchungen bzw. Kündigung und Tod |
+| `kdnr`, `angelegt`, `geboren`, Bankdaten, `telefon2`, `telefon3`, `fax` | entfallen |
+
+Das Datum 1899-12-30 ist der Nullwert von Access und gilt als leer.
+
+**Historie**
+
+- `member.migrated` mit dem ältesten Stand aus `mitglieder_hist` (`last_update` 1900 = Anfangsstand
+  bei Einführung der Historie im Altsystem), danach je weiterer Version ein
+  `member.migrated-change` mit „gültig ab“ = `last_update`. Weicht der aktuelle Stand von der
+  letzten Version ab, folgt eine letzte Änderung ohne bekanntes Datum.
+- Änderungen an Eintritt, Kündigung, Austritt und Tod in der Historie werden nicht als Versionen
+  übernommen; diese Daten kommen aus dem aktuellen Stand bzw. den Buchungen.
+- Eine Ansicht des Verlaufs gibt es noch nicht (siehe „Mögliche Weiterentwicklungen“).
+
+**Buchungen**
+
+| Altsystem | App |
+|---|---|
+| 9999 an Mitglied | Einzahlung bzw. weitere Anteile |
+| Mitglied an 9999 („Spende“) | Spende Anteil |
+| Mitglied an Mitglied | Umbuchung |
+| Soll = Haben (Notiz zu Spende statt Beitritt, Fehlerfassung) | entfällt |
+| 9999 an 9999 („Testbuchung“) | entfällt |
+| Beitritt und Widerruf mangels Geldeingang | entfallen beide (heben sich auf) |
+
+- Das Skript führt eine feste Liste der übersprungenen Buchungen mit Begründung und gibt sie bei
+  jedem Lauf aus.
+
+**Technik**
+
+- **Eigene Migrationsevents** (z. B. `member.migrated`, `member.migrated-change`,
+  `booking.migrated`). Akteur aller Events ist `migration` (bestätigt 2026-11-21), Eventzeit =
+  Zeitpunkt der Migration, das fachliche Datum steht in den Daten.
 - Ausnahmen nur für die Migration: manuelle Nummernvergabe, keine Prüfung „Betrag = Anteile ×
-  Preis“. Konten, deren Werte nicht zum neuen Buchungsmodell passen, listet das Skript als
-  Prüffälle auf.
+  Preis“, Anschrift darf fehlen. Konten, deren Werte nicht zum neuen Buchungsmodell passen, listet
+  das Skript als Prüffälle auf.
 - **Ablauf:** wiederholbares Migrationsskript für Probeläufe, automatischer Abgleich der Salden und
-  Anteile je Konto zwischen alt und neu, Umstellung zu einem Stichtag.
+  Anteile je Konto zwischen alt und neu, Umstellung zu einem Stichtag. Access-Datei und
+  Excel-Export bleiben als Archiv erhalten.
 
 ## Glossar
 
@@ -755,9 +837,6 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 
 ## Offene Punkte
 
-- Access-Datei bzw. Tabellenexporte des Altsystems bereitstellen (in `Beispieldaten/`).
-
-
 - **Höchstzahl an Anteilen je Mitglied:** Steht in der Satzung eine Grenze? Bis zur Klärung prüft
   die App keine.
 
@@ -766,6 +845,8 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 - **Eintrittsgeld** (Satzung 2.3), falls die Generalversammlung eines beschließt: eigene
   Buchungsart ohne Anteile, Zuführung zu den Rücklagen.
 - **Rückvergütung** (Satzung 2.6) über die Mitgliedskonten.
+- **Ansicht „Verlauf“ an der Mitgliederseite** (gewünscht 2026-11-21): frühere Stände der
+  Personendaten mit Datum, einschließlich der migrierten Historie des Altsystems.
 - **Seite „Einstellungen“ für den Admin**, um den Anteilspreis in der Oberfläche zu ändern (bisher
   nur per CLI).
 - Mehrere Rollen je Benutzer statt mehrerer Benutzerkonten je Person.
