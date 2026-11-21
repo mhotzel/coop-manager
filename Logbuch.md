@@ -3534,3 +3534,45 @@ Kopie der Liste.
 **Nachtrag (Wunsch von Matthias):** Die Karte „Verlauf“ steht jetzt außerhalb von `card-center`
 (max. 600 px) und nutzt die ganze Breite. Vue 3 erlaubt mehrere Elemente auf oberster Ebene eines
 Templates; die Karte steht deshalb einfach nach dem schmalen `div`, mit `v-if="member"`.
+
+## 2026-11-21 – Schritt 11c: Benutzerhandbuch als Seite „Hilfe“
+
+**Was:**
+
+- `Dokumentation/handbuch/handbuch.js`: Die Bausteine (`h1`–`h3`, `p`, `bullets`, `steps`, `note`,
+  `table`) erzeugen jetzt HTML statt Word. Die Texte im Abschnitt „Inhalt“ sind unverändert, dazu
+  die Zeile „Hilfe“ in der Menütabelle (1.3). Überschriften bekommen Sprungmarken aus der
+  Kapitelnummer („4.7 …“ → `id="k-4-7"`), daraus entsteht das Inhaltsverzeichnis.
+  `npm run build` schreibt `backend/src/coop_manager/handbook/handbuch.html`.
+- Word-Fassung entfernt: `Benutzerhandbuch.docx`, die Abhängigkeit `docx`, `package-lock.json`,
+  `node_modules` und die `.gitignore` dafür.
+- Backend: neues Paket `handbook` mit `GET /api/help` (`{html}`) für jeden angemeldeten Benutzer
+  (Dependency `current_user` statt `require_role`). Tests in `test_handbook_api.py`: 401 ohne
+  Anmeldung, 200 für alle drei Rollen.
+- Frontend: `help.ts` (`getHandbook()`), Seite `views/help/HelpView.vue`, Route `/help` ohne
+  `roles`, Menüpunkt „Hilfe“ (Tooltip „Benutzerhandbuch“) für alle Rollen.
+- README, TECHNIK und Plan angepasst. 606 Tests grün, ruff, pyright, `npm run type-check` und
+  ein Probe-Build sauber.
+
+**Warum so:**
+
+- **Schutz durch das Backend:** Alles unter `frontend/public` liefert der Server ohne Prüfung aus.
+  Über einen API-Endpunkt mit `current_user` greift dieselbe Anmeldung wie überall; ohne Sitzung
+  kommt 401, und das Frontend schickt zur Anmeldung.
+- **`current_user` statt `require_role(...)`:** `require_role` prüft zusätzlich die Rolle. Hier soll
+  jede Rolle lesen dürfen, also reicht „angemeldet und aktiv“.
+- **`v-html`:** setzt fertiges HTML ein. Bei Eingaben von Benutzern wäre das gefährlich (Skripte
+  im Text), hier kommt das HTML aus unserem eigenen Generator, der jeden Text mit `escape()`
+  maskiert.
+- **`:deep()` im Stil:** `scoped`-Stile gelten nur für Elemente aus dem eigenen Template; für den
+  Inhalt aus `v-html` muss man sie mit `:deep()` freigeben.
+- **Klicks im Inhaltsverzeichnis selbst behandeln:** `scrollIntoView()` statt normaler Sprung,
+  damit Vue Router den `#`-Link nicht als Seitenwechsel behandelt.
+
+**Nachtrag (Wunsch von Matthias): Hilfe im neuen Tab.** `MenuEntry` in `App.vue` hat das
+optionale Feld `newTab?: boolean` (das `?` erlaubt, es wegzulassen), der Eintrag „Hilfe“ setzt es.
+Im Template bekommt der `RouterLink` `:target="entry.newTab ? '_blank' : undefined"`:
+`RouterLink` reicht unbekannte Attribute an das erzeugte `<a>` weiter. Mit `target="_blank"`
+greift Vue Router nicht ein, der Browser öffnet `/help` in einem neuen Tab. Bei `undefined`
+lässt Vue das Attribut ganz weg. Die Anmeldung bleibt erhalten, weil sie im Session-Cookie steckt.
+Handbuch 1.3 ergänzt und neu erzeugt. Geprüft: `npm run type-check`, `npm run build`.

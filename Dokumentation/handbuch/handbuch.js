@@ -1,87 +1,56 @@
-// Erzeugt Dokumentation/Benutzerhandbuch.docx (Benutzerhandbuch der Mitgliederverwaltung).
+// Erzeugt das Benutzerhandbuch der Mitgliederverwaltung als HTML-Ausschnitt für die Seite „Hilfe“.
 //
-// Aufruf aus diesem Ordner:  npm install  (einmalig)  und dann  npm run build
+// Aufruf aus diesem Ordner:  npm run build   (oder node handbuch.js; keine Abhängigkeiten)
+// Ergebnis: backend/src/coop_manager/handbook/handbuch.html. Das Backend liefert es nur an angemeldete
+// Benutzer aus (GET /api/help), das Frontend zeigt es auf der Seite „Hilfe“.
 // Die Texte stehen unten im Abschnitt „Inhalt“; **fett** und [[Knopf]] (braun, fett) gehen im Text.
 const fs = require('fs')
 const path = require('path')
-const {
-  Document, Packer, Paragraph, TextRun, ImageRun, Header, Footer, AlignmentType, HeadingLevel,
-  Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, LevelFormat, PageNumber,
-  TableOfContents, PageBreak, TabStopType,
-} = require('docx')
 
-const OUT = process.argv[2] ?? path.join(__dirname, '..', 'Benutzerhandbuch.docx')
-const BROWN = '544741'
-const GREEN = '8EBE44'
-const LIGHT_GREEN = 'EEF5E3'
-const GREY = 'F2F0EF'
-const FONT = 'Arial'
-// Dasselbe Logo wie in der App.
-const logo = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'assets', 'img', 'dlslogo.png'))
-const LOGO_RATIO = 385 / 1772
+const OUT = process.argv[2] ?? path.join(__dirname, '..', '..', 'backend', 'src', 'coop_manager', 'handbook', 'handbuch.html')
 
 // ---------- Bausteine ----------
 
+// Zeichen, die in HTML eine Bedeutung haben, als Text ausgeben.
+const escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
 // Text mit **fett** und „Knopf“-Hervorhebung über [[Knopf]].
-function runs(text, extra = {}) {
-  const parts = text.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/)
-  return parts.filter((s) => s !== '').map((s) => {
-    if (s.startsWith('**')) return new TextRun({ text: s.slice(2, -2), bold: true, ...extra })
-    if (s.startsWith('[[')) return new TextRun({ text: s.slice(2, -2), bold: true, color: BROWN, ...extra })
-    return new TextRun({ text: s, ...extra })
-  })
+function runs(text) {
+  return text.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/).filter((s) => s !== '').map((s) => {
+    if (s.startsWith('**')) return `<strong>${escape(s.slice(2, -2))}</strong>`
+    if (s.startsWith('[[')) return `<strong class="ui">${escape(s.slice(2, -2))}</strong>`
+    return escape(s)
+  }).join('')
 }
 
-const p = (text, opts = {}) => new Paragraph({ children: runs(text), spacing: { after: 120 }, ...opts })
-const h1 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(text)], pageBreakBefore: true })
-const h2 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(text)] })
-const h3 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun(text)] })
-const bullets = (items) => items.map((t) => new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: runs(t), spacing: { after: 60 } }))
+// Sprungmarke aus der Kapitelnummer: „4.7 Spende des Anteils“ → „k-4-7“.
+const anchor = (text) => 'k-' + text.split(' ')[0].replace(/\./g, '-')
+const toc = [] // [Ebene, Überschrift] für das Inhaltsverzeichnis
 
-let stepInstance = 0
-function steps(items) {
-  stepInstance += 1 // jede Liste beginnt wieder bei 1
-  return items.map((t) => new Paragraph({
-    numbering: { reference: 'steps', level: 0, instance: stepInstance }, children: runs(t), spacing: { after: 60 },
-  }))
+function heading(level, text) {
+  if (level <= 2) toc.push([level, text])
+  return `<h${level} id="${anchor(text)}">${escape(text)}</h${level}>`
 }
+const h1 = (text) => heading(1, text)
+const h2 = (text) => heading(2, text)
+const h3 = (text) => heading(3, text)
+const p = (text) => `<p>${runs(text)}</p>`
+const bullets = (items) => `<ul>${items.map((t) => `<li>${runs(t)}</li>`).join('')}</ul>`
+const steps = (items) => `<ol class="steps">${items.map((t) => `<li>${runs(t)}</li>`).join('')}</ol>`
 
 // Hinweiskasten: grün hinterlegt mit grünem Rand links.
-function note(text, title = 'Hinweis') {
-  return new Paragraph({
-    children: [new TextRun({ text: `${title}: `, bold: true, color: BROWN }), ...runs(text)],
-    shading: { type: ShadingType.CLEAR, fill: LIGHT_GREEN, color: 'auto' },
-    border: { left: { style: BorderStyle.SINGLE, size: 24, color: GREEN, space: 8 } },
-    indent: { left: 200, right: 200 },
-    spacing: { before: 120, after: 160 },
-  })
-}
+const note = (text, title = 'Hinweis') => `<div class="note"><strong>${escape(title)}:</strong> ${runs(text)}</div>`
 
-const TABLE_WIDTH = 9026 // A4 mit 2,54 cm Rand
-const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: 'BFB8B4' }
-const borders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder }
-
+// Tabelle; `widths` sind relative Spaltenbreiten.
 function table(header, rows, widths) {
   const total = widths.reduce((a, b) => a + b, 0)
-  const scaled = widths.map((w) => Math.round((w / total) * TABLE_WIDTH))
-  scaled[scaled.length - 1] += TABLE_WIDTH - scaled.reduce((a, b) => a + b, 0)
-  const cell = (text, i, head) => new TableCell({
-    borders,
-    width: { size: scaled[i], type: WidthType.DXA },
-    shading: head ? { type: ShadingType.CLEAR, fill: BROWN, color: 'auto' } : undefined,
-    margins: { top: 60, bottom: 60, left: 100, right: 100 },
-    children: [new Paragraph({ children: runs(text, head ? { bold: true, color: 'FFFFFF' } : {}) })],
-  })
-  return new Table({
-    width: { size: TABLE_WIDTH, type: WidthType.DXA },
-    columnWidths: scaled,
-    rows: [
-      new TableRow({ tableHeader: true, children: header.map((t, i) => cell(t, i, true)) }),
-      ...rows.map((r) => new TableRow({ children: r.map((t, i) => cell(t, i, false)) })),
-    ],
-  })
+  const cols = widths.map((w) => `<col style="width: ${Math.round((w / total) * 100)}%">`).join('')
+  const head = header.map((t) => `<th>${runs(t)}</th>`).join('')
+  const body = rows.map((r) => `<tr>${r.map((t) => `<td>${runs(t)}</td>`).join('')}</tr>`).join('\n')
+  return `<div class="table-wrapper"><table><colgroup>${cols}</colgroup><thead><tr>${head}</tr></thead><tbody>\n${body}\n</tbody></table></div>`
 }
-const gap = () => new Paragraph({ children: [], spacing: { after: 60 } })
+
+const gap = () => '' // in HTML reicht der normale Abstand
 
 // ---------- Inhalt ----------
 
@@ -118,6 +87,7 @@ add(
     ['[[Salden]]', 'Saldenliste: Guthaben aller Mitgliedskonten zu einem Stichtag, abgestimmt gegen das Genossenschaftskonto.'],
     ['[[Reports]]', 'Listen als Excel-Datei: Mitgliederliste nach GenG, Generalversammlung, Seriendruck, Vorgänge eines Geschäftsjahres.'],
     ['[[Benutzer]]', 'Benutzerverwaltung (nur Admin).'],
+    ['[[Hilfe]]', 'Dieses Benutzerhandbuch, für alle Rollen. Es öffnet sich in einem neuen Tab.'],
   ], [1, 3]),
   gap(),
   p('Meldungen erscheinen oben auf der jeweiligen Seite: **rot** für Fehler (nichts wurde gespeichert), **gelb** für Warnungen (gespeichert, aber bitte prüfen) und **blau** für Bestätigungen.'),
@@ -422,72 +392,17 @@ add(
   ]),
 )
 
-// ---------- Titelseite und Dokument ----------
+// ---------- Ausgabe ----------
 
-const title = [
-  new Paragraph({ children: [], spacing: { before: 2400 } }),
-  new Paragraph({
-    alignment: AlignmentType.CENTER,
-    children: [new ImageRun({ type: 'png', data: logo, transformation: { width: 420, height: Math.round(420 * LOGO_RATIO) }, altText: { title: 'Logo', description: 'Dorfladen Schlichten', name: 'Logo' } })],
-  }),
-  new Paragraph({ children: [], spacing: { after: 900 } }),
-  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'Mitgliederverwaltung', font: FONT, size: 56, bold: true, color: BROWN })] }),
-  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Benutzerhandbuch', font: FONT, size: 40, color: GREEN })] }),
-  new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Unser Dorfladen Schlichten eG', font: FONT, size: 24 })] }),
-  new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Stand: November 2026', font: FONT, size: 22, color: '7A6E68' })] }),
-  new Paragraph({ children: [new PageBreak()] }),
-  new Paragraph({ children: [new TextRun({ text: 'Inhalt', font: FONT, size: 32, bold: true, color: BROWN })], spacing: { after: 200 } }),
-  new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }),
-]
-
-const header = new Header({
-  children: [new Paragraph({
-    tabStops: [{ type: TabStopType.RIGHT, position: TABLE_WIDTH }],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: GREEN, space: 4 } },
-    children: [
-      new ImageRun({ type: 'png', data: logo, transformation: { width: 130, height: Math.round(130 * LOGO_RATIO) }, altText: { title: 'Logo', description: 'Dorfladen Schlichten', name: 'Logo' } }),
-      new TextRun({ text: '\tMitgliederverwaltung – Benutzerhandbuch', font: FONT, size: 16, color: BROWN }),
-    ],
-  })],
-})
-const footer = new Footer({
-  children: [new Paragraph({
-    alignment: AlignmentType.CENTER,
-    children: [new TextRun({ children: ['Seite ', PageNumber.CURRENT, ' von ', PageNumber.TOTAL_PAGES], font: FONT, size: 16, color: '7A6E68' })],
-  })],
-})
-
-const doc = new Document({
-  creator: 'Unser Dorfladen Schlichten eG',
-  title: 'Mitgliederverwaltung – Benutzerhandbuch',
-  features: { updateFields: true },
-  styles: {
-    default: { document: { run: { font: FONT, size: 21 } } },
-    paragraphStyles: [
-      { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-        run: { font: FONT, size: 34, bold: true, color: BROWN },
-        paragraph: { spacing: { before: 0, after: 240 }, keepNext: true, outlineLevel: 0,
-          border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: GREEN, space: 4 } } } },
-      { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-        run: { font: FONT, size: 26, bold: true, color: BROWN },
-        paragraph: { spacing: { before: 280, after: 120 }, keepNext: true, outlineLevel: 1 } },
-      { id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-        run: { font: FONT, size: 22, bold: true, color: GREEN },
-        paragraph: { spacing: { before: 200, after: 80 }, keepNext: true, outlineLevel: 2 } },
-    ],
-  },
-  numbering: {
-    config: [
-      { reference: 'bullets', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT,
-        style: { paragraph: { indent: { left: 540, hanging: 270 } }, run: { color: GREEN } } }] },
-      { reference: 'steps', levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
-        style: { paragraph: { indent: { left: 540, hanging: 360 } }, run: { bold: true, color: BROWN } } }] },
-    ],
-  },
-  sections: [
-    { properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children: title },
-    { properties: { page: { margin: { top: 1700, bottom: 1440, left: 1440, right: 1440 } } }, headers: { default: header }, footers: { default: footer }, children: content },
-  ],
-})
-
-Packer.toBuffer(doc).then((buf) => fs.writeFileSync(OUT, buf))
+const contents = toc
+  .map(([level, text]) => `<li class="toc-${level}"><a href="#${anchor(text)}">${escape(text)}</a></li>`)
+  .join('\n')
+const html = `<!-- Erzeugt von Dokumentation/handbuch/handbuch.js, nicht von Hand ändern. -->
+<nav class="toc"><h2>Inhalt</h2><ul>
+${contents}
+</ul></nav>
+${content.join('\n')}
+`
+fs.mkdirSync(path.dirname(OUT), { recursive: true })
+fs.writeFileSync(OUT, html)
+console.log(`geschrieben: ${OUT}`)

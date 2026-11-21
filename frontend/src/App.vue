@@ -19,6 +19,7 @@ interface MenuEntry {
   to: RouteLocationRaw
   roles: string[]
   hint?: string // Tooltip beim Überfahren, z. B. der ausgeschriebene Titel
+  newTab?: boolean // true: Der Eintrag öffnet sich in einem neuen Browser-Tab
 }
 
 // Die Fachseiten (Mitglieder, Genossenschaftskonto, Jahresende, Ansprüche, Salden, Reports) sehen beide Buchhaltungsrollen.
@@ -38,6 +39,15 @@ const menuEntries: MenuEntry[] = [
   { title: 'Salden', hint: 'Salden aller Konten', to: { name: 'balances' }, roles: ACCOUNTING_ROLES },
   { title: 'Reports', to: { name: 'reports' }, roles: ACCOUNTING_ROLES },
   { title: 'Benutzer', to: { name: 'users' }, roles: [ADMIN] },
+  // Für alle Rollen; geschützt ist es trotzdem, denn das Backend liefert es nur nach Anmeldung.
+  // Im neuen Tab, damit man nebenher lesen kann, ohne die Arbeitsseite zu verlassen.
+  {
+    title: 'Hilfe',
+    hint: 'Benutzerhandbuch (neuer Tab)',
+    to: { name: 'help' },
+    roles: [ACCOUNTING, ACCOUNTING_READONLY, ADMIN],
+    newTab: true,
+  },
 ]
 
 // Nur die Einträge, die zur Rolle des angemeldeten Benutzers passen.
@@ -116,7 +126,14 @@ onUnmounted(() => {
         <ul>
           <li v-for="entry in visibleEntries" :key="entry.title">
             <!-- active-class: style.css markiert den aktiven Eintrag mit der Klasse „active“. -->
-            <RouterLink :to="entry.to" :title="entry.hint" active-class="active">{{ entry.title }}</RouterLink>
+            <!-- target="_blank" öffnet einen neuen Tab; bei undefined lässt Vue das Attribut weg. -->
+            <RouterLink
+              :to="entry.to"
+              :title="entry.hint"
+              :target="entry.newTab ? '_blank' : undefined"
+              active-class="active"
+              >{{ entry.title }}</RouterLink
+            >
           </li>
         </ul>
       </details>

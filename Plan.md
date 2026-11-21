@@ -114,6 +114,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
 11. Verlauf der Personendaten (gewünscht 2026-11-21, siehe Abschnitt „Verlauf der Personendaten“)
    - 11a: Backend: `members/history.py`, `GET /api/members/{id}/history`, Tests (erledigt 2026-11-21)
    - 11b: Frontend: Karte „Verlauf“ auf der Mitgliederseite, Handbuch (erledigt 2026-11-21)
+   - 11c: Benutzerhandbuch als Seite „Hilfe“ in der App statt Word-Datei (Stand 2026-11-21)
 
 ## Entscheidungen
 
@@ -875,6 +876,17 @@ Das Datum 1899-12-30 ist der Nullwert von Access und gilt als leer.
 - **Ablauf:** wiederholbares Migrationsskript für Probeläufe, automatischer Abgleich der Salden und
   Anteile je Konto zwischen alt und neu, Umstellung zu einem Stichtag. Access-Datei und
   Excel-Export bleiben als Archiv erhalten.
+
+### Benutzerhandbuch
+
+- **Seite „Hilfe“ in der App** (Stand 2026-11-21): Menüpunkt für alle Rollen, auch den Admin. Das
+  Handbuch ist **nur nach Anmeldung** lesbar: Das Backend liefert es über `GET /api/help` an jeden
+  angemeldeten Benutzer aus (401 ohne Anmeldung), das Frontend zeigt es mit `v-html`. Deshalb
+  liegt das HTML im Python-Paket (`handbook/handbuch.html`) und nicht unter `frontend/public`,
+  wo es jeder ohne Anmeldung abrufen könnte.
+- **Eine Quelle:** Die Texte stehen in `Dokumentation/handbuch/handbuch.js`; `npm run build`
+  erzeugt daraus das HTML mit Inhaltsverzeichnis. Die **Word-Fassung entfällt**, ebenso die
+  Bibliothek `docx`; der Generator hat keine Abhängigkeiten mehr.
 
 ## Glossar
 

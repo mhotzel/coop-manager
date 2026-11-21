@@ -5,6 +5,7 @@ import AccountView from './views/accounts/AccountView.vue'
 import BalancesView from './views/accounts/BalancesView.vue'
 import OpenClaimsView from './views/accounts/OpenClaimsView.vue'
 import YearEndView from './views/accounts/YearEndView.vue'
+import HelpView from './views/help/HelpView.vue'
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
 import MemberApplyView from './views/members/MemberApplyView.vue'
@@ -32,6 +33,8 @@ export const router = createRouter({
     { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
     // Ohne roles: Jeder Angemeldete darf sein Kennwort ändern.
     { path: '/password', name: 'password', component: PasswordView },
+    // Ohne roles: Das Handbuch dürfen alle Angemeldeten lesen, auch der Admin.
+    { path: '/help', name: 'help', component: HelpView },
     {
       path: '/members',
       name: 'members',

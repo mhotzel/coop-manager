@@ -16,6 +16,7 @@ from .config import Settings, load_settings
 from .core import DomainError, NotFoundError
 from .db import prepare
 from .eventsource import Projector
+from .handbook import api as handbook_api
 from .logs import init_logging
 from .members import api as members_api
 from .members.projections import MemberList
@@ -63,6 +64,7 @@ def create_app(settings: Settings | None = None, projectors: Sequence[Projector]
     app.include_router(members_api.router)
     app.include_router(accounts_api.router)
     app.include_router(reports_api.router)
+    app.include_router(handbook_api.router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

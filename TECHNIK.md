@@ -54,7 +54,7 @@ frontend/
   src/members.ts, accounts.ts, reports.ts, users.ts   Typen und Aufrufe je Fachbereich
   src/views/…                 die Seiten (eine .vue-Datei je Seite bzw. Karte)
   src/assets/                 CSS (Farben in colorscheme-dorfladen.css), Logo
-Dokumentation/                Benutzerhandbuch (Word) und das Skript, das es erzeugt
+Dokumentation/                Benutzerhandbuch: Texte und Skript, das das HTML für „Hilfe“ erzeugt
 Dockerfile, compose.yaml, .dockerignore, deploy.sh   Container und Deployment
 ```
 
@@ -351,7 +351,8 @@ npm run type-check       # TypeScript (vue-tsc)
 3. In `services.py` eine Funktion: laden, Methode aufrufen, `db.save(…, actor)`, loggen.
 4. In `schemas.py` das Eingabemodell, in `api.py` den Endpunkt mit `require_role(...)`.
 5. Tests für Domain, Service und API, im Frontend Typ, Aufruf und Oberfläche, und das
-   Benutzerhandbuch (`Dokumentation/handbuch/handbuch.js`) mitpflegen.
+   Benutzerhandbuch (`Dokumentation/handbuch/handbuch.js`) mitpflegen und mit `npm run build`
+   in `Dokumentation/handbuch/` neu erzeugen.
 
 **Eventtyp umbenennen oder Event-Daten umbauen:** besser nicht. Gespeicherte Events bleiben, wie sie
 sind. Ein neuer Eventtyp mit eigenem Handler ist sicherer, alte Events behalten ihren Handler.
