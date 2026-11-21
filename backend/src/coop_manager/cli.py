@@ -2,14 +2,16 @@
 
 import argparse
 import getpass
+import sqlite3
 import sys
+from pathlib import Path
 
 from .accounts import services as accounts
 from .app import PROJECTORS, SCHEMAS
 from .config import load_settings
 from .core import DomainError
 from .core.money import format_euro, parse_euro
-from .db import Database, prepare
+from .db import EVENTSTORE_DB, Database, backup_event_store, prepare
 from .system_settings import services as system_settings
 from .users import services
 from .users.domain import ADMIN
@@ -74,6 +76,20 @@ def create_cooperative_account() -> None:
     print(f"Genossenschaftskonto {account.number} „{account.name}“ angelegt.")
 
 
+def backup(target: Path | None) -> None:
+    """Sichert den Event Store, ohne Ziel nach <Datenverzeichnis>/backup/eventstore.sqlite.
+
+    Die Projektionen brauchen keine Sicherung, die App baut sie beim Start aus den Events neu auf.
+    """
+    data_dir = load_settings().data_dir
+    target = target or data_dir / "backup" / EVENTSTORE_DB
+    try:
+        count = backup_event_store(data_dir, target)
+    except (OSError, RuntimeError, sqlite3.Error) as exc:
+        sys.exit(f"Sicherung fehlgeschlagen: {exc}")
+    print(f"Event Store mit {count} Events nach {target} gesichert.")
+
+
 def main() -> None:
     """Einstiegspunkt für `coop-manager`: liest den Unterbefehl und führt ihn aus."""
     parser = argparse.ArgumentParser(prog="coop-manager")
@@ -90,6 +106,11 @@ def main() -> None:
 
     commands.add_parser("create-cooperative-account", help="Konto der Genossenschaft anlegen (einmalig)")
 
+    backup_parser = commands.add_parser("backup", help="Event Store sichern (stimmige Kopie, auch im Betrieb)")
+    backup_parser.add_argument(
+        "target", nargs="?", type=Path, help="Zieldatei, Standard: <Datenverzeichnis>/backup/eventstore.sqlite"
+    )
+
     args = parser.parse_args()
     if args.command == "create-admin":
         create_admin(args.username, args.full_name)
@@ -99,3 +120,5 @@ def main() -> None:
         show_settings()
     elif args.command == "create-cooperative-account":
         create_cooperative_account()
+    elif args.command == "backup":
+        backup(args.target)

@@ -2909,3 +2909,42 @@ Das Image ist 292 MB groß; darin liegen weder Node noch Beispieldaten.
   echte Mitgliederdaten sollen dort nicht einmal vorübergehend landen.
 - **`CM_DATA_DIR` und `CM_FRONTEND_DIR` in `compose.yaml` fest:** Die lokale `.env` enthält Werte
   für die Entwicklung (`data`, `../frontend/dist`), die im Container falsch wären.
+
+## 2026-11-21 – Schritt 8c: Backup-Befehl für den Event Store
+
+**Was:**
+
+- `db.py`: `backup_event_store(data_dir, target)` schreibt eine Kopie des Event Store und liefert
+  die Zahl der Events.
+- `cli.py`: Befehl `coop-manager backup [ziel]`, ohne Ziel nach
+  `<CM_DATA_DIR>/backup/eventstore.sqlite`. Fehler enden mit „Sicherung fehlgeschlagen: …“ und
+  Exit-Code 1.
+- Tests in `test_cli.py`: eine einzige Datei im Modus `delete` mit den Events, Ersetzen einer
+  älteren Kopie an einem eigenen Ziel, Abbruch ohne Event Store.
+- `README.md`: Aufruf im Container ergänzt.
+
+**Ausprobiert:**
+
+```bash
+uv run coop-manager backup                                   # lokal, 62 Events
+docker compose build && docker compose up -d
+docker exec coop-manager-app-1 coop-manager backup           # im laufenden Container
+ls -l data/backup/
+docker exec coop-manager-app-1 coop-manager backup /nicht/erlaubt/x.sqlite; echo $?   # 1
+```
+
+**Warum so:**
+
+- **Nicht einfach kopieren:** Schreibt die App während des Kopierens, wäre die Kopie halb alt, halb
+  neu. Im WAL-Modus (Write-Ahead Log) stehen neue Änderungen außerdem zunächst in
+  `eventstore.sqlite-wal` und erst später in der Hauptdatei. Die **Backup-API** von SQLite
+  (`source.backup(copy)`) liefert dagegen einen stimmigen Stand, auch im laufenden Betrieb.
+- **`PRAGMA journal_mode = DELETE` in der Kopie:** Die Sicherung ist dann eine einzige Datei.
+- **`PRAGMA integrity_check`:** SQLite prüft die Kopie selbst; nur eine gute Kopie ersetzt die alte.
+- **Erst `.partial`, dann `replace`:** Umbenennen geschieht in einem Zug. Hyper Backup, das kurz
+  danach läuft, sieht entweder die alte oder die neue Datei, nie eine halbe.
+- **Prüfung, ob der Event Store existiert:** `sqlite3.connect` legt eine fehlende Datei einfach an.
+  Bei einem falsch gesetzten `CM_DATA_DIR` würde sonst still eine leere Datenbank gesichert.
+- **`docker exec` statt `docker compose run`:** `exec` führt den Befehl im schon laufenden Container
+  aus, so wie später der Aufgabenplaner auf der Synology; `run` startete einen neuen Container.
+- **Nur eine Kopie:** Die Versionen hält Hyper Backup vor, wie bei `purchase-prices`.

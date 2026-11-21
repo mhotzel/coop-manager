@@ -41,6 +41,7 @@ docker compose run --rm app coop-manager set-share-price 50
 docker compose run --rm app coop-manager create-cooperative-account
 docker compose up -d
 docker compose ps                                              # nach etwa 30 s „healthy“
+docker exec coop-manager-app-1 coop-manager backup             # Sicherung nach data/backup/
 ```
 
 Danach läuft die App unter `http://localhost:8001`. Die Einrichtung auf der Synology beschreibt

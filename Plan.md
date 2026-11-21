@@ -95,7 +95,7 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    (Stand 2026-11-19: vor der technischen Doku; Doku als Markdown wie `purchase-prices/DEPLOYMENT.md`)
    - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus (erledigt 2026-11-21)
    - 8b: Dockerfile (zwei Stufen) und `compose.yaml`, lokal getestet (erledigt 2026-11-21)
-   - 8c: Backup-Befehl für den Event Store
+   - 8c: Backup-Befehl für den Event Store (erledigt 2026-11-21)
    - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md`
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
 
@@ -180,6 +180,14 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   `X-Forwarded-*` entscheidet. **Port 8001** auf dem Host (`CM_PORT`), weil `purchase-prices` auf der
   Synology 8000 belegt; standardmäßig nur an `127.0.0.1`, HTTPS macht der Reverse Proxy.
   `.dockerignore` hält u. a. `Beispieldaten/` und `.env` aus dem Build heraus.
+- **Datensicherung** (Stand 2026-11-21) wie bei `purchase-prices`: `coop-manager backup [ziel]`
+  schreibt eine stimmige Kopie des Event Store, Standard `<CM_DATA_DIR>/backup/eventstore.sqlite`:
+  über die Backup-API von SQLite (auch im laufenden Betrieb), als eine Datei ohne WAL, erst nach dem
+  Integritätscheck unter dem endgültigen Namen. Nur der Event Store, die Projektionen entstehen
+  daraus neu. Eine Kopie, die jedes Mal ersetzt wird; ältere Stände hält Hyper Backup vor. Fehlt der
+  Event Store, bricht der Befehl ab, statt eine leere Datei zu sichern. Fehler enden mit Exit-Code 1,
+  damit der Aufgabenplaner benachrichtigt. Aufruf im Container: `docker exec coop-manager-app-1
+  coop-manager backup`.
 - **Python über uv:** uv verwaltet das Python selbst (`uv python install`), damit ein Upgrade der
   Distribution die Umgebung nicht bricht.
 - **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_` (eine vorhandene `.env` wird

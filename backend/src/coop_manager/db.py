@@ -1,3 +1,4 @@
+import sqlite3
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
@@ -54,6 +55,35 @@ def prepare(data_dir: Path, projectors: Sequence[Projector], schemas: Sequence[s
         db.projections.catch_up(db.store)
     finally:
         db.close()
+
+
+def backup_event_store(data_dir: Path, target: Path) -> int:
+    """Schreibt eine stimmige Kopie des Event Store nach `target`, auch während die App läuft.
+
+    Liefert die Anzahl der Events. Die Kopie ist eine einzige Datei (ohne -wal/-shm) und erscheint
+    erst unter ihrem Namen, wenn sie fertig und geprüft ist. Eine Dateisicherung, die gleichzeitig
+    läuft (Hyper Backup), sieht so nie eine halb geschriebene Datei.
+    """
+    source_path = data_dir / EVENTSTORE_DB
+    if not source_path.is_file():
+        # Sonst legte sqlite3.connect eine leere Datei an, und wir sicherten still nichts.
+        raise FileNotFoundError(f"Kein Event Store unter {source_path}.")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partial = target.with_name(target.name + ".partial")
+    partial.unlink(missing_ok=True)
+    source = connect(str(source_path))
+    copy = sqlite3.connect(partial)
+    try:
+        source.backup(copy)  # die Backup-API von SQLite
+        copy.execute("PRAGMA journal_mode = DELETE")  # eine einzige Datei ohne -wal/-shm
+        if copy.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise RuntimeError("Die Kopie des Event Store ist beschädigt.")
+        count = copy.execute("SELECT count(*) FROM events").fetchone()[0]
+    finally:
+        copy.close()
+        source.close()
+    partial.replace(target)  # Umbenennen in einem Zug
+    return count
 
 
 def get_db(request: Request) -> Iterator[Database]:

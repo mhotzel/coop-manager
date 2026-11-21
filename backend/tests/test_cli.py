@@ -1,3 +1,4 @@
+import sqlite3
 import sys
 
 import pytest
@@ -67,3 +68,39 @@ def test_create_cooperative_account(monkeypatch, tmp_path, capsys):
 
     with pytest.raises(SystemExit, match="gibt es bereits"):
         run_cli(monkeypatch, tmp_path, ["create-cooperative-account"], [])
+
+
+def test_backup_writes_a_consistent_single_file(monkeypatch, tmp_path, capsys):
+    run_cli(monkeypatch, tmp_path, ["set-share-price", "50"], [])
+
+    run_cli(monkeypatch, tmp_path, ["backup"], [])
+
+    target = tmp_path / "backup" / "eventstore.sqlite"
+    assert f"nach {target} gesichert" in capsys.readouterr().out
+    assert [p.name for p in target.parent.iterdir()] == ["eventstore.sqlite"]  # kein .partial, kein -wal
+    copy = sqlite3.connect(target)
+    assert copy.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+    assert copy.execute("SELECT count(*) FROM events").fetchone()[0] == 1
+    copy.close()
+
+
+def test_backup_replaces_an_older_copy_at_given_target(monkeypatch, tmp_path, capsys):
+    target = tmp_path / "copy.sqlite"
+    run_cli(monkeypatch, tmp_path, ["set-share-price", "50"], [])
+    run_cli(monkeypatch, tmp_path, ["backup", str(target)], [])
+    run_cli(monkeypatch, tmp_path, ["set-share-price", "60"], [])
+
+    run_cli(monkeypatch, tmp_path, ["backup", str(target)], [])
+
+    assert "Event Store mit 2 Events" in capsys.readouterr().out
+    copy = sqlite3.connect(target)
+    assert copy.execute("SELECT count(*) FROM events").fetchone()[0] == 2
+    copy.close()
+
+
+def test_backup_without_event_store_fails_and_writes_nothing(monkeypatch, tmp_path):
+    with pytest.raises(SystemExit, match="Kein Event Store"):
+        run_cli(monkeypatch, tmp_path, ["backup"], [])
+
+    assert not (tmp_path / "eventstore.sqlite").exists()
+    assert not (tmp_path / "backup").exists()
