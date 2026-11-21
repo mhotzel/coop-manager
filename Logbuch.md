@@ -3576,3 +3576,29 @@ Im Template bekommt der `RouterLink` `:target="entry.newTab ? '_blank' : undefin
 greift Vue Router nicht ein, der Browser öffnet `/help` in einem neuen Tab. Bei `undefined`
 lässt Vue das Attribut ganz weg. Die Anmeldung bleibt erhalten, weil sie im Session-Cookie steckt.
 Handbuch 1.3 ergänzt und neu erzeugt. Geprüft: `npm run type-check`, `npm run build`.
+
+## 2026-11-21 – Jahresende für die migrierten Altfälle gebucht
+
+**Was:** Matthias hat in der Produktion auf der Seite „Jahresende“ das Ausscheiden der fünf
+Altfälle aus der Migration gebucht: 2015, 2016, 2017 und 2021 (je ein Todesfall) und 2023 (eine
+Kündigung), zusammen 13 Anteile. Je Konto entstand eine Ausscheidensbuchung mit Wertstellung 31.12.
+des Jahres und Betrag 0. Code wurde dafür nicht geändert.
+
+**Ergebnis:** 1.107 Anteile im Bestand (vorher 1.120), 55.350 € Geschäftsguthaben plus 650 € offene
+Ansprüche = 56.000 €, Abstimmung gegen das Genossenschaftskonto 0. Kein Hinweis „Ausscheiden nicht
+gebucht“ mehr; die fünf Konten stehen unter „Ansprüche“. Für 2024 und 2025 war nichts fällig.
+
+**Geprüft wie:** nur lesend, auf einer Kopie des Event Stores im laufenden Container. Ein kleines
+Python-Skript wird per `ssh … docker exec -i coop-manager-app-1 python - < skript.py` eingespeist
+(`-i` reicht die Standardeingabe durch, `python -` liest das Skript von dort). Es kopiert den Event
+Store mit `backup_event_store` nach `/tmp`, baut dort mit `prepare` die Projektionen auf und ruft
+dieselben Funktionen wie die Seiten auf (`exits_due`, `account_balances`, `open_claims`). Danach
+wird die Kopie gelöscht. So bleiben die echten Daten unberührt.
+
+**Warum Ausscheiden buchen, obwohl noch nicht ausgezahlt werden darf:** Ausscheiden und Auszahlung
+sind getrennt (Plan: „Ausscheiden und Auszahlung sind getrennt“). Die Ausscheidensbuchung hält nur
+fest, dass die Anteile den Bestand verlassen haben; das Geld bleibt als offener Anspruch stehen,
+bis die Auszahlung nach der Satzung zulässig ist.
+
+**Merke:** Vorher war Matthias versehentlich in der Testumgebung, dort gab es die Fälle nicht.
+Bei Fragen zu echten Daten zuerst klären, welche Umgebung gemeint ist.

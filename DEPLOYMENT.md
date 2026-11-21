@@ -370,7 +370,7 @@ Speichern, wenn Plan, Aufbau oder Abgleich der Salden etwas melden.
 (249 Mitglieder, 11 abgelehnt, 27 ausgeschieden), 288 Buchungen, 1.120 Anteile, 56.000 €;
 1.911 Events mit Akteur `migration`. Danach `healthy`, Saldenliste abgestimmt (Konto 9999
 −56.000 €), 5 Konten mit nicht gebuchtem Ausscheiden (2015, 2016, 2017, 2021, 2023), die die
-Buchhaltung unter „Jahresende“ bucht. Eine Sicherung vorher war nicht nötig, weil in der
+Buchhaltung unter „Jahresende“ bucht (am selben Tag erledigt, siehe Logbuch). Eine Sicherung vorher war nicht nötig, weil in der
 Produktion noch nichts Wichtiges stand. `data/import` ist gelöscht.
 
 ## Updates und Rückfall
