@@ -92,8 +92,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 6f: Auswertung der Vorgänge eines Geschäftsjahres (Stand 2026-11-19), siehe unten
 7. Migration der Altdaten (siehe Abschnitt „Migration der Altdaten“)
    - 7a: Access-Datei analysieren, Einzelfälle mit Matthias entscheiden (erledigt 2026-11-21)
-   - 7b: Migrationsevents und Aufbau des Skripts
+   - 7b: Migrationsevents und Aufbau des Skripts (erledigt 2026-11-21)
    - 7c: Migrationsskript als CLI-Befehl, Tests mit erfundenen Daten
+     - Teil 1: `Member.migrate` und Historie mit `valid_from`
+     - Teil 2: `source.py` und `plan.py`
+     - Teil 3: `run.py`, `check.py`, CLI-Befehl `migrate`
    - 7d: Probeläufe lokal mit Abgleich der Salden und Anteile
    - 7e: Migration auf dem NAS
 8. Container, Backup per Cron, Deployment auf der Synology
@@ -782,9 +785,43 @@ Das Datum 1899-12-30 ist der Nullwert von Access und gilt als leer.
 
 **Technik**
 
-- **Eigene Migrationsevents** (z. B. `member.migrated`, `member.migrated-change`,
-  `booking.migrated`). Akteur aller Events ist `migration` (bestätigt 2026-11-21), Eventzeit =
-  Zeitpunkt der Migration, das fachliche Datum steht in den Daten.
+- **Normale Events statt eigener Migrationsevents** (Entscheidung 7b, 2026-11-21; ersetzt die
+  frühere Idee `member.migrated`/`booking.migrated`): Die Migration schreibt dieselben Events wie
+  die App (`member.applied`, `member.admitted`, `member.paid-in`, `member.withdrawn`,
+  `member.died`, `member.notice-given`, `member.shares-donated`, `member.all-shares-transferred`,
+  `booking.posted` mit den bestehenden Buchungsarten usw.). Grund: Projektionen, Status, Reports
+  und Jahresende funktionieren ohne Änderung, und nach der Migration lässt sich normal
+  weiterarbeiten (Storno, Umbuchung). Zwei Wege für dieselbe Tatsache wären eine Fehlerquelle.
+- **Akteur aller Events ist `migration`** (bestätigt 2026-11-21); daran sind migrierte Events
+  erkennbar. Eventzeit = Zeitpunkt der Migration, das fachliche Datum steht in den Daten.
+- **Eigene Methoden am Mitglied** (z. B. `Member.migrate`) schreiben diese Events ohne die
+  Prüfungen, die für Altfälle nicht passen (offener Antrag, Pflichtanschrift, Datum nicht in der
+  Zukunft u. Ä.). Die normalen Vorgänge bleiben unverändert.
+- **Je Person:** Nummer vergeben, Konto eröffnen, `member.applied` mit dem ältesten Stand.
+  Mitglieder: `member.admitted` und `member.paid-in`, Antrags-, Zulassungs- und Zahlungsdatum =
+  alter Eintritt (damit das Eintrittsdatum gleich bleibt). „Abgelehnt“: `member.withdrawn`. Dazu
+  je nach Fall `member.died`, `member.notice-given` (Ausscheiden zum Ende der Frist),
+  `member.shares-donated` bzw. `member.all-shares-transferred` am Tag der Buchung. Gezeichnete
+  Anteile = erste Einzahlung bzw. empfangene Umbuchung; bei „abgelehnt“ die Anteile der
+  Notizbuchung, sonst 1.
+- **Buchungen** in der Reihenfolge Datum, dann alte ID (damit der Saldo bei Umbuchungen am selben
+  Tag reicht); Wertstellung = altes Datum, Text = alter Buchungstext. Erste Einzahlung = Eintritt;
+  eine spätere Einzahlung = „Weitere Anteile“ mit Zeichnung am Buchungstag.
+- **Historie** mit den bestehenden Änderungsevents (`member.name-changed`,
+  `member.address-changed`, `member.address-lines-changed`, `member.notes-changed` usw.), dazu
+  ein zusätzliches Feld **`valid_from`** mit dem alten `last_update`. Die App ignoriert es vorerst;
+  die spätere Ansicht „Verlauf“ zeigt `valid_from`, wo vorhanden, sonst die Eventzeit.
+- **Einzelfälle** liest das Skript aus `Altdaten/migration.toml` (TOML, `tomllib`, nicht im
+  Repository): nicht übernommene Personen, „abgelehnte“ Personen, übersprungene Buchungen mit
+  Grund und Korrekturen einzelner Felder (überschreiben die Spalten des Altsystems). Tests nutzen
+  eine eigene, erfundene Datei.
+- **Aufbau:** Modul `migration/` mit `source.py` (liest die CSV-Dateien aus `mdb-export`),
+  `plan.py` (reine Funktionen, die ganze Fachlogik), `run.py` (schreibt mit Akteur `migration` in
+  einer Transaktion) und `check.py` (Abgleich Saldo und Anteile je Konto, Prüffälle,
+  übersprungene Buchungen). CLI: `coop-manager migrate <csv-ordner> <migration.toml>
+  [--dry-run]`; ohne `--dry-run` bricht er ab, wenn es schon Mitglieder gibt.
+- **Produktion (7e, Vorschlag):** lokal auf einer Kopie der NAS-Sicherung migrieren (dort gibt
+  es kein `mdbtools`), prüfen und bei gestopptem Container zurückkopieren.
 - Ausnahmen nur für die Migration: manuelle Nummernvergabe, keine Prüfung „Betrag = Anteile ×
   Preis“, Anschrift darf fehlen. Konten, deren Werte nicht zum neuen Buchungsmodell passen, listet
   das Skript als Prüffälle auf.

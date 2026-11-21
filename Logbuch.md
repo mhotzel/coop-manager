@@ -3229,3 +3229,27 @@ als „abgelehnt“; alter Eintritt bleibt; Ausscheiden aus Spende bzw. Umbuchun
 ohne Ausscheiden über „Jahresende“ nachbuchen; Selbstbuchungen, Testbuchung und Widerrufe
 entfallen; `kdnr`, Geburtsdatum, Bankdaten, weitere Telefonnummern entfallen; Historie als eigene
 Events; Akteur `migration`. Neue Idee: Ansicht „Verlauf“ an der Mitgliederseite.
+
+## 2026-11-21 – Migration 7b: Entwurf der Migration
+
+**Was:** Aufbau des Migrationsskripts entworfen und in `Plan.md` („Migration der Altdaten“,
+Abschnitt „Technik“) festgehalten. Kein Code in diesem Schritt.
+
+**Wichtigste Entscheidung: normale Events statt eigener Migrationsevents.** Ursprünglich waren
+eigene Typen wie `member.migrated` und `booking.migrated` angedacht. Dann müsste aber jede Stelle,
+die auf `member.applied`, `member.paid-in` oder `booking.posted` reagiert (Mitglied, Hauptbuch,
+Projektionen, Reports, Jahresende), auch die Migrationsevents verstehen; dieselbe Tatsache käme
+auf zwei Wegen herein. Jetzt schreibt die Migration dieselben Events wie die App, erkennbar am
+Akteur `migration`. Eigene Methoden am Mitglied (`Member.migrate`) lassen nur die Prüfungen weg,
+die für Altfälle nicht passen.
+
+**Historie:** die bestehenden Änderungsevents mit einem zusätzlichen Feld `valid_from`. Events
+dürfen zusätzliche Felder tragen, die alte Handler nicht lesen; das ist die übliche Art,
+Events abwärtskompatibel zu erweitern.
+
+**Einzelfälle:** `Altdaten/migration.toml` (nicht im Repository). TOML ist ein Format für
+Konfigurationsdateien; Python liest es seit 3.11 mit `tomllib` aus der Standardbibliothek. Kurz
+geprüft mit `python3 -I -c "import tomllib; tomllib.load(open('Altdaten/migration.toml', 'rb'))"`.
+
+**Aufbau:** Modul `migration/` mit `source.py`, `plan.py` (reine Funktionen), `run.py`,
+`check.py` und CLI-Befehl `migrate` mit `--dry-run`. Umsetzung in drei Teilen (7c).
