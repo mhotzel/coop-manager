@@ -92,6 +92,11 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 6f: Auswertung der Vorgänge eines Geschäftsjahres (Stand 2026-11-19), siehe unten
 7. Migration der Altdaten (falls gewünscht, offen)
 8. Container, Backup per Cron, Deployment auf der Synology
+   (Stand 2026-11-19: vor der technischen Doku; Doku als Markdown wie `purchase-prices/DEPLOYMENT.md`)
+   - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus
+   - 8b: Dockerfile (zwei Stufen) und `compose.yaml`, lokal getestet
+   - 8c: Backup-Befehl für den Event Store
+   - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md`
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
 
 ## Entscheidungen
