@@ -2948,3 +2948,39 @@ docker exec coop-manager-app-1 coop-manager backup /nicht/erlaubt/x.sqlite; echo
 - **`docker exec` statt `docker compose run`:** `exec` führt den Befehl im schon laufenden Container
   aus, so wie später der Aufgabenplaner auf der Synology; `run` startete einen neuen Container.
 - **Nur eine Kopie:** Die Versionen hält Hyper Backup vor, wie bei `purchase-prices`.
+
+## 2026-11-21 – Schritt 8d, Teil 1: deploy.sh und DEPLOYMENT.md
+
+**Was:**
+
+- `deploy.sh`: überträgt den Code per `tar` über `ssh` nach `/volume1/IT-Systeme/Docker/coop-manager`
+  auf `ds218-dls`, ersetzt dort `backend/` und `frontend/` und startet
+  `docker compose up -d --build`. Host, Ordner und Docker-Aufruf lassen sich mit `CM_DEPLOY_HOST`,
+  `CM_DEPLOY_DIR` und `CM_DEPLOY_DOCKER` überschreiben.
+- `DEPLOYMENT.md`: Anleitung nach dem Vorbild `purchase-prices` mit den Werten für coop-manager
+  (Subdomain `mitglieder.`, Port 8001, Container `coop-manager-app-1`), dazu Ersteinrichtung per
+  CLI, Datensicherung mit Aufgabenplaner, Wiederherstellen, Updates und Fehlerbilder.
+- `README.md` und `Plan.md` verweisen darauf.
+
+**Geprüft:**
+
+```bash
+sh -n deploy.sh                       # nur Syntax prüfen, nichts ausführen
+tar -c … | tar -C <scratch> -x        # genau die Dateiauswahl von deploy.sh entpacken
+docker build -t coop-manager-deploytest <scratch>   # baut vollständig
+curl … http://localhost:8001/api/me   # 401; /docs und /openapi.json liefern die Vue-App
+```
+
+Auf dem NAS ist noch nichts passiert; die Einrichtung (Teil 2) machen wir später gemeinsam und
+tragen dabei echte Werte in `DEPLOYMENT.md` nach.
+
+**Warum so:**
+
+- **Ausdrückliche Dateiliste in `deploy.sh`:** Nur was zum Bauen gebraucht wird, geht aufs NAS.
+  `Beispieldaten/`, `.env`, `data/`, `node_modules/` und `.venv/` können so nicht versehentlich
+  mitwandern. Dass die Liste vollständig ist, zeigt der Testbau aus genau dieser Auswahl.
+- **Bauen auf dem NAS:** Die DS218 ist ARM64, der Entwicklungsrechner x86. Ein dort gebautes Image
+  passt ohne Umwege (sonst bräuchte es `docker buildx` für eine fremde Architektur).
+- **Eigene ACL auf dem Projektordner:** `data/` enthält Mitgliederdaten; die Freigabe
+  `IT-Systeme` würde sonst auch `Aufsichtsrat` und `users` Zugriff geben.
+- **Leer starten:** Die Entwicklungsdaten sind erfunden, die echten Daten kommen mit der Migration.

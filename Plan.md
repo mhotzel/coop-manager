@@ -96,7 +96,8 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 8a: FastAPI liefert die gebaute Vue-App aus, `/docs` und `/redoc` im Betrieb aus (erledigt 2026-11-21)
    - 8b: Dockerfile (zwei Stufen) und `compose.yaml`, lokal getestet (erledigt 2026-11-21)
    - 8c: Backup-Befehl für den Event Store (erledigt 2026-11-21)
-   - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md`
+   - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md` (Dateien erledigt
+     2026-11-21; Einrichtung auf dem NAS steht noch aus)
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
 
 ## Entscheidungen
@@ -188,6 +189,13 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Event Store, bricht der Befehl ab, statt eine leere Datei zu sichern. Fehler enden mit Exit-Code 1,
   damit der Aufgabenplaner benachrichtigt. Aufruf im Container: `docker exec coop-manager-app-1
   coop-manager backup`.
+- **Betrieb auf der Synology** (Stand 2026-11-21), Anleitung in `DEPLOYMENT.md`: dasselbe NAS
+  `ds218-dls` wie `purchase-prices`, Ordner `/volume1/IT-Systeme/Docker/coop-manager` mit eigener
+  ACL (nur `chef`, `administrators`, `IT-Admin`), Adresse `https://mitglieder.dorfladen-schlichten.de`
+  (CNAME auf `work.`, Let's Encrypt, DSM-Reverse-Proxy auf `localhost:8001`). Start **leer**, die
+  Altdaten kommen mit der Migration. Sicherung täglich 20:00 per DSM-Aufgabenplaner, Hyper Backup
+  um 20:30. `deploy.sh` überträgt eine ausdrückliche Dateiliste per `tar` über `ssh`, gebaut wird
+  auf dem NAS (ARM64).
 - **Python über uv:** uv verwaltet das Python selbst (`uv python install`), damit ein Upgrade der
   Distribution die Umgebung nicht bricht.
 - **Betrieb:** Konfiguration über Umgebungsvariablen mit Präfix `CM_` (eine vorhandene `.env` wird

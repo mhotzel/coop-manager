@@ -26,6 +26,7 @@ Sie löst die bisherige Access-Datenbank ab.
 | [Plan.md](Plan.md) | Alle abgestimmten fachlichen und technischen Entscheidungen, das Vorgehen in Schritten, das Glossar Deutsch–Englisch sowie offene Punkte und mögliche Weiterentwicklungen. **Bei Abweichungen gilt der Plan vor der Konzeption.** |
 | [Logbuch.md](Logbuch.md) | Chronik der Entwicklung: was in jedem Schritt gemacht wurde, mit welchen Werkzeugen und Befehlen und warum. Zum Nachvollziehen und Nachschlagen. |
 | [Dokumentation/Benutzerhandbuch.docx](Dokumentation/Benutzerhandbuch.docx) | Benutzerhandbuch für Buchhaltung und Vorstand (Word, mit Logo): alle Abläufe Schritt für Schritt. Erzeugt mit `npm run build` in `Dokumentation/handbuch/`, dort stehen auch die Texte. |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Betrieb auf der Synology: DNS, Zertifikat, Ordnerrechte, `.env`, Reverse Proxy, Ersteinrichtung, Datensicherung, Updates mit `deploy.sh`, Fehlerbilder. |
 | [DEV_HINTS.md](DEV_HINTS.md) | Entwicklung: Backend und Frontend starten, ersten Admin anlegen, API von Hand ausprobieren, Prüfungen. |
 | [AGENTS.md](AGENTS.md) | Arbeitsregeln für KI-Assistenten, die an diesem Projekt mitarbeiten. |
 
@@ -45,7 +46,7 @@ docker exec coop-manager-app-1 coop-manager backup             # Sicherung nach 
 ```
 
 Danach läuft die App unter `http://localhost:8001`. Die Einrichtung auf der Synology beschreibt
-später `DEPLOYMENT.md`.
+[DEPLOYMENT.md](DEPLOYMENT.md), Updates spielt `./deploy.sh` ein.
 
 ## Lizenz
 
