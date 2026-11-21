@@ -3485,3 +3485,31 @@ läuft genau die ausgerollte Codeversion.
 2023 buchen; danach stehen die 650 € als offene Ansprüche unter „Ansprüche“.
 
 **Dokumentiert:** `DEPLOYMENT.md` Abschnitt 13, `Plan.md` (Produktion, 7e erledigt).
+
+## 2026-11-21 – Verlauf der Personendaten, Teil 1: Backend (11a)
+
+**Vorher:** `Altdaten/probelauf/` und `Altdaten/csv/` gelöscht (Probelauf erledigt, Daten in der
+Produktion). Als Archiv bleiben Access-Datei, Excel-Export, `migration.toml` und
+`Entscheidungen.md`.
+
+**Was:**
+
+- `members/history.py`: `member_history(db, member_id)` geht die Events der Person der Reihe nach
+  durch und merkt sich je Teil (Name, Anschrift, Kontakt, Adresszeilen, Briefanrede, Keine Post,
+  Hinweise) den aktuellen Text. Jedes Änderungsevent ergibt eine Zeile mit Vorher und Nachher;
+  `member.applied` liefert den Ausgangsstand. Status- und Buchungsevents werden übersprungen.
+  Gültig ab: `valid_from` aus der Migration, beim Antrag das Antragsdatum, sonst leer (= Tag des
+  Speicherns). Akteure werden zum Namen des Benutzers; `migration` und `cli` haben feste Namen.
+- `GET /api/members/{id}/history` für beide Buchhaltungsrollen.
+- `tests/test_members_history.py`: 8 Tests.
+- `Plan.md`: Schritt 11 und Abschnitt „Verlauf der Personendaten“ (aus den möglichen
+  Weiterentwicklungen übernommen); `TECHNIK.md`: Endpunkt und Modul.
+
+**Warum keine Projektion:** Der Verlauf wird nur für eine Person auf Abruf gebraucht. Die Events
+eines Streams zu lesen ist genau das, wofür Event Sourcing da ist; eine Lesetabelle wäre mehr Code
+ohne Nutzen. Das ist ein schönes Beispiel dafür, dass die Events selbst die Historie *sind*.
+
+**Python-Detail:** `entries[::-1]` ist ein Slice mit Schrittweite −1 und liefert eine umgedrehte
+Kopie der Liste.
+
+**Geprüft:** `uv run pytest` (602 Tests), `ruff check`, `ruff format --check`, `pyright`.

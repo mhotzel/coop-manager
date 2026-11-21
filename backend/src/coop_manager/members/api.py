@@ -15,6 +15,7 @@ from ..users.domain import ACCOUNTING, ACCOUNTING_READONLY
 from ..users.projections import UserView
 from . import services
 from .domain import Member
+from .history import HistoryEntry, member_history
 from .projections import MemberRow, search_members
 from .schemas import (
     ApplyForMembership,
@@ -59,6 +60,12 @@ def search(body: SearchRequest, db: Db, user: Reader) -> list[MemberRow]:
 def get_member(member_id: str, db: Db, user: Reader) -> MemberDetail:
     """Ein Mitglied mit allen Daten; 404, wenn es keines gibt."""
     return _detail(db, services.get_member(db, member_id))
+
+
+@router.get("/{member_id}/history")
+def get_history(member_id: str, db: Db, user: Reader) -> list[HistoryEntry]:
+    """Verlauf der Personendaten, die neueste Änderung zuerst; 404, wenn es das Mitglied nicht gibt."""
+    return member_history(db, member_id)
 
 
 # --- Befehle ---

@@ -111,6 +111,9 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 10a: Backend: `accounts/balances.py`, `GET /api/accounts/balances`, Tests (erledigt 2026-11-21)
    - 10b: Frontend: Seite „Salden“ mit Stichtag, Tabelle und Summenzeile, Menüeintrag (erledigt 2026-11-21)
    - 10c: Excel „Saldenliste“ auf der Seite „Reports“ und auf der Seite „Salden“ (erledigt 2026-11-21)
+11. Verlauf der Personendaten (gewünscht 2026-11-21, siehe Abschnitt „Verlauf der Personendaten“)
+   - 11a: Backend: `members/history.py`, `GET /api/members/{id}/history`, Tests (erledigt 2026-11-21)
+   - 11b: Frontend: Karte „Verlauf“ auf der Mitgliederseite, Handbuch
 
 ## Entscheidungen
 
@@ -649,6 +652,20 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   Genossenschaftskontos muss 0 ergeben, sonst Warnung.
 - Lesen dürfen „Buchhaltung“ und „Buchhaltung lesend“. Dazu eine Excel-Datei auf der Seite „Reports“.
 
+### Verlauf der Personendaten (Schritt 11)
+
+- **Inhalt:** alle Änderungen an Name, Anschrift, Kontakt, Adresszeilen, Briefanrede, „keine Post“
+  und Hinweisen, die neueste zuerst, zuunterst der Stand beim Antrag. Je Änderung: gültig ab,
+  gespeichert am, von wem, welcher Teil, vorher und nachher als lesbarer Text.
+- **Gültig ab:** bei der migrierten Historie `valid_from` aus dem Altsystem, beim Antrag das
+  Antragsdatum, sonst der Tag des Speicherns.
+- **Von wem:** Name des Benutzers; „Migration“ und „Kommandozeile“ für die Akteure `migration` und
+  `cli`, „gelöschter Benutzer“, wenn es das Konto nicht mehr gibt.
+- **Nicht im Verlauf:** Status (Zulassung, Kündigung, Tod …) und Buchungen; die stehen auf der
+  Mitgliederseite bzw. auf dem Konto.
+- Berechnet beim Abruf aus den Events der Person, keine eigene Projektion. Lesen dürfen beide
+  Buchhaltungsrollen.
+
 ### Reports zum Stichtag (Schritt 6)
 
 - **Excel mit `openpyxl`**, aufgebaut wie in `purchase-prices`: Titel, darunter einmalig
@@ -914,8 +931,6 @@ Status der Mitgliedschaft: `applicant`, `rejected`, `member`, `notice_given`, `e
 - **Eintrittsgeld** (Satzung 2.3), falls die Generalversammlung eines beschließt: eigene
   Buchungsart ohne Anteile, Zuführung zu den Rücklagen.
 - **Rückvergütung** (Satzung 2.6) über die Mitgliedskonten.
-- **Ansicht „Verlauf“ an der Mitgliederseite** (gewünscht 2026-11-21): frühere Stände der
-  Personendaten mit Datum, einschließlich der migrierten Historie des Altsystems.
 - **Seite „Einstellungen“ für den Admin**, um den Anteilspreis in der Oberfläche zu ändern (bisher
   nur per CLI).
 - Mehrere Rollen je Benutzer statt mehrerer Benutzerkonten je Person.
