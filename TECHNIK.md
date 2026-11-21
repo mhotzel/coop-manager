@@ -42,7 +42,7 @@ backend/
     core/                     DomainError, NotFoundError, Geldbeträge (money.py)
     users/                    Benutzer, Anmeldung, Rollen, Zugriffsschutz
     members/                  Mitglieder, Nummernvergabe, Status, Adresszeilen
-    accounts/                 Hauptbuch, Konten, Buchungsvorgänge, Ausscheiden, Ansprüche
+    accounts/                 Hauptbuch, Konten, Buchungsvorgänge, Ausscheiden, Ansprüche, Salden
     reports/                  Listen zum Stichtag und Jahresauswertung als Excel
     system_settings/          Anteilspreis
     migration/                Übernahme der Altdaten aus der Access-Datenbank (Schritt 7)
@@ -231,7 +231,7 @@ Alle Endpunkte liegen unter `/api` und sprechen JSON, Ausnahme sind die Excel-Do
 | Anmeldung, eigenes Konto | `/api` | `POST /login`, `POST /logout`, `GET /me`, `POST /me/change-password` |
 | Benutzerverwaltung (Admin) | `/api/users` | `GET` (Liste), `GET /{id}`, `POST /register`, `POST /change-role`, `POST /deactivate` |
 | Mitglieder | `/api/members` | `POST /search`, `GET /{id}`, `POST /apply`, `POST /admit`, `POST /give-notice`, `POST /change-address` |
-| Konten und Buchungen | `/api/accounts` | `GET /{number}`, `GET /claims`, `GET /exits/{year}`, `POST /subscribe`, `POST /reverse`, `POST /post-exits` |
+| Konten und Buchungen | `/api/accounts` | `GET /{number}`, `GET /claims`, `GET /balances?day=&include_zero=`, `GET /exits/{year}`, `POST /subscribe`, `POST /reverse`, `POST /post-exits` |
 | Reports | `/api/reports` | `GET /warnings`, `GET /members-geng`, `GET /members-assembly`, `GET /members-mailing`, `GET /fiscal-year-events` |
 
 Die vollständige Beschreibung erzeugt FastAPI selbst. Lokal mit `CM_API_DOCS=true` unter

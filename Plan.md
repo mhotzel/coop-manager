@@ -107,6 +107,10 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
    - 8d: Synology: Cron-Job für das Backup, `deploy.sh`, `DEPLOYMENT.md` (erledigt 2026-11-21,
      App läuft unter `https://mitgliederdb.dorfladen-schlichten.de`)
 9. Ausbaustufe: API-Keys, MCP-Server, OAuth2/JWT
+10. Saldenliste (gewünscht 2026-11-21, siehe Abschnitt „Saldenliste“)
+   - 10a: Backend: `accounts/balances.py`, `GET /api/accounts/balances`, Tests (erledigt 2026-11-21)
+   - 10b: Frontend: Seite „Salden“ mit Stichtag, Tabelle und Summenzeile, Menüeintrag
+   - 10c: Excel „Saldenliste“ auf der Seite „Reports“
 
 ## Entscheidungen
 
@@ -627,6 +631,24 @@ alle abgestimmten Entscheidungen fest und wird laufend ergänzt.
   berechnet; ein Betrag muss ein Vielfaches des Anteilspreises sein. Die Maske zeigt nur die
   Felder, die die Buchungsart braucht.
 
+### Saldenliste (Schritt 10)
+
+- **Zweck** (gewünscht 2026-11-21): alle Ansprüche aller Personen gegenüber der Genossenschaft auf
+  einen Blick, abgestimmt gegen das Genossenschaftskonto. Anlass war der Probelauf der Migration:
+  Die Summe der heutigen Mitglieder (55.350 €) wich von den 56.000 € im Hauptbuch ab, weil fünf
+  Personen rechnerisch ausgeschieden waren, ihr Ausscheiden aber noch nicht gebucht war.
+- **Eine Zeile je Mitgliedskonto** mit Saldo ≠ 0 (wahlweise alle), nach Mitgliedsnummer: Nummer,
+  Name, Status zum Stichtag, Anteile, **Saldo** (ganzes Guthaben), davon **Geschäftsguthaben**
+  (Anteile × Anteilspreis) und davon **Auseinandersetzungsanspruch** (Saldo − Geschäftsguthaben).
+  Alle Personen mit Konto zählen, auch Antragsteller und Ausgeschiedene.
+- **Hinweis „Ausscheiden nicht gebucht“**, wenn die Person zum Stichtag ausgeschieden ist, aber
+  noch Anteile hat (dann auf der Seite „Jahresende“ buchen).
+- **Stichtag** (Vorgabe heute): Buchungen mit Wertstellung bis zum Stichtag, stornierte samt Storno
+  nicht; die Ausscheidensbuchung zum 31.12. wirkt wie bei den Reports erst ab dem 01.01.
+- **Summenzeile und Abstimmung:** Summen über alle Konten; die Summe der Salden plus der Saldo des
+  Genossenschaftskontos muss 0 ergeben, sonst Warnung.
+- Lesen dürfen „Buchhaltung“ und „Buchhaltung lesend“. Dazu eine Excel-Datei auf der Seite „Reports“.
+
 ### Reports zum Stichtag (Schritt 6)
 
 - **Excel mit `openpyxl`**, aufgebaut wie in `purchase-prices`: Titel, darunter einmalig
@@ -856,6 +878,8 @@ Das Datum 1899-12-30 ist der Nullwert von Access und gilt als leer.
 | Ausschluss | `expulsion` |
 | Ausscheiden | `exit` |
 | Auseinandersetzungsanspruch | `settlement_claim` |
+| Saldenliste | `BalanceList` (`account_balances`) |
+| Geschäftsguthaben | `share_capital` |
 | Kürzung Verlustvortrag | `loss_deduction` |
 | Auszahlung | `payout` |
 | Ausbuchung Verjährung | `limitation_writeoff` |

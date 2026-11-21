@@ -3392,3 +3392,30 @@ die 650 € bleiben als offene Auseinandersetzungsansprüche auf den Konten, bis
 über Auszahlung oder Ausbuchung wegen Verjährung entscheidet. So in 7a (Fall 4) beschlossen.
 
 **Wiederholen:** `Altdaten/probelauf/` löschen und mit Schritt 2 neu beginnen.
+
+## 2026-11-21 – Saldenliste, Teil 1: Backend (10a)
+
+**Anlass:** Im Probelauf der Migration fragte Matthias, warum die Summe 55.350 € statt 56.000 €
+war (siehe 7d). Gewünscht ist eine Abfrage aller Ansprüche aller Personen gegenüber der
+Genossenschaft. Neuer Schritt 10 und Abschnitt „Saldenliste“ in `Plan.md`.
+
+**Was:**
+
+- `accounts/balances.py`: `account_balances(db, day, include_zero)` liefert eine `BalanceList`:
+  je Mitgliedskonto Status, Anteile, Saldo, Geschäftsguthaben (Anteile × Preis),
+  Auseinandersetzungsanspruch (Rest) und den Hinweis „Ausscheiden nicht gebucht“; dazu Summen
+  und die Abstimmung gegen das Genossenschaftskonto (`balanced`).
+- `balance_on` rechnet den Saldo zum Stichtag wie `shares_on` die Anteile. Beide nutzen
+  `_counted` (Buchungen bis zum Stichtag, ohne stornierte samt Storno).
+- `shares_on` ist aus `reports/services.py` nach `accounts/balances.py` umgezogen; die Reports
+  importieren es von dort. Grund: `reports` hängt schon von `accounts` ab; umgekehrt gäbe es einen
+  Importzyklus. Fachliches Rechnen am Hauptbuch gehört ohnehin zu den Konten.
+- `GET /api/accounts/balances?day=…&include_zero=…` für beide Buchhaltungsrollen. Die Route steht
+  vor `/{number}`, sonst hielte FastAPI „balances“ für eine Kontonummer.
+- `tests/test_balances.py`: 9 Tests (Stichtag, nicht gebuchtes und gebuchtes Ausscheiden,
+  Auszahlung, Storno, Summen und Abstimmung, API und Rollen).
+
+**Gegenprobe am Probelauf-Bestand:** 254 Konten mit Saldo, 1.120 Anteile, 56.000 €, Konto 9999
+−56.000 €, abgestimmt; „Ausscheiden nicht gebucht“ genau bei den 5 offenen Fällen.
+
+**Geprüft:** `uv run pytest` (592 Tests), `ruff check`, `ruff format --check`, `pyright`.

@@ -7,6 +7,7 @@ Mitgliedern ist das schnell genug; eine eigene Projektion wäre mehr Aufwand.
 from dataclasses import dataclass
 from datetime import date
 
+from ..accounts.balances import shares_on
 from ..accounts.domain import (
     ADDITIONAL_SHARES,
     EXIT,
@@ -105,24 +106,6 @@ class EventRow:
     amount: int | None  # in Cent; leer, wenn es keine Buchung gibt
     counter_account: int | None  # Kontonummer der Gegenseite; leer, wenn es keine Buchung gibt
     counter_name: str | None  # Mitglied oder Bezeichnung des Genossenschaftskontos; leer wie oben
-
-
-def shares_on(ledger: Ledger, number: int, day: date) -> int:
-    """Die Anteile des Kontos am Ende des Tages `day` (siehe Plan: Reports).
-
-    Es zählen die Buchungen mit Wertstellung bis zum Stichtag. Stornierte Buchungen und ihre
-    Stornos fallen ganz heraus; zusammen ergäben sie ohnehin 0. Ausnahme: Die Ausscheidensbuchung
-    zum 31.12. wirkt erst ab dem 01.01., denn bis einschließlich 31.12. zählt die Person noch mit
-    ihren Anteilen.
-    """
-    total = 0
-    for booking in ledger.bookings_of(number):
-        if booking.reverses is not None or ledger.reversal_of(booking.id) is not None:
-            continue
-        if booking.value_date > day or (booking.kind == EXIT and booking.value_date == day):
-            continue
-        total += booking.shares if booking.credit == number else -booking.shares
-    return total
 
 
 def warnings(db: Database, day: date) -> list[str]:

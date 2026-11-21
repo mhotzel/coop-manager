@@ -15,7 +15,8 @@ from ..system_settings.services import get_system_settings
 from ..users.access import require_role
 from ..users.domain import ACCOUNTING, ACCOUNTING_READONLY
 from ..users.projections import UserView
-from . import bookings, claims, exits
+from . import balances, bookings, claims, exits
+from .balances import BalanceList
 from .bookings import BookingResult
 from .claims import ClaimEntry
 from .exits import ExitEntry
@@ -46,11 +47,17 @@ Writer = Annotated[UserView, Depends(require_role(ACCOUNTING))]
 
 
 # Vor "/{number}": FastAPI prüft die Routen der Reihe nach, und "/{number}" passte sonst auch auf
-# "/claims" (mit einem Fehler, weil "claims" keine Zahl ist).
+# "/claims" und "/balances" (mit einem Fehler, weil das keine Zahl ist).
 @router.get("/claims")
 def get_claims(db: Db, user: Reader) -> list[ClaimEntry]:
     """Alle offenen Auseinandersetzungsansprüche, das älteste Ausscheiden zuerst."""
     return claims.open_claims(db, date.today())
+
+
+@router.get("/balances")
+def get_balances(db: Db, user: Reader, day: date | None = None, include_zero: bool = False) -> BalanceList:
+    """Saldenliste zum Stichtag (ohne Angabe: heute); ohne `include_zero` nur Konten mit Saldo ≠ 0."""
+    return balances.account_balances(db, day or date.today(), include_zero)
 
 
 @router.get("/{number}")
